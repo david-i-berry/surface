@@ -6809,6 +6809,7 @@ def get_agromet_products_data(request):
                 WITH filtered_data AS(
                     SELECT 
                         (ds.min_value+ds.max_value)/2-{requestedData['numeric_param']} AS value
+                        ,(ds.min_value+ds.max_value)/2-{requestedData['numeric_param']} AS value
                         ,EXTRACT(YEAR FROM ds.day) AS year
                     FROM daily_summary ds
                     JOIN wx_variable vr ON vr.id=ds.variable_id
