@@ -1,0 +1,65 @@
+[
+    {
+        "model": "wx.wxgrouppermission",
+        "pk": 1,
+        "fields": {
+            "created_at": "2020-06-12T12:09:06.631Z",
+            "updated_at": "2025-06-01T00:18:57.813Z",
+            "group_id": 6
+        }
+    },
+    {
+        "model": "wx.wxgrouppermission",
+        "pk": 2,
+        "fields": {
+            "created_at": "2020-06-12T12:08:46.284Z",
+            "updated_at": "2025-06-11T03:15:57.675Z",
+            "group_id": 1
+        }
+    },
+    {
+        "model": "wx.wxgrouppermission",
+        "pk": 3,
+        "fields": {
+            "created_at": "2020-06-12T12:08:26.471Z",
+            "updated_at": "2025-05-31T21:12:19.409Z",
+            "group_id": 5
+        }
+    },
+    {
+        "model": "wx.wxgrouppermission",
+        "pk": 4,
+        "fields": {
+            "created_at": "2020-06-12T12:08:32.772Z",
+            "updated_at": "2025-05-31T21:12:22.627Z",
+            "group_id": 4
+        }
+    },
+    {
+        "model": "wx.wxgrouppermission",
+        "pk": 5,
+        "fields": {
+            "created_at": "2020-06-12T12:08:39.182Z",
+            "updated_at": "2025-05-31T21:12:25.200Z",
+            "group_id": 2
+        }
+    },
+    {
+        "model": "wx.wxgrouppermission",
+        "pk": 6,
+        "fields": {
+            "created_at": "2020-06-12T12:08:52.606Z",
+            "updated_at": "2025-05-31T21:12:30.455Z",
+            "group_id": 3
+        }
+    },
+    {
+        "model": "wx.wxgrouppermission",
+        "pk": 7,
+        "fields": {
+            "created_at": "2020-06-12T12:09:14.419Z",
+            "updated_at": "2025-05-31T21:12:36.643Z",
+            "group_id": 7
+        }
+    }
+]

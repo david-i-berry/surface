@@ -10,7 +10,10 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.urls import reverse
 from django.utils.timezone import now
 from croniter import croniter
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
+
+from cryptography.fernet import Fernet
+from django.conf import settings
 
 from wx.enums import FlashTypeEnum
 
@@ -50,8 +53,10 @@ class Country(BaseModel):
     notation = models.CharField(max_length=16)
     name = models.CharField(max_length=256, unique=True)
     description = models.CharField(max_length=256, null=True, blank=True)
+
     class Meta:
         verbose_name_plural = "countries"
+        ordering = ['name']
 
     def __str__(self):
         return self.name
@@ -232,6 +237,8 @@ class Variable(BaseModel):
         default='line',
         choices=[('line', 'Line'), ('point', 'Point'), ('bar', 'Bar'), ('column', 'Column')])
 
+    synoptic_code_form = models.CharField(max_length=32, null=True, blank=True)
+
     class Meta:
         ordering = ('name',)
 
@@ -287,6 +294,7 @@ class AdministrativeRegion(BaseModel):
     class Meta:
         verbose_name = "administrative region"
         verbose_name_plural = "administrative regions"
+        ordering = ['country']
 
     def __str__(self):
         return self.name
@@ -336,6 +344,32 @@ class WMORegion(BaseModel):
         return self.name
 
 
+class WMOReportingStatus(BaseModel):
+    name = models.CharField(max_length=256, unique=True)
+    description = models.CharField(max_length=256, null=True, blank=True)
+    notation = models.CharField(max_length=256, null=True, blank=True)
+
+    def __str__(self):
+        return self.name
+    
+class CountryISOCode(BaseModel):
+    name = models.CharField(max_length=256, unique=True)
+    description = models.CharField(max_length=256, null=True, blank=True)
+    notation = models.CharField(max_length=256, unique=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+    
+class UTCOffsetMinutes (BaseModel):
+    hours = models.CharField(max_length=256, unique=True)
+    minutes = models.IntegerField()
+
+    def __str__(self):
+        return self.hours
+
 class WMOProgram(BaseModel):
     name = models.CharField(max_length=256, unique=True)
     description = models.CharField(max_length=512, null=True, blank=True)
@@ -356,290 +390,408 @@ class Watershed(models.Model):
 
 class Station(BaseModel):    
     name = models.CharField(max_length=256)
+    
     alias_name = models.CharField(max_length=256, null=True, blank=True)
+    
     begin_date = models.DateTimeField(null=True)
+    
     relocation_date = models.DateTimeField(null=True, blank=True)
+    
     end_date = models.DateTimeField(null=True, blank=True)
+    
     network = models.CharField(max_length=256, null=True, blank=True)
+    
     longitude = models.FloatField(validators=[
         MinValueValidator(-180.), MaxValueValidator(180.)
     ])
+    
     latitude = models.FloatField(validators=[
         MinValueValidator(-90.),
         MaxValueValidator(90.)
     ])
+    
     elevation = models.FloatField(null=True)
+    
     code = models.CharField(max_length=64)
+    
     reference_station = models.ForeignKey('self',
         on_delete=models.SET_NULL,
         null=True,
         blank=True)
+    
     wmo = models.IntegerField(
         null=True,
         blank=True
     )
+    
     wigos = models.CharField(
         null=True,
         max_length=64,
+        blank=True,
+    )
+
+    wigos_part_1 = models.IntegerField(
+        null=True,
+        blank=True,
+    )
+
+    wigos_part_2 = models.ForeignKey(
+        CountryISOCode,
+        on_delete=models.DO_NOTHING,
+        null=True,
+        blank=True,
+    )
+
+    wigos_part_3 = models.IntegerField(
+        null=True,
+        blank=True,
+        validators=[
+        MinValueValidator(0),
+        MaxValueValidator(65534)
+        ]
+    )
+
+    wigos_part_4 = models.CharField(
+        unique=True,
+        null=True,
+        blank=True,
+        max_length=16,
+    )
+
+    is_active = models.BooleanField(default=True, verbose_name="Active Station")
+
+
+    reporting_status = models.ForeignKey(
+        WMOReportingStatus,
+        on_delete=models.DO_NOTHING,
+        null=True,
+        blank=True,
+    )
+
+    international_exchange = models.BooleanField(default=False, verbose_name="Enable Publishing to WIS2")
+    
+    is_automatic = models.BooleanField(default=False, verbose_name="Automatic Station")
+    is_synoptic = models.BooleanField(default=False, verbose_name="Synoptic Station")
+    synoptic_code = models.IntegerField(
+        null=True,
+        blank=True
+    )
+    synoptic_type = models.CharField(
+        max_length=4,
+        null=True,
         blank=True
     )
 
-    is_active = models.BooleanField(default=False)
-    is_automatic = models.BooleanField(default=True)
     organization = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     observer = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     watershed = models.CharField(
         max_length=256,
-        null=True
+        null=True,
+        blank=True
     )
+    
     z = models.FloatField(
         null=True,
         blank=True
     )
+    
     datum = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     zone = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     ground_water_province = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     river_code = models.IntegerField(
         null=True,
         blank=True
     )
+    
     river_course = models.CharField(
         max_length=64,
         null=True,
         blank=True
     )
+    
     catchment_area_station = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     river_origin = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     easting = models.FloatField(
         null=True,
         blank=True
     )
+    
     northing = models.FloatField(
         null=True,
         blank=True
     )
+    
     river_outlet = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     river_length = models.IntegerField(
         null=True,
         blank=True
     )
+    
     local_land_use = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     soil_type = models.CharField(
         max_length=64,
         null=True,
         blank=True
     )
+    
     site_description = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     land_surface_elevation = models.FloatField(
         null=True,
         blank=True
     )
+    
     screen_length = models.FloatField(
         null=True,
         blank=True
     )
+    
     top_casing_land_surface = models.FloatField(
         null=True,
         blank=True
     )
+    
     depth_midpoint = models.FloatField(
         null=True,
         blank=True
     )
+    
     screen_size = models.FloatField(
         null=True,
         blank=True
     )
+    
     casing_type = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     casing_diameter = models.FloatField(
         null=True,
         blank=True
     )
+    
     existing_gauges = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     flow_direction_at_station = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     flow_direction_above_station = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     flow_direction_below_station = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     bank_full_stage = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     bridge_level = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     access_point = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     temporary_benchmark = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     mean_sea_level = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     data_type = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     frequency_observation = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     historic_events = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     other_information = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     profile = models.ForeignKey(
         StationProfile,
         on_delete=models.DO_NOTHING,
         null=True,
         blank=True
     )
+    
     hydrology_station_type = models.CharField(
         max_length=64,
         null=True,
         blank=True
     )
+    
     is_surface = models.BooleanField(default=True)  # options are surface or ground
+    
     station_details = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     remarks = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )        
+    
     country = models.ForeignKey(
         Country,
         on_delete=models.DO_NOTHING,
         null=True
     )
-    region = models.CharField(
-        max_length=256,
-        null=True
+    
+    region = models.ForeignKey(
+        AdministrativeRegion,
+        on_delete=models.DO_NOTHING,
+        null=True,
+        default=33 # the default is 33 with mean not specified
     )
+    
     data_source = models.ForeignKey(
         DataSource,
         on_delete=models.DO_NOTHING,
         null=True,
         blank=True
     )
+    
     communication_type = models.ForeignKey(
         StationCommunication,
         on_delete=models.DO_NOTHING,
         null=True
     )
+    
     utc_offset_minutes = models.IntegerField(
         validators=[
             MaxValueValidator(720),
             MinValueValidator(-720)
         ]
     )
+    
     alternative_names = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     wmo_station_type = models.ForeignKey(
         WMOStationType,
         on_delete=models.DO_NOTHING,
         null=True,
         blank=True
     )
+    
     wmo_region = models.ForeignKey(
         WMORegion,
         on_delete=models.DO_NOTHING,
         null=True,
-        blank=True
+        blank=True,
     )
+    
     wmo_program = models.ForeignKey(
         WMOProgram,
         on_delete=models.DO_NOTHING,
         null=True,
         blank=True
     )
+    
     wmo_station_plataform = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
+    
     operation_status = models.BooleanField(default=True)
 
     class Meta:
@@ -652,6 +804,119 @@ class Station(BaseModel):
 
     def __str__(self):
         return self.name + ' - ' + self.code
+
+
+
+# Specifies the minute offsets within the hour for triggering scheduled wis2box data pushes.
+class Wis2PublishOffset(models.Model):
+    code = models.IntegerField()
+    description = models.CharField(max_length=256)
+    cron_schedule = models.CharField(max_length=64, default="5 * * * *") # the default is set to 5 min after each hour
+
+    def __str__(self):
+        return self.description
+
+# holds all stations which allow international exhange (internationa_exchange = True in the Station model)
+# this model is automatically updated by a signal (update_wis2boxPublish_on_international_exchange_change)
+class Wis2BoxPublish(models.Model):
+    # dynamically getting the default publishing_offset
+    def get_default_wis2_publish_offset():
+        try:
+            return Wis2PublishOffset.objects.get(pk=1).pk
+        except ObjectDoesNotExist:
+            # Handle the case where the object doesn't exist.
+            # You might want to create it, raise an exception, or return None.
+            # Example: create it.
+            return Wis2PublishOffset.objects.create(code=5, description="5 min").pk
+
+    station = models.ForeignKey(Station, related_name="publish_stations", on_delete=models.CASCADE)
+    publishing = models.BooleanField(default=False)
+    publishing_offset = models.ForeignKey(Wis2PublishOffset, on_delete=models.DO_NOTHING, default=get_default_wis2_publish_offset)
+    publish_success = models.IntegerField(default=0) # this field is automatically updated by a signal (update_wis2boxPublish_on_logs_add)
+    publish_fail = models.IntegerField(default=0) # this field is automatically updated by a signal (update_wis2boxPublish_on_logs_add)
+    local_wis2 = models.BooleanField(default=False)
+    regional_wis2 = models.BooleanField(default=False)
+    hybrid = models.BooleanField(default=False)
+    hybrid_station = models.ForeignKey(Station, related_name="hybrid_stations", on_delete=models.SET_NULL, null=True, blank=True)
+    add_gts = models.BooleanField(default=False) # add gts headers
+    base_aws = models.BooleanField(default=True) # if true get aws data from the base station else get manual data
+    hybrid_aws = models.BooleanField(default=False) # if true get aws data from the hybrid station else get manual data
+
+
+# holds the local wis credentials
+class LocalWisCredentials(models.Model):
+    """
+    A model that ensures only one instance exists, replacing old ones.
+    """
+
+    local_wis2_ip_address = models.CharField(max_length=255)
+    local_wis2_port = models.IntegerField()
+    local_wis2_username = models.CharField(max_length=255)
+    local_wis2_password = models.TextField()
+
+    def set_passwords(self, local_password):
+        self.local_wis2_password = settings.CIPHER_SUITE.encrypt(local_password.encode()).decode()
+        self.save()
+
+    def get_local_password(self):
+        return settings.CIPHER_SUITE.decrypt(self.local_wis2_password.encode()).decode()
+
+    def save(self, *args, **kwargs):
+        existing = LocalWisCredentials.objects.all()
+        if existing.exists():
+            existing.delete()  # Delete all existing instances
+        super(LocalWisCredentials, self).save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        return cls.objects.first() or cls()
+
+    def __str__(self):
+        return "Local WisCredentials Instance"
+    
+
+# holds the regional wis credentials
+class RegionalWisCredentials(models.Model):
+    """
+    A model that ensures only one instance exists, replacing old ones.
+    """
+
+    regional_wis2_ip_address = models.CharField(max_length=255)
+    regional_wis2_port = models.IntegerField()
+    regional_wis2_username = models.CharField(max_length=255)
+    regional_wis2_password = models.TextField()
+
+    def set_passwords(self, regional_password):
+        self.regional_wis2_password = settings.CIPHER_SUITE.encrypt(regional_password.encode()).decode()
+        self.save()
+    
+    def get_regional_password(self):
+        return settings.CIPHER_SUITE.decrypt(self.regional_wis2_password.encode()).decode()
+
+    def save(self, *args, **kwargs):
+        existing = RegionalWisCredentials.objects.all()
+        if existing.exists():
+            existing.delete()  # Delete all existing instances
+        super(RegionalWisCredentials, self).save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        return cls.objects.first() or cls()
+
+    def __str__(self):
+        return "Regional WisCredentials Instance"
+
+
+# holdes wsi2box publish logs
+class Wis2BoxPublishLogs(models.Model):
+    created_at = models.DateTimeField()
+    last_modified = models.DateTimeField(auto_now=True)
+    publish_station = models.ForeignKey(Wis2BoxPublish, on_delete=models.CASCADE)
+    success_log = models.BooleanField()
+    log = models.TextField()
+    wis2message_exist = models.BooleanField() # will control weather the message was generated and saved to the field below
+    wis2message = models.TextField(default="")
+
 
 
 class StationVariable(BaseModel):
@@ -698,6 +963,21 @@ class Document(BaseModel):
         return self.file.name
 
 
+class CombineDataFile(BaseModel):
+    ready_at = models.DateTimeField(null=True, blank=True)
+    ready = models.BooleanField(default=False)
+    initial_date = models.DateTimeField(null=True, blank=True)
+    final_date = models.DateTimeField(null=True, blank=True)
+    source = models.CharField(max_length=30, null=False, blank=False, default="Raw data")
+    lines = models.IntegerField(null=True, blank=True, default=None)
+    prepared_by = models.CharField(max_length=256, null=True, blank=True)
+    stations_ids = models.TextField(null=False, blank=False)
+    variable_ids= models.TextField(null=True, blank=True)
+    aggregation = models.CharField(max_length=256, null=True, blank=False, default="N/A")
+
+    def __str__(self):
+        return 'file ' + str(self.id)
+    
 class DataFile(BaseModel):
     ready_at = models.DateTimeField(null=True, blank=True)
     ready = models.BooleanField(default=False)
@@ -1005,6 +1285,20 @@ class StationDataFile(BaseModel):
 
     def __str__(self):
         return f'{self.filepath}'
+    
+
+class ManualStationDataFile(BaseModel):
+    file_name = models.CharField(max_length=1024, null=False, blank=False)
+    status = models.ForeignKey(StationDataFileStatus, on_delete=models.DO_NOTHING)
+    filepath = models.CharField(max_length=1024)
+    upload_date = models.DateTimeField(auto_now_add=True)
+    stations_list = models.TextField(null=False, blank=True)
+    month = models.CharField(max_length=128, default="Not Found")
+    observation = models.TextField(null=True, blank=True)
+    override_data_on_conflict = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f'{self.filepath}'
 
 
 class HourlySummaryTask(BaseModel):
@@ -1124,7 +1418,7 @@ class WxPermission(BaseModel):
     name = models.CharField(max_length=256, unique=True)
     url_name = models.CharField(max_length=256)
     permission = models.CharField(max_length=32, choices=(
-        ('read', 'Read'), ('write', 'Write'), ('update', 'Update'), ('delete', 'Delete')))
+        ('full_access', 'Full Access'), ('read', 'Read'), ('write', 'Write'), ('update', 'Update'), ('delete', 'Delete')))
 
     def __str__(self):
         return self.name
@@ -1421,3 +1715,11 @@ class MaintenanceReportEquipment(BaseModel):
 
     class Meta:
         unique_together = (('maintenance_report', 'new_equipment'), ('maintenance_report', 'equipment_type', 'equipment_order'))
+
+class WMOCodeValue(BaseModel):
+    code_table = models.ForeignKey(CodeTable, on_delete=models.DO_NOTHING)
+    value = models.CharField(max_length=8)
+    description = models.CharField(max_length=512, blank=True, null=True)
+
+    class Meta:
+        unique_together = ('code_table', 'value')

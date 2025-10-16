@@ -13,6 +13,11 @@ app = Celery('tempestas_api')
 # app.conf.broker_url = 'redis://surface_redis:6379/0'
 app.conf.broker_url = settings.SURFACE_BROKER_URL
 
+# setting up a results backend
+app.conf.result_backend = settings.SURFACE_BROKER_URL
+# app.conf.result_expires = 3600  # Results expire after 1 hour
+
+
 # Using a string here means the worker doesn't have to serialize
 # the configuration object to child processes.
 # - namespace='CELERY' means all celery-related configuration keys
@@ -48,10 +53,6 @@ app.conf.beat_schedule = {
         'task': 'wx.tasks.calculate_last24h_summary',
         'schedule': 300
     },
-    'backup_postgres': {
-        'task': 'wx.tasks.backup_postgres',
-        'schedule': 60
-    },
     'ftp_ingest_highfrequency_station_files': {
         'task': 'wx.tasks.ftp_ingest_highfrequency_station_files',
         'schedule': 60
@@ -60,11 +61,26 @@ app.conf.beat_schedule = {
         'task': 'wx.tasks.process_hfdata_summary_tasks',
         'schedule': 60
     },
+    # backup the db
+    'backup_postgres': {
+        'task': 'wx.tasks.backup_postgres',
+        'schedule': 60
+    },
     ## Wava data simulator
     'gen_hf_data': {
         'task': 'wx.tasks.gen_toa5_file',
         'schedule': 900
     },    
+    ## wis2box publish clean up (runs every 5 min)
+    'wis2box_cleanup': {
+        'task': 'wx.tasks.wis2publish_cleanup',
+        'schedule': 300
+    }, 
+    ## wis2box push task runs every minute (checks the cron schedule of publishing stations then pushes to wis2box)      
+    'wis2box_publish': {
+        'task': 'wx.tasks.wis2publish_task',
+        'schedule': 60
+    },
 }
 
 app.conf.timezone = 'UTC'

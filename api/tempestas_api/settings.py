@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/1.11/ref/settings/
 
 import os
 from datetime import timedelta
+from cryptography.fernet import Fernet
+
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -21,6 +23,22 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SURFACE_SECRET_KEY')
+
+# Load the encryption key from environment variables
+SECRET_ENCRYPTION_KEY = os.getenv("SURFACE_SECRET_ENCRYPTION_KEY")
+
+# If it's not set or empty, raise an error
+if not SECRET_ENCRYPTION_KEY:
+    raise ValueError("SECRET_ENCRYPTION_KEY is not set in environment variables!")
+
+# Convert string key to bytes (if stored as a string)
+SECRET_ENCRYPTION_KEY = SECRET_ENCRYPTION_KEY.encode()
+
+# Validate key length
+if len(SECRET_ENCRYPTION_KEY) != 44:
+    raise ValueError("SECRET_ENCRYPTION_KEY must be a 44-character Base64-encoded string!")
+
+CIPHER_SUITE = Fernet(SECRET_ENCRYPTION_KEY)  # Create a reusable cipher suite
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('SURFACE_DJANGO_DEBUG', False)
@@ -76,6 +94,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'simple_history.middleware.HistoryRequestMiddleware',
+    'wx.middleware.user_permissions_middleware',
 ]
 
 ROOT_URLCONF = 'tempestas_api.urls'
@@ -95,6 +114,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'wx.context_processors.get_surface_context',
                 'wx.context_processors.get_user_wx_permissions',
+                'wx.context_processors.get_surface_version',
             ],
         },
     },
@@ -255,6 +275,7 @@ EMAIL_HOST = os.getenv('EMAIL_HOST')
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
 
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_COOKIE_AGE = 2 * 60 * 60
@@ -290,3 +311,20 @@ STATION_MAP_FILTER_COMMUNICATION = os.getenv('STATION_MAP_FILTER_COMMUNICATION',
 
 HYDROML_URL = 'http://hydroml-api:8000/en/web/api/predict/'
 PGIA_REPORT_HOURS_AHEAD_TIME = 1
+
+ENABLE_WIS2BOX_REGIONAL = str(os.getenv('ENABLE_WIS2BOX_REGIONAL'))
+ENABLE_WIS2BOX_LOCAL = str(os.getenv('ENABLE_WIS2BOX_LOCAL'))
+
+WIS2BOX_USER_REGIONAL = str(os.getenv('WIS2BOX_USER_REGIONAL'))
+WIS2BOX_PASSWORD_REGIONAL = str(os.getenv('WIS2BOX_PASSWORD_REGIONAL'))
+WIS2BOX_ENDPOINT_REGIONAL = str(os.getenv('WIS2BOX_ENDPOINT_REGIONAL'))
+
+WIS2BOX_USER_LOCAL = str(os.getenv('WIS2BOX_USER_LOCAL'))
+WIS2BOX_PASSWORD_LOCAL = str(os.getenv('WIS2BOX_PASSWORD_LOCAL'))
+WIS2BOX_ENDPOINT_LOCAL = str(os.getenv('WIS2BOX_ENDPOINT_LOCAL'))
+
+WIS2BOX_TOPIC_HIERARCHY = str(os.getenv('WIS2BOX_TOPIC_HIERARCHY'))
+
+APP_VERSION = "v1.0.0"
+APP_VERSION_STAGE = "-beta.1"
+APP_VERSION_LABEL = f"{APP_VERSION}{APP_VERSION_STAGE}"

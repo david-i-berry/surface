@@ -4,7 +4,7 @@
     "pk": 0,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2020-02-14T19:01:37.633Z",
+        "updated_at": "2023-07-03T21:00:12.268Z",
         "variable_type": "Numeric",
         "symbol": "PRECIP",
         "name": "Precipitation (mm.)",
@@ -15,17 +15,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#0000FF",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 300.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 20.0,
+        "step": 300,
+        "step_hourly": 20.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "column"
+        "default_representation": "column",
+        "synoptic_code_form": null
     }
 },
 {
@@ -44,17 +45,18 @@
         "scale": 2,
         "code_table": null,
         "color": "#32A8AE",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 12.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 0.8,
+        "step": 12,
+        "step_hourly": 0.8,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -83,7 +85,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -112,7 +115,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -141,7 +145,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -170,7 +175,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -199,7 +205,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -228,7 +235,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -257,7 +265,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -286,7 +295,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -294,7 +304,7 @@
     "pk": 10,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2020-02-14T19:01:37.633Z",
+        "updated_at": "2023-07-03T21:04:07.694Z",
         "variable_type": "Numeric",
         "symbol": "TEMP",
         "name": "Air Temperature - Dry Bulb",
@@ -305,17 +315,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#C90000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
-        "persistence": null,
-        "persistence_hourly": null,
+        "range_min": 0.0,
+        "range_max": 60.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 60.0,
+        "step": 10.0,
+        "step_hourly": 3.0,
+        "persistence": 0.1,
+        "persistence_hourly": 0.1,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "T'T' TTT"
     }
 },
 {
@@ -334,17 +345,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#C90000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
-        "persistence": null,
-        "persistence_hourly": null,
+        "range_min": 32.0,
+        "range_max": 140.0,
+        "range_min_hourly": 32.0,
+        "range_max_hourly": 140.0,
+        "step": 50.0,
+        "step_hourly": 37.0,
+        "persistence": 0.1,
+        "persistence_hourly": 0.1,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -363,17 +375,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#F95738",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
-        "persistence": null,
-        "persistence_hourly": null,
+        "range_min": 0.0,
+        "range_max": 60.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 60.0,
+        "step": 10.0,
+        "step_hourly": 3.0,
+        "persistence": 0.1,
+        "persistence_hourly": 0.1,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -392,17 +405,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#F95738",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
-        "persistence": null,
-        "persistence_hourly": null,
+        "range_min": 32.0,
+        "range_max": 140.0,
+        "range_min_hourly": 32.0,
+        "range_max_hourly": 140.0,
+        "step": 50.0,
+        "step_hourly": 37.0,
+        "persistence": 0.1,
+        "persistence_hourly": 0.1,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -410,7 +424,7 @@
     "pk": 14,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2020-02-14T19:01:37.633Z",
+        "updated_at": "2023-07-03T21:04:31.778Z",
         "variable_type": "Numeric",
         "symbol": "TEMPMIN",
         "name": "Air Temperature - Dry Bulb [MIN]",
@@ -421,17 +435,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#3287AE",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
-        "persistence": null,
-        "persistence_hourly": null,
+        "range_min": 0.0,
+        "range_max": 60.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 60.0,
+        "step": 10.0,
+        "step_hourly": 3.0,
+        "persistence": 0.1,
+        "persistence_hourly": 0.1,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "TnTnTn"
     }
 },
 {
@@ -450,17 +465,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#3287AE",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
-        "persistence": null,
-        "persistence_hourly": null,
+        "range_min": 32.0,
+        "range_max": 140.0,
+        "range_min_hourly": 32.0,
+        "range_max_hourly": 140.0,
+        "step": 50.0,
+        "step_hourly": 37.0,
+        "persistence": 0.1,
+        "persistence_hourly": 0.1,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -468,7 +484,7 @@
     "pk": 16,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2020-02-14T19:01:37.633Z",
+        "updated_at": "2023-07-03T21:04:39.623Z",
         "variable_type": "Numeric",
         "symbol": "TEMPMAX",
         "name": "Air Temperature - Dry Bulb [MAX]",
@@ -479,17 +495,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#9C0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
-        "persistence": null,
-        "persistence_hourly": null,
+        "range_min": 0.0,
+        "range_max": 60.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 60.0,
+        "step": 10.0,
+        "step_hourly": 3.0,
+        "persistence": 0.1,
+        "persistence_hourly": 0.1,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "TxTxTx"
     }
 },
 {
@@ -508,17 +525,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#9C0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
-        "persistence": null,
-        "persistence_hourly": null,
+        "range_min": 32.0,
+        "range_max": 140.0,
+        "range_min_hourly": 32.0,
+        "range_max_hourly": 140.0,
+        "step": 50.0,
+        "step_hourly": 37.0,
+        "persistence": 0.1,
+        "persistence_hourly": 0.1,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -526,7 +544,7 @@
     "pk": 18,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2020-02-14T19:01:37.633Z",
+        "updated_at": "2023-07-03T21:05:26.659Z",
         "variable_type": "Numeric",
         "symbol": "TEMPWB",
         "name": "Air Temperature - Wet Bulb",
@@ -537,17 +555,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#762B2D",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
-        "persistence": null,
-        "persistence_hourly": null,
+        "range_min": 0.0,
+        "range_max": 60.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 60.0,
+        "step": 10.0,
+        "step_hourly": 3.0,
+        "persistence": 0.1,
+        "persistence_hourly": 0.1,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "T'T' TTT"
     }
 },
 {
@@ -555,7 +574,7 @@
     "pk": 19,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2023-01-20T21:00:39.873Z",
+        "updated_at": "2023-05-15T21:34:16.841Z",
         "variable_type": "Numeric",
         "symbol": "TDEWPNT",
         "name": "Dew Point Temperature",
@@ -566,17 +585,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": 10.0,
-        "range_max": 28.0,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 60.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 60.0,
+        "step": 10.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "T'dT'd Td TdTd"
     }
 },
 {
@@ -595,17 +615,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 60.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 60.0,
+        "step": 10.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -613,28 +634,29 @@
     "pk": 21,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2020-02-14T19:01:37.633Z",
+        "updated_at": "2023-10-28T16:34:30.889Z",
         "variable_type": "Numeric",
         "symbol": "TSOIL1",
         "name": "Soil Temperature at 1 feet",
-        "sampling_operation": 3,
+        "sampling_operation": 1,
         "measurement_variable": 2,
         "unit": 1,
         "precision": 3,
         "scale": 1,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 60.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 60.0,
+        "step": 10.0,
+        "step_hourly": 0.5,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -653,17 +675,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 32.0,
+        "range_max": 140.0,
+        "range_min_hourly": 32.0,
+        "range_max_hourly": 140.0,
+        "step": 50.0,
+        "step_hourly": 1.8,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -671,28 +694,29 @@
     "pk": 23,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2020-02-14T19:01:37.633Z",
+        "updated_at": "2023-10-28T16:34:41.973Z",
         "variable_type": "Numeric",
         "symbol": "TSOIL4",
         "name": "Soil Temperature at 4 feet",
-        "sampling_operation": 3,
+        "sampling_operation": 1,
         "measurement_variable": 2,
         "unit": 1,
         "precision": 3,
         "scale": 1,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 60.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 60.0,
+        "step": 10.0,
+        "step_hourly": 0.5,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -711,17 +735,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 32.0,
+        "range_max": 140.0,
+        "range_min_hourly": 32.0,
+        "range_max_hourly": 140.0,
+        "step": 50.0,
+        "step_hourly": 1.8,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -740,17 +765,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 60.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 60.0,
+        "step": 10.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -769,17 +795,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 60.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 60.0,
+        "step": 10.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -787,7 +814,7 @@
     "pk": 27,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2020-02-14T19:01:37.633Z",
+        "updated_at": "2023-05-15T21:34:38.793Z",
         "variable_type": "Numeric",
         "symbol": "HEATIDX",
         "name": "Heat Index",
@@ -798,17 +825,18 @@
         "scale": 5,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 60.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 60.0,
+        "step": 10.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -816,7 +844,7 @@
     "pk": 28,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2020-02-14T19:01:37.633Z",
+        "updated_at": "2023-05-15T21:34:44.810Z",
         "variable_type": "Numeric",
         "symbol": "WNDCHILL",
         "name": "Wind Chill",
@@ -827,17 +855,18 @@
         "scale": 5,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 60.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 60.0,
+        "step": 10.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -845,7 +874,7 @@
     "pk": 30,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2023-01-13T21:17:52.745Z",
+        "updated_at": "2023-05-15T21:35:16.636Z",
         "variable_type": "Numeric",
         "symbol": "RH",
         "name": "Relative Humidity",
@@ -856,17 +885,18 @@
         "scale": 0,
         "code_table": null,
         "color": "#874A97",
-        "range_min": 45.0,
+        "range_min": 0.0,
         "range_max": 100.0,
-        "range_min_hourly": 45.0,
+        "range_min_hourly": 0.0,
         "range_max_hourly": 100.0,
-        "step": null,
-        "step_hourly": null,
+        "step": 60.0,
+        "step_hourly": 10.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -889,13 +919,14 @@
         "range_max": 100.0,
         "range_min_hourly": 45.0,
         "range_max_hourly": 100.0,
-        "step": null,
-        "step_hourly": null,
+        "step": 60.0,
+        "step_hourly": 10.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -903,7 +934,7 @@
     "pk": 32,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2020-02-14T19:01:37.633Z",
+        "updated_at": "2023-05-15T21:35:23.623Z",
         "variable_type": "Numeric",
         "symbol": "RHMIN",
         "name": "Relative Humidity [MIN]",
@@ -914,17 +945,18 @@
         "scale": 0,
         "code_table": null,
         "color": "#5DDDD0",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 100.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 100.0,
+        "step": 60.0,
+        "step_hourly": 10.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -932,7 +964,7 @@
     "pk": 33,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2020-02-14T19:01:37.633Z",
+        "updated_at": "2023-07-03T21:07:29.116Z",
         "variable_type": "Numeric",
         "symbol": "RHMAX",
         "name": "Relative Humidity [MAX]",
@@ -943,17 +975,18 @@
         "scale": 0,
         "code_table": null,
         "color": "#424564",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 100.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 100.0,
+        "step": 60.0,
+        "step_hourly": 10.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -972,17 +1005,18 @@
         "scale": 0,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 100.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 100.0,
+        "step": 60.0,
+        "step_hourly": 10,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1011,7 +1045,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1019,7 +1054,7 @@
     "pk": 40,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2020-02-14T19:01:37.633Z",
+        "updated_at": "2023-07-03T21:08:36.322Z",
         "variable_type": "Numeric",
         "symbol": "EVAPPAN",
         "name": "Evaporation (mm.)",
@@ -1030,17 +1065,18 @@
         "scale": 2,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
+        "range_min": 0.0,
+        "range_max": 15.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 15.0,
+        "step": 15.0,
         "step_hourly": null,
-        "persistence": null,
-        "persistence_hourly": null,
-        "persistence_window": null,
+        "persistence": 0.1,
+        "persistence_hourly": 0.1,
+        "persistence_window": 96,
         "persistence_window_hourly": null,
-        "default_representation": "bar"
+        "default_representation": "bar",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1069,7 +1105,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "bar"
+        "default_representation": "bar",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1088,17 +1125,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#FEDA84",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 150.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 150.0,
+        "step": 150.0,
+        "step_hourly": 50.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "(fmfm) f f"
     }
 },
 {
@@ -1106,7 +1144,7 @@
     "pk": 51,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2020-02-14T19:01:37.633Z",
+        "updated_at": "2023-08-28T14:57:42.432Z",
         "variable_type": "Numeric",
         "symbol": "WNDSPAVG",
         "name": "Wind Speed [AVG]",
@@ -1117,17 +1155,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#FF9B83",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 150.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 150.0,
+        "step": 150.0,
+        "step_hourly": 20.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1146,17 +1185,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#685489",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 150.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 150.0,
+        "step": 150.0,
+        "step_hourly": 50.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1164,7 +1204,7 @@
     "pk": 53,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2020-02-14T19:01:37.633Z",
+        "updated_at": "2023-05-26T16:51:07.879Z",
         "variable_type": "Numeric",
         "symbol": "WNDSPMAX",
         "name": "Wind Speed [MAX]",
@@ -1175,17 +1215,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#976393",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 150.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 150.0,
+        "step": 150.0,
+        "step_hourly": 50.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1214,7 +1255,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1222,7 +1264,7 @@
     "pk": 55,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2020-02-14T19:01:37.633Z",
+        "updated_at": "2023-05-15T21:36:25.165Z",
         "variable_type": "Numeric",
         "symbol": "WNDDIR",
         "name": "Wind Direction",
@@ -1233,17 +1275,18 @@
         "scale": 0,
         "code_table": null,
         "color": "#685489",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 360.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 360.0,
+        "step": 360.0,
+        "step_hourly": 60.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "ddd dd"
     }
 },
 {
@@ -1251,7 +1294,7 @@
     "pk": 56,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2020-02-14T19:01:37.633Z",
+        "updated_at": "2023-05-15T21:36:34.901Z",
         "variable_type": "Numeric",
         "symbol": "WNDDAVG",
         "name": "Wind Direction [AVG]",
@@ -1262,17 +1305,18 @@
         "scale": 0,
         "code_table": null,
         "color": "#976393",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 360.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 360.0,
+        "step": 360.0,
+        "step_hourly": 60.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1301,7 +1345,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1330,7 +1375,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1349,17 +1395,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 170.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 170.0,
+        "step": 170.0,
+        "step_hourly": 60.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1367,7 +1414,7 @@
     "pk": 60,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2022-11-16T17:53:03.122Z",
+        "updated_at": "2023-05-15T21:39:30.054Z",
         "variable_type": "Numeric",
         "symbol": "PRESSTN",
         "name": "Pressure at Station Level",
@@ -1382,13 +1429,14 @@
         "range_max": 1100.0,
         "range_min_hourly": 800.0,
         "range_max_hourly": 1100.0,
-        "step": null,
-        "step_hourly": null,
+        "step": 100.0,
+        "step_hourly": 10.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "POPOPOPO"
     }
 },
 {
@@ -1407,17 +1455,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": 982.0,
-        "range_max": 1049.0,
-        "range_min_hourly": 982.0,
-        "range_max_hourly": 1049.0,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 800.0,
+        "range_max": 1100.0,
+        "range_min_hourly": 800.0,
+        "range_max_hourly": 1100.0,
+        "step": 100.0,
+        "step_hourly": 10.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "PHPHPHPH PPPP"
     }
 },
 {
@@ -1436,17 +1485,18 @@
         "scale": 2,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 14.5,
+        "range_max": 32.5,
+        "range_min_hourly": 14.5,
+        "range_max_hourly": 32.5,
+        "step": 3.0,
+        "step_hourly": 0.3,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1465,17 +1515,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": -9.9,
+        "range_max": 9.9,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 9.9,
+        "step": 0.1,
+        "step_hourly": 0.1,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1504,7 +1555,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1533,7 +1585,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1541,7 +1594,7 @@
     "pk": 72,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2020-07-03T17:43:08.331Z",
+        "updated_at": "2023-05-15T21:42:26.728Z",
         "variable_type": "Numeric",
         "symbol": "SOLARRAD",
         "name": "Solar Radiation",
@@ -1552,17 +1605,18 @@
         "scale": 0,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 2000.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 2000.0,
+        "step": 2000.0,
+        "step_hourly": 1000.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1581,17 +1635,18 @@
         "scale": 0,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 2000.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 2000.0,
+        "step": 2000.0,
+        "step_hourly": 1000.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1610,17 +1665,18 @@
         "scale": 0,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 2000.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 2000.0,
+        "step": 2000.0,
+        "step_hourly": 1000.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1639,17 +1695,18 @@
         "scale": 0,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 2000.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 2000.0,
+        "step": 2000.0,
+        "step_hourly": 1000.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1678,7 +1735,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1707,7 +1765,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1736,7 +1795,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1765,7 +1825,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1784,17 +1845,18 @@
         "scale": 2,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 20.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 20.0,
+        "step": 20.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1813,17 +1875,18 @@
         "scale": 2,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 20.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 20.0,
+        "step": 20.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1842,17 +1905,18 @@
         "scale": 2,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 20.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 20.0,
+        "step": 20.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1881,7 +1945,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1900,17 +1965,18 @@
         "scale": 0,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
+        "range_min": 0.0,
+        "range_max": 1.0,
         "range_min_hourly": null,
         "range_max_hourly": null,
-        "step": null,
+        "step": 1.0,
         "step_hourly": null,
-        "persistence": null,
+        "persistence": 0.1,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1939,7 +2005,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1968,7 +2035,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -1987,17 +2055,18 @@
         "scale": null,
         "code_table": null,
         "color": null,
-        "range_min": null,
-        "range_max": null,
+        "range_min": 0.0,
+        "range_max": 1.0,
         "range_min_hourly": null,
         "range_max_hourly": null,
-        "step": null,
+        "step": 1.0,
         "step_hourly": null,
-        "persistence": null,
+        "persistence": 0.1,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -2016,17 +2085,18 @@
         "scale": null,
         "code_table": null,
         "color": null,
-        "range_min": null,
-        "range_max": null,
+        "range_min": 0.0,
+        "range_max": 1.0,
         "range_min_hourly": null,
         "range_max_hourly": null,
-        "step": null,
+        "step": 1.0,
         "step_hourly": null,
-        "persistence": null,
+        "persistence": 0.1,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -2045,17 +2115,18 @@
         "scale": null,
         "code_table": null,
         "color": null,
-        "range_min": null,
-        "range_max": null,
+        "range_min": 0.0,
+        "range_max": 1.0,
         "range_min_hourly": null,
         "range_max_hourly": null,
-        "step": null,
+        "step": 1.0,
         "step_hourly": null,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -2074,17 +2145,18 @@
         "scale": null,
         "code_table": null,
         "color": null,
-        "range_min": null,
-        "range_max": null,
+        "range_min": 0.0,
+        "range_max": 1.0,
         "range_min_hourly": null,
         "range_max_hourly": null,
-        "step": null,
+        "step": 1.0,
         "step_hourly": null,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -2092,7 +2164,7 @@
     "pk": 200,
     "fields": {
         "created_at": "2020-02-14T19:01:37.629Z",
-        "updated_at": "2020-07-03T17:42:21.665Z",
+        "updated_at": "2023-05-15T21:43:51.103Z",
         "variable_type": "Numeric",
         "symbol": "BATTERY",
         "name": "Battery Voltage",
@@ -2103,17 +2175,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 14.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 14.0,
+        "step": 4.0,
+        "step_hourly": 4.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -2132,17 +2205,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 20.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 20.0,
+        "step": 20.0,
+        "step_hourly": 10.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -2171,7 +2245,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "(VV) VV"
     }
 },
 {
@@ -2190,17 +2265,18 @@
         "scale": null,
         "code_table": 2700,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 8.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 8.0,
+        "step": 8.0,
+        "step_hourly": 8.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "N"
     }
 },
 {
@@ -2229,7 +2305,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "ww"
     }
 },
 {
@@ -2258,7 +2335,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "W1"
     }
 },
 {
@@ -2287,7 +2365,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "W2"
     }
 },
 {
@@ -2306,17 +2385,18 @@
         "scale": null,
         "code_table": 2700,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 8.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 8.0,
+        "step": 8.0,
+        "step_hourly": 8.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -2335,17 +2415,18 @@
         "scale": null,
         "code_table": 513,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 9.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 9.0,
+        "step": 9.0,
+        "step_hourly": 9.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "CL"
     }
 },
 {
@@ -2364,17 +2445,18 @@
         "scale": null,
         "code_table": 515,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 9.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 9.0,
+        "step": 9.0,
+        "step_hourly": 9.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "CM"
     }
 },
 {
@@ -2393,17 +2475,18 @@
         "scale": null,
         "code_table": 509,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 9.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 9.0,
+        "step": 9.0,
+        "step_hourly": 9.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "CH"
     }
 },
 {
@@ -2422,17 +2505,18 @@
         "scale": null,
         "code_table": 2700,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 8.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 8.0,
+        "step": 8.0,
+        "step_hourly": 8.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "NS"
     }
 },
 {
@@ -2451,17 +2535,18 @@
         "scale": null,
         "code_table": 500,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 9.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 9.0,
+        "step": 9.0,
+        "step_hourly": 9.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "C"
     }
 },
 {
@@ -2480,17 +2565,18 @@
         "scale": null,
         "code_table": 1677,
         "color": "#FF0000",
-        "range_min": null,
+        "range_min": 0.0,
         "range_max": null,
-        "range_min_hourly": null,
+        "range_min_hourly": 0.0,
         "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "step": 65000.0,
+        "step_hourly": 65000.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "hShS"
     }
 },
 {
@@ -2509,17 +2595,18 @@
         "scale": null,
         "code_table": 2700,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 3.0,
+        "range_max": 8.0,
+        "range_min_hourly": 3.0,
+        "range_max_hourly": 8.0,
+        "step": 5.0,
+        "step_hourly": 5.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "NS"
     }
 },
 {
@@ -2538,17 +2625,18 @@
         "scale": null,
         "code_table": 500,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 9.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 9.0,
+        "step": 9.0,
+        "step_hourly": 9.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "C"
     }
 },
 {
@@ -2567,17 +2655,18 @@
         "scale": null,
         "code_table": 1677,
         "color": "#FF0000",
-        "range_min": null,
+        "range_min": 0.0,
         "range_max": null,
-        "range_min_hourly": null,
+        "range_min_hourly": 0.0,
         "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "step": 65000.0,
+        "step_hourly": 65000.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "hShS"
     }
 },
 {
@@ -2596,17 +2685,18 @@
         "scale": null,
         "code_table": 2700,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 5.0,
+        "range_max": 8.0,
+        "range_min_hourly": 5.0,
+        "range_max_hourly": 8.0,
+        "step": 3.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "NS"
     }
 },
 {
@@ -2625,17 +2715,18 @@
         "scale": null,
         "code_table": 500,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 9.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 9.0,
+        "step": 9.0,
+        "step_hourly": 9.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "C"
     }
 },
 {
@@ -2654,17 +2745,18 @@
         "scale": null,
         "code_table": 1677,
         "color": "#FF0000",
-        "range_min": null,
+        "range_min": 0.0,
         "range_max": null,
-        "range_min_hourly": null,
+        "range_min_hourly": 0.0,
         "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "step": 65000.0,
+        "step_hourly": 65000.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "hShS"
     }
 },
 {
@@ -2683,17 +2775,18 @@
         "scale": null,
         "code_table": 2700,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 8.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 8.0,
+        "step": 8.0,
+        "step_hourly": 8.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "NS"
     }
 },
 {
@@ -2712,17 +2805,18 @@
         "scale": null,
         "code_table": 500,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 9.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 9.0,
+        "step": 9.0,
+        "step_hourly": 9.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "C"
     }
 },
 {
@@ -2741,17 +2835,18 @@
         "scale": null,
         "code_table": 1677,
         "color": "#FF0000",
-        "range_min": null,
+        "range_min": 0.0,
         "range_max": null,
-        "range_min_hourly": null,
+        "range_min_hourly": 0.0,
         "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "step": 65000.0,
+        "step_hourly": 65000.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "hShS"
     }
 },
 {
@@ -2780,7 +2875,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "Nh"
     }
 },
 {
@@ -2809,7 +2905,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": "9SPSPsPsP"
     }
 },
 {
@@ -2828,17 +2925,18 @@
         "scale": 3,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 100.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 50.0,
+        "step": 60.0,
+        "step_hourly": 5.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -2857,17 +2955,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 60.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 60.0,
+        "step": 10.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -2886,17 +2985,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 60.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 60.0,
+        "step": 10.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -2915,17 +3015,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 800.0,
+        "range_max": 1100.0,
+        "range_min_hourly": 800.0,
+        "range_max_hourly": 1100.0,
+        "step": 100.0,
+        "step_hourly": 10.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -2944,17 +3045,18 @@
         "scale": 1,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 800.0,
+        "range_max": 1100.0,
+        "range_min_hourly": 800.0,
+        "range_max_hourly": 1100.0,
+        "step": 100.0,
+        "step_hourly": 10.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -2973,17 +3075,18 @@
         "scale": 3,
         "code_table": null,
         "color": "#1D0DFF",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 20.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 20.0,
+        "step": 20.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3002,17 +3105,18 @@
         "scale": 3,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 20.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 20.0,
+        "step": 20.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3031,17 +3135,18 @@
         "scale": null,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 20.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 20.0,
+        "step": 20.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3070,7 +3175,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3091,15 +3197,16 @@
         "color": "#FF0000",
         "range_min": 0.0,
         "range_max": 20.0,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 20.0,
+        "step": 20.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3120,15 +3227,16 @@
         "color": "#000000",
         "range_min": 0.0,
         "range_max": 20.0,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 20.0,
+        "step": 20.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3147,17 +3255,18 @@
         "scale": 3,
         "code_table": null,
         "color": "#000000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 10.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 10.0,
+        "step": 5.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3176,17 +3285,18 @@
         "scale": 3,
         "code_table": null,
         "color": "#0000FF",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 10.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 10.0,
+        "step": 5.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3205,17 +3315,18 @@
         "scale": 3,
         "code_table": null,
         "color": "#FF0000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 10.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 10.0,
+        "step": 5.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3234,17 +3345,18 @@
         "scale": 3,
         "code_table": null,
         "color": "#000000",
-        "range_min": null,
-        "range_max": null,
-        "range_min_hourly": null,
-        "range_max_hourly": null,
-        "step": null,
-        "step_hourly": null,
+        "range_min": 0.0,
+        "range_max": 10.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 10.0,
+        "step": 5.0,
+        "step_hourly": 3.0,
         "persistence": null,
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3273,7 +3385,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3302,7 +3415,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "column"
+        "default_representation": "column",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3331,7 +3445,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "column"
+        "default_representation": "column",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3360,7 +3475,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "column"
+        "default_representation": "column",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3389,7 +3505,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "column"
+        "default_representation": "column",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3418,7 +3535,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "column"
+        "default_representation": "column",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3447,7 +3565,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "column"
+        "default_representation": "column",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3476,7 +3595,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "column"
+        "default_representation": "column",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3505,7 +3625,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "column"
+        "default_representation": "column",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3534,7 +3655,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "column"
+        "default_representation": "column",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3563,7 +3685,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "column"
+        "default_representation": "column",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3592,7 +3715,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "column"
+        "default_representation": "column",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3621,7 +3745,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "column"
+        "default_representation": "column",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3650,7 +3775,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "column"
+        "default_representation": "column",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3679,7 +3805,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "column"
+        "default_representation": "column",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3708,7 +3835,8 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "column"
+        "default_representation": "column",
+        "synoptic_code_form": null
     }
 },
 {
@@ -3737,7 +3865,698 @@
         "persistence_hourly": null,
         "persistence_window": null,
         "persistence_window_hourly": null,
-        "default_representation": "line"
+        "default_representation": "line",
+        "synoptic_code_form": null
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4040,
+    "fields": {
+        "created_at": "2024-07-26T21:18:22.983Z",
+        "updated_at": "2024-07-26T21:18:22.983Z",
+        "variable_type": "Code",
+        "symbol": "WINDINDR",
+        "name": "Wind Indicator",
+        "sampling_operation": null,
+        "measurement_variable": null,
+        "unit": null,
+        "precision": null,
+        "scale": null,
+        "code_table": 1855,
+        "color": "#FF00000",
+        "range_min": null,
+        "range_max": null,
+        "range_min_hourly": null,
+        "range_max_hourly": null,
+        "step": null,
+        "step_hourly": null,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "iW"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4041,
+    "fields": {
+        "created_at": "2024-07-26T21:18:22.983Z",
+        "updated_at": "2024-07-26T21:18:22.983Z",
+        "variable_type": "Code",
+        "symbol": "PRECIND",
+        "name": "Precipitation Indicator",
+        "sampling_operation": null,
+        "measurement_variable": null,
+        "unit": null,
+        "precision": null,
+        "scale": null,
+        "code_table": 1819,
+        "color": "#FF00000",
+        "range_min": null,
+        "range_max": null,
+        "range_min_hourly": null,
+        "range_max_hourly": null,
+        "step": null,
+        "step_hourly": null,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "iR"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4042,
+    "fields": {
+        "created_at": "2024-07-26T21:18:22.983Z",
+        "updated_at": "2024-07-26T21:18:22.983Z",
+        "variable_type": "Code",
+        "symbol": "STATIND",
+        "name": "Station Operation Indicator",
+        "sampling_operation": null,
+        "measurement_variable": null,
+        "unit": null,
+        "precision": null,
+        "scale": null,
+        "code_table": 1860,
+        "color": "#FF00000",
+        "range_min": null,
+        "range_max": null,
+        "range_min_hourly": null,
+        "range_max_hourly": null,
+        "step": null,
+        "step_hourly": null,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "iX"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4043,
+    "fields": {
+        "created_at": "2024-07-26T21:18:22.983Z",
+        "updated_at": "2024-07-26T21:18:22.983Z",
+        "variable_type": "Code",
+        "symbol": "PRECDUR",
+        "name": "Precipitation Period Duration",
+        "sampling_operation": null,
+        "measurement_variable": null,
+        "unit": null,
+        "precision": null,
+        "scale": null,
+        "code_table": 4019,
+        "color": "#FF00000",
+        "range_min": null,
+        "range_max": null,
+        "range_min_hourly": null,
+        "range_max_hourly": null,
+        "step": null,
+        "step_hourly": null,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "Tr"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4044,
+    "fields": {
+        "created_at": "2024-07-26T21:18:22.983Z",
+        "updated_at": "2024-07-26T21:18:22.983Z",
+        "variable_type": "Code",
+        "symbol": "STSKY",
+        "name": "State of sky",
+        "sampling_operation": null,
+        "measurement_variable": null,
+        "unit": null,
+        "precision": null,
+        "scale": null,
+        "code_table": 430,
+        "color": "#FF00000",
+        "range_min": null,
+        "range_max": null,
+        "range_min_hourly": null,
+        "range_max_hourly": null,
+        "step": null,
+        "step_hourly": null,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "CS"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4045,
+    "fields": {
+        "created_at": "2024-07-26T21:18:22.983Z",
+        "updated_at": "2024-07-26T21:18:22.983Z",
+        "variable_type": "Code",
+        "symbol": "DL",
+        "name": "Direction of CL Clouds",
+        "sampling_operation": null,
+        "measurement_variable": null,
+        "unit": null,
+        "precision": null,
+        "scale": null,
+        "code_table": 700,
+        "color": "#FF00000",
+        "range_min": 0.0,
+        "range_max": 9.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 9.0,
+        "step": 9.0,
+        "step_hourly": 9.0,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "DL"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4046,
+    "fields": {
+        "created_at": "2024-07-26T21:18:22.983Z",
+        "updated_at": "2024-07-26T21:18:22.983Z",
+        "variable_type": "Code",
+        "symbol": "DM",
+        "name": "Direction of CM Clouds",
+        "sampling_operation": null,
+        "measurement_variable": null,
+        "unit": null,
+        "precision": null,
+        "scale": null,
+        "code_table": 700,
+        "color": "#FF00000",
+        "range_min": 0.0,
+        "range_max": 9.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 9.0,
+        "step": 9.0,
+        "step_hourly": 9.0,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "DM"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4047,
+    "fields": {
+        "created_at": "2024-07-26T21:18:22.983Z",
+        "updated_at": "2024-07-26T21:18:22.983Z",
+        "variable_type": "Code",
+        "symbol": "DH",
+        "name": "Direction of CH Clouds",
+        "sampling_operation": null,
+        "measurement_variable": null,
+        "unit": null,
+        "precision": null,
+        "scale": null,
+        "code_table": 700,
+        "color": "#FF00000",
+        "range_min": 0.0,
+        "range_max": 9.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 9.0,
+        "step": 9.0,
+        "step_hourly": 9.0,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "DH"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4048,
+    "fields": {
+        "created_at": "2024-07-26T23:59:28.639Z",
+        "updated_at": "2024-07-26T23:59:28.639Z",
+        "variable_type": "Numeric",
+        "symbol": "LOWCLH",
+        "name": "Lowest Cloud height",
+        "sampling_operation": 1,
+        "measurement_variable": 27,
+        "unit": 20,
+        "precision": 5,
+        "scale": 0,
+        "code_table": null,
+        "color": "#FF0000",
+        "range_min": null,
+        "range_max": null,
+        "range_min_hourly": null,
+        "range_max_hourly": null,
+        "step": null,
+        "step_hourly": null,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "h"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4049,
+    "fields": {
+        "created_at": "2024-08-07T20:47:34.275Z",
+        "updated_at": "2024-08-07T20:47:34.275Z",
+        "variable_type": "Text",
+        "symbol": "SIGPRSWX",
+        "name": "Significant Present Weather",
+        "sampling_operation": null,
+        "measurement_variable": null,
+        "unit": null,
+        "precision": null,
+        "scale": null,
+        "code_table": 4678,
+        "color": "#FF0000",
+        "range_min": null,
+        "range_max": null,
+        "range_min_hourly": null,
+        "range_max_hourly": null,
+        "step": null,
+        "step_hourly": null,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "w'w'"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4050,
+    "fields": {
+        "created_at": "2024-08-26T17:53:04.612Z",
+        "updated_at": "2024-08-26T17:53:04.612Z",
+        "variable_type": "Numeric",
+        "symbol": "PRECSLR",
+        "name": "Precipitation Since Last Report",
+        "sampling_operation": 6,
+        "measurement_variable": 3,
+        "unit": 2,
+        "precision": 4,
+        "scale": 1,
+        "code_table": null,
+        "color": "#0000FF",
+        "range_min": null,
+        "range_max": null,
+        "range_min_hourly": null,
+        "range_max_hourly": null,
+        "step": null,
+        "step_hourly": null,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "column",
+        "synoptic_code_form": "RRR"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4052,
+    "fields": {
+        "created_at": "2024-10-08T22:10:06.033Z",
+        "updated_at": "2024-10-08T22:10:06.033Z",
+        "variable_type": "Numeric",
+        "symbol": "DYGAIL",
+        "name": "Day with Gail",
+        "sampling_operation": null,
+        "measurement_variable": null,
+        "unit": null,
+        "precision": null,
+        "scale": null,
+        "code_table": null,
+        "color": null,
+        "range_min": 0.0,
+        "range_max": 1.0,
+        "range_min_hourly": null,
+        "range_max_hourly": null,
+        "step": 1.0,
+        "step_hourly": null,
+        "persistence": 0.1,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": null
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4053,
+    "fields": {
+        "created_at": "2024-10-08T22:11:32.101Z",
+        "updated_at": "2024-10-08T22:11:32.101Z",
+        "variable_type": "Numeric",
+        "symbol": "EVAPINI",
+        "name": "Evaporation Initial (mm.)",
+        "sampling_operation": 1,
+        "measurement_variable": 4,
+        "unit": 2,
+        "precision": 5,
+        "scale": 2,
+        "code_table": null,
+        "color": "#FF0000",
+        "range_min": 0.0,
+        "range_max": 15.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 15.0,
+        "step": 15.0,
+        "step_hourly": null,
+        "persistence": 0.1,
+        "persistence_hourly": 0.1,
+        "persistence_window": 96,
+        "persistence_window_hourly": null,
+        "default_representation": "bar",
+        "synoptic_code_form": null
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4054,
+    "fields": {
+        "created_at": "2024-10-08T22:11:32.101Z",
+        "updated_at": "2024-10-08T22:11:32.101Z",
+        "variable_type": "Numeric",
+        "symbol": "EVAPRES",
+        "name": "Evaporation Reset (mm.)",
+        "sampling_operation": 1,
+        "measurement_variable": 4,
+        "unit": 2,
+        "precision": 5,
+        "scale": 2,
+        "code_table": null,
+        "color": "#FF0000",
+        "range_min": 0.0,
+        "range_max": 15.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 15.0,
+        "step": 15.0,
+        "step_hourly": null,
+        "persistence": 0.1,
+        "persistence_hourly": 0.1,
+        "persistence_window": 96,
+        "persistence_window_hourly": null,
+        "default_representation": "bar",
+        "synoptic_code_form": null
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4055,
+    "fields": {
+        "created_at": "2024-10-18T00:19:02.390Z",
+        "updated_at": "2024-10-18T00:19:02.390Z",
+        "variable_type": "Numeric",
+        "symbol": "PREC24H",
+        "name": "Precipitation 24 hours",
+        "sampling_operation": 6,
+        "measurement_variable": 3,
+        "unit": 2,
+        "precision": 4,
+        "scale": 1,
+        "code_table": null,
+        "color": "#FF0000",
+        "range_min": null,
+        "range_max": null,
+        "range_min_hourly": null,
+        "range_max_hourly": null,
+        "step": null,
+        "step_hourly": null,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "R24R24R24R24"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4056,
+    "fields": {
+        "created_at": "2025-02-20T10:40:58Z",
+        "updated_at": "2025-02-20T10:40:58Z",
+        "variable_type": "Numeric",
+        "symbol": "VISBY-km",
+        "name": "Visibility [km]",
+        "sampling_operation": 1,
+        "measurement_variable": 28,
+        "unit": 8,
+        "precision": 5,
+        "scale": 0,
+        "code_table": null,
+        "color": "#FF0000",
+        "range_min": null,
+        "range_max": null,
+        "range_min_hourly": null,
+        "range_max_hourly": null,
+        "step": null,
+        "step_hourly": null,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "(VV) VV [In Kilometers]"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4057,
+    "fields": {
+        "created_at": "2025-02-20T10:40:58Z",
+        "updated_at": "2025-02-20T10:40:58Z",
+        "variable_type": "Numeric",
+        "symbol": "BAR24C",
+        "name": "24-Hour Barometric Change",
+        "sampling_operation": 1,
+        "measurement_variable": 29,
+        "unit": 10,
+        "precision": 5,
+        "scale": 1,
+        "code_table": null,
+        "color": "#FF0000",
+        "range_min": 500.0,
+        "range_max": 1100.0,
+        "range_min_hourly": 500.0,
+        "range_max_hourly": 1100.0,
+        "step": 0.5,
+        "step_hourly": 0.5,
+        "persistence": 0.1,
+        "persistence_hourly": 0.1,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "P24P24P24"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4058,
+    "fields": {
+        "created_at": "2025-02-20T10:40:58Z",
+        "updated_at": "2025-02-20T10:40:58Z",
+        "variable_type": "Numeric",
+        "symbol": "hhFt1",
+        "name": "Height of Cloud Base",
+        "sampling_operation": 1,
+        "measurement_variable": 30,
+        "unit": 33,
+        "precision": 1,
+        "scale": 0,
+        "code_table": null,
+        "color": "#FF0000",
+        "range_min": 0.0,
+        "range_max": null,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": null,
+        "step": 65000.0,
+        "step_hourly": 65000.0,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "Level 1 [in feet]"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4059,
+    "fields": {
+        "created_at": "2025-02-20T10:40:58Z",
+        "updated_at": "2025-02-20T10:40:58Z",
+        "variable_type": "Numeric",
+        "symbol": "hhFt2",
+        "name": "Height of Cloud Base",
+        "sampling_operation": 1,
+        "measurement_variable": 31,
+        "unit": 33,
+        "precision": 1,
+        "scale": 0,
+        "code_table": null,
+        "color": "#FF0000",
+        "range_min": 0.0,
+        "range_max": null,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": null,
+        "step": 65000.0,
+        "step_hourly": 65000.0,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "Level 2 [in feet]"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4060,
+    "fields": {
+        "created_at": "2025-02-20T10:40:58Z",
+        "updated_at": "2025-02-20T10:40:58Z",
+        "variable_type": "Numeric",
+        "symbol": "hhFt3",
+        "name": "Height of Cloud Base",
+        "sampling_operation": 1,
+        "measurement_variable": 32,
+        "unit": 33,
+        "precision": 1,
+        "scale": 0,
+        "code_table": null,
+        "color": "#FF0000",
+        "range_min": 0.0,
+        "range_max": null,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": null,
+        "step": 65000.0,
+        "step_hourly": 65000.0,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "Level 3 [in feet]"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4061,
+    "fields": {
+        "created_at": "2025-02-20T10:40:58Z",
+        "updated_at": "2025-02-20T10:40:58Z",
+        "variable_type": "Numeric",
+        "symbol": "hhFt4",
+        "name": "Height of Cloud Base",
+        "sampling_operation": 1,
+        "measurement_variable": 33,
+        "unit": 33,
+        "precision": 1,
+        "scale": 0,
+        "code_table": null,
+        "color": "#FF0000",
+        "range_min": 0.0,
+        "range_max": null,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": null,
+        "step": 65000.0,
+        "step_hourly": 65000.0,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "Level 4 [in feet]"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4062,
+    "fields": {
+        "created_at": "2024-07-26T23:59:28.639Z",
+        "updated_at": "2024-07-26T23:59:28.639Z",
+        "variable_type": "Numeric",
+        "symbol": "LOWCLHFt",
+        "name": "Lowest Cloud height",
+        "sampling_operation": 1,
+        "measurement_variable": 34,
+        "unit": 33,
+        "precision": 5,
+        "scale": 0,
+        "code_table": null,
+        "color": "#FF0000",
+        "range_min": null,
+        "range_max": null,
+        "range_min_hourly": null,
+        "range_max_hourly": null,
+        "step": null,
+        "step_hourly": null,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "h [in feet]"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4063,
+    "fields": {
+        "created_at": "2020-02-14T19:01:37.629Z",
+        "updated_at": "2023-05-15T21:36:25.165Z",
+        "variable_type": "Numeric",
+        "symbol": "WNDDOM",
+        "name": "Wind Direction [DOM]",
+        "sampling_operation": 1,
+        "measurement_variable": 10,
+        "unit": 15,
+        "precision": 3,
+        "scale": 0,
+        "code_table": null,
+        "color": "#685489",
+        "range_min": 0.0,
+        "range_max": 360.0,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 360.0,
+        "step": 360.0,
+        "step_hourly": 60.0,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": ""
     }
 }
 ]
