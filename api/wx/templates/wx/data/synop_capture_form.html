@@ -256,8 +256,8 @@
                 <v-carousel-item>
 
                     <!-- Synop table grid container -->
-                    <!-- <div style="max-height: 80vh; overflow-y: auto;"> cause an overflow scroll animation to occur if the table goes past 80vh -->
-                    <ag-grid-vue
+                    <!-- Non Sticky header -->
+                    {% comment %} <ag-grid-vue
                         v-show="!hideTable"
                         :row-data="rowData"
                         :column-defs="colDefs"
@@ -266,9 +266,27 @@
                         style="width: 100%;"
                         :class="tableTheme"
                         @grid-ready="onGridReady"
+                        @cell-editing-started="onCellEditingStarted"
+                        @cell-editing-stopped="onCellEditingStopped"
                         dom-layout="autoHeight"
                     >
+                    </ag-grid-vue> {% endcomment %}
+
+                    <!-- Sticky header -->
+                    <ag-grid-vue
+                        v-show="!hideTable"
+                        :row-data="rowData"
+                        :column-defs="colDefs"
+                        :default-col-def="defaultColDef"
+                        :grid-options="gridOptions"
+                        style="height: 100%;"
+                        :class="tableTheme"
+                        @grid-ready="onGridReady"
+                        @cell-editing-started="onCellEditingStarted"
+                        @cell-editing-stopped="onCellEditingStopped"
+                    >
                     </ag-grid-vue>
+
 
                 </v-carousel-item>
 
@@ -811,6 +829,45 @@
                         rowSelection:"multiple",
                         // tell us whenever selection changes
                         onSelectionChanged: this.onSelectionChanged,
+
+                        // modifyin the default arrow navigation to skip the first two columns.
+                        navigateToNextCell: (params) => {
+                            const { nextCellPosition, previousCellPosition, key, api } = params;
+                            const visibleCols = api.getAllDisplayedColumns();
+                            const displayedRowCount = api.getDisplayedRowCount();
+                            let { rowIndex, column } = previousCellPosition;
+
+                            const colIndex = visibleCols.findIndex(c => c.getColId() === column.getColId());
+                            if (colIndex === -1) return nextCellPosition; // fallback
+
+                            // --- LEFT/RIGHT handling with skip rules ---
+                            if (key === 'ArrowRight') {
+                            if (colIndex < visibleCols.length - 1) {
+                                column = visibleCols[colIndex + 1];
+                            } else {
+                                // wrap to next row, skip columns before index 2
+                                rowIndex++;
+                                if (rowIndex >= displayedRowCount) rowIndex = 0;
+                                column = visibleCols[2]; // skip first two columns
+                            }
+                            } else if (key === 'ArrowLeft') {
+                            if (colIndex > 2) {
+                                column = visibleCols[colIndex - 1];
+                            } else {
+                                // wrap to previous row's last column
+                                rowIndex--;
+                                if (rowIndex < 0) rowIndex = displayedRowCount - 1;
+                                column = visibleCols[visibleCols.length - 1];
+                            }
+                            } else {
+                            return nextCellPosition; // other keys -> default behavior
+                            }
+
+                            // ensure target is in bounds
+                            if (rowIndex < 0 || rowIndex >= displayedRowCount) return nextCellPosition;
+
+                            return { rowIndex, column };
+                        },
                     },                
                     // default cell settings
                     defaultColDef: {
@@ -916,10 +973,208 @@
                     inProduction: false,
                     useUTC: false,
 
+                    editorListeners: new Map(), // Map to track active editor listeners (keyed by "rowIndex-colId")
+
                     // next var....
                 };
             },
             methods: {
+                /**
+                * Create a unique key for a cell using its rowIndex and colId.
+                * Used to map editor DOM elements to their event listeners.
+                */
+                _editorKey(rowIndex, colId) {
+                    return `${rowIndex}-${colId}`;
+                },
+
+
+                /**
+                * Called when a cell enters editing mode.
+                * Attaches a keydown listener on the editor GUI that:
+                *  - moves to the next editable cell on ArrowRight (wraps to next row)
+                *  - moves to the previous editable cell on ArrowLeft (wraps to previous row)
+                *  - respects colDef.editable (function or boolean)
+                */
+                onCellEditingStarted(params) {
+                    const api = params.api;
+                    const rowIndex = params.node.rowIndex;
+                    const colId = params.column.getColId();
+                    const key = this._editorKey(rowIndex, colId);
+
+                    // Get the editor instances reliably
+                    const editors = api.getCellEditorInstances
+                    ? api.getCellEditorInstances({ rowNodes: [params.node], columns: [params.column] })
+                    : [];
+
+                    if (!editors || editors.length === 0) return;
+
+                    const editor = editors[0];
+                    const gui = typeof editor.getGui === "function" ? editor.getGui() : null;
+
+                    if (!gui) return;
+
+                    // Remove any previous listener for this same cell
+                    if (this.editorListeners.has(key)) {
+                        const prev = this.editorListeners.get(key);
+                        try { prev.gui.removeEventListener("keydown", prev.handler, true); } catch (_) {}
+                        this.editorListeners.delete(key);
+                    }
+
+                    const handler = (e) => {
+                        const k = e.key;
+
+                        // Only handle left/right arrows (add 'ArrowUp' or 'ArrowDown' if you want up/down too)
+                        if (!["ArrowLeft", "ArrowRight"].includes(k)) return;
+
+                        // Prevent cursor movement inside the editor and stop grid default
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        const visibleCols = api.getAllDisplayedColumns() || [];
+
+                        if (visibleCols.length === 0) return;
+
+                        // Current column index among visible columns
+                        const colIndex = visibleCols.findIndex(c => c.getColId() === colId);
+
+                        if (colIndex === -1) return;
+
+                        const displayedRowCount = api.getDisplayedRowCount();
+                        let nextRow = rowIndex;
+                        let nextColIndex = colIndex;
+
+                        // Horizontal movement + wrap across rows
+                        if (k === "ArrowLeft") {
+                            if (colIndex > 2) { // the '> 2' causes the focus to skip the time and tick box column when going back up the row
+                                nextColIndex = colIndex - 1;
+                            } 
+                            else {
+                                // wrap to previous row's last visible column
+                                nextColIndex = visibleCols.length - 1;
+                                nextRow = rowIndex - 1;
+                            }
+                        } 
+                        else if (k === "ArrowRight") {
+                            if (colIndex < visibleCols.length - 1) {
+                                nextColIndex = colIndex + 1;
+                            } 
+                            else {
+                                // wrap to next row's first visible column
+                                nextColIndex = 2; // causes the focus to skip the time and tick box column when gong down the row
+                                nextRow = rowIndex + 1;
+                            }
+                        }
+
+                        // Bounds check: stop if nextRow outside grid (no infinite loop)
+                        if (nextRow < 0 || nextRow >= displayedRowCount) return;
+
+                        let nextCol = visibleCols[nextColIndex];
+
+                        if (!nextCol) return;
+
+                        // --- Check editability (skip non-editable columns) ---
+                        // We'll advance in the same direction until we find an editable col or hit bounds.
+                        const moveForward = k === "ArrowRight";
+                        let attempts = 0;
+                        while (true) {
+                            attempts++;
+                            if (attempts > visibleCols.length) {
+                                // safety: avoid infinite loop (shouldn't happen)
+                                return;
+                            }
+
+                            // Evaluate editable flag (colDef.editable may be function or boolean)
+                            const colDef = nextCol.getColDef ? nextCol.getColDef() : (nextCol.colDef || {});
+                            let isEditable = colDef.editable;
+
+                            if (typeof isEditable === "function") {
+                                try {
+                                    const targetNode = api.getDisplayedRowAtIndex(nextRow);
+                                    isEditable = isEditable({
+                                        node: targetNode,
+                                        data: targetNode ? targetNode.data : undefined,
+                                        colDef,
+                                        column: nextCol,
+                                        api,
+                                        context: params.context,
+                                        rowIndex: nextRow,
+                                    });
+                                } 
+                                catch (_) {
+                                    isEditable = true; // fail-open
+                                }
+                            }
+
+                            if (isEditable !== false) break; // found editable column
+
+                            // move to next candidate (respecting wrap rules)
+                            if (moveForward) {
+                                nextColIndex++;
+
+                                if (nextColIndex >= visibleCols.length) {
+                                    nextColIndex = 0;
+                                    nextRow = nextRow + 1;
+                                }
+                            } else {
+                                nextColIndex--;
+
+                                if (nextColIndex < 0) {
+                                    nextColIndex = visibleCols.length - 1;
+                                    nextRow = nextRow - 1;
+                                }
+                            }
+
+                            // bounds check again after moving
+                            if (nextRow < 0 || nextRow >= displayedRowCount) return;
+
+                            nextCol = visibleCols[nextColIndex];
+
+                            if (!nextCol) return;
+                        }
+                        // --- end editability loop ---
+
+                        // Stop current editing — will trigger onCellEditingStopped and remove this listener
+                        api.stopEditing();
+
+                        // Ensure target cell is visible & focused, then start editing
+                        api.ensureIndexVisible(nextRow);
+                        api.ensureColumnVisible(nextCol);
+
+                        // Focus the cell first (some AG Grid setups require focus before startEditingCell)
+                        api.setFocusedCell(nextRow, nextCol.getColId());
+
+                        // Start editing after a microtask so AG Grid is ready
+                        setTimeout(() => {
+                            api.startEditingCell({
+                                rowIndex: nextRow,
+                                colKey: nextCol.getColId(),
+                            });
+                        }, 0);
+                    };
+
+                    // Capture keydown on the editor GUI (capture=true to catch keys inside inputs)
+                    gui.addEventListener("keydown", handler, true);
+
+                    // Remember this listener for removal later
+                    this.editorListeners.set(key, { gui, handler });
+                },
+
+
+                /**
+                * Called when a cell stops editing.
+                * Removes the corresponding keydown listener to prevent memory leaks.
+                */
+                onCellEditingStopped(params) {
+                    const key = this._editorKey(params.node.rowIndex, params.column.getColId());
+                    const rec = this.editorListeners.get(key);
+
+                    if (rec) {
+                        try { rec.gui.removeEventListener("keydown", rec.handler, true); } catch (_) {}
+                        this.editorListeners.delete(key);
+                    }
+                },
+
+
                 onGridReady(params) {
                     // Capture the APIs for later use
                     this.gridApi = params.api;
@@ -1339,7 +1594,6 @@
                         await axios.post(url_empty_col, {
                             empty_cols_data: formattedEmptyCols
                         });
-
 
                         // 9) on success: clear flags & reload
                         this.draft = false;

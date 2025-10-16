@@ -783,9 +783,12 @@
                 record.final_date =  this.handleServerDatetime(record.final_date);
               });
               this.documents = res.data
+            }).finally(async () => {
+              this.$forceUpdate();
+              await this.$nextTick();
+              this.loading = false;
             });
-          this.$forceUpdate();
-          this.loading = false;
+
         },
         download(item) {
           window.location.href = `download/?id=${item.id}`; // Redirect to download
@@ -840,15 +843,19 @@
                 record.final_date =  this.handleServerDatetime(record.final_date);
               });
               this.combine_documents = res.data
+            }).finally(async () => {
+              this.$forceUpdate();
+              await this.$nextTick();
+              this.loading = false;
             });
-          this.$forceUpdate();
-          this.loading = false;
         },
         deleteItem(item) {
           this.loading = true;
           axios.get('delete/?id='+item.id).then(data => {
+            // this.updateTable();
+            // this.loading = false; // note: this is redundant as loading is already set to false in updateTable
+          }).finally(() => {
             this.updateTable();
-            this.loading = false;
           });
         },
         // to delete the combine xlsx file

@@ -134,6 +134,7 @@ def ScheduleDataExport(request):
     created_data_file_ids = []
     start_date_utc = pytz.UTC.localize(datetime.datetime.strptime(start_date, '%Y-%m-%d %H:%M:%S'))
     end_date_utc = pytz.UTC.localize(datetime.datetime.strptime(end_date, '%Y-%m-%d %H:%M:%S'))
+    current_utc_datetime = datetime.datetime.now(pytz.utc)
 
     if start_date_utc > end_date_utc:
         message = 'The initial date must be greater than final date.'
@@ -165,24 +166,38 @@ def ScheduleDataExport(request):
                                                 interval_in_seconds=data_interval_seconds)
                 DataFileStation.objects.create(datafile=newfile, station_id=station_id)
 
-                for variable_id in variable_ids:
-                    variable = Variable.objects.get(pk=variable_id)
-                    DataFileVariable.objects.create(datafile=newfile, variable=variable)
+                try:
+                    for variable_id in variable_ids:
+                        variable = Variable.objects.get(pk=variable_id)
+                        DataFileVariable.objects.create(datafile=newfile, variable=variable)
 
-                tasks.export_data.delay(station_id, data_source, start_date, end_date, variable_ids, newfile.id, agg, displayUTC)
-                created_data_file_ids.append(newfile.id)
+                    tasks.export_data.delay(station_id, data_source, start_date, end_date, variable_ids, newfile.id, agg, displayUTC)
+                    created_data_file_ids.append(newfile.id)
+                except Exception as err:
+                    # if an error occuers udpate the datafile ready_at option whilst leaving ready = false
+                    # this shows that the operation failed
+                    # the function DataExportFiles users both "ready" and "ready_at to determin whether an error occured or not"
+                    # this prevents a possible error state from mascarading as a "processing" status
+                    newfile.ready_at = current_utc_datetime
         else:
             newfile = DataFile.objects.create(ready=False, initial_date=start_date_utc, final_date=end_date_utc,
                                             source=data_source_description, prepared_by=prepared_by,
                                             interval_in_seconds=data_interval_seconds)
             DataFileStation.objects.create(datafile=newfile, station_id=station_id)
 
-            for variable_id in variable_ids:
-                variable = Variable.objects.get(pk=variable_id)
-                DataFileVariable.objects.create(datafile=newfile, variable=variable)
+            try:
+                for variable_id in variable_ids:
+                    variable = Variable.objects.get(pk=variable_id)
+                    DataFileVariable.objects.create(datafile=newfile, variable=variable)
 
-            tasks.export_data.delay(station_id, data_source, start_date, end_date, variable_ids, newfile.id, aggregation, displayUTC)
-            created_data_file_ids.append(newfile.id)
+                tasks.export_data.delay(station_id, data_source, start_date, end_date, variable_ids, newfile.id, aggregation, displayUTC)
+                created_data_file_ids.append(newfile.id)
+            except Exception as err:
+                # if an error occuers udpate the datafile ready_at option whilst leaving ready = false
+                # this shows that the operation failed
+                # the function DataExportFiles users both "ready" and "ready_at to determin whether an error occured or not
+                # this prevents a possible error state from mascarading as a "processing" status
+                newfile.ready_at = current_utc_datetime
 
     return JsonResponse({'data': created_data_file_ids}, status=status.HTTP_200_OK)
 
@@ -7425,7 +7440,9 @@ def daily_means_data_view(request):
 
 
 class DataInventoryView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
-    template_name = "wx/data_inventory.html"
+    # The actual data inventory page will be disabled until it is re-worked
+    # template_name = "wx/data_inventory.html"
+    template_name = "coming-soon.html"
 
     # This is the only “permission” string you need to supply:
     permission_required = "Data Inventory - Read"
@@ -8503,42 +8520,48 @@ def synop_delete(request):
         message = "Invalid date format. The expected date format is 'YYYY-MM-DD'"
         return JsonResponse({"message": message}, status=status.HTTP_400_BAD_REQUEST)
     
-    variable_id_list = tuple(variable_id_list)
+    variable_id_list = [int(v) for v in tuple(variable_id_list)]
     station = Station.objects.get(id=station_id)
     datetime_offset = pytz.FixedOffset(station.utc_offset_minutes)
     request_datetime = datetime_offset.localize(request_date.replace(hour=hour))
+    request_start_range_dt = request_datetime - timedelta(days=10)
+    request_end_range_dt = request_datetime + timedelta(days=10)
 
     queries = {
-        "delete_raw_data": f"""
-            DELETE FROM raw_data
-            WHERE station_id = {station_id}
-              AND variable_id IN {variable_id_list}
-              AND datetime = '{request_datetime}'
+        "grab_relevant_chunks": """
+            SELECT 
+            show_chunks('raw_data', newer_than => %s, older_than => %s)
         """,
-        "create_daily_summary": f"""
+        "delete_raw_data": """
+            DELETE FROM {raw_data_chunk}
+            WHERE station_id = %s
+            AND variable_id = ANY(%s)
+            AND datetime = %s
+        """,
+        "create_daily_summary": """
             INSERT INTO wx_dailysummarytask (station_id, date, created_at, updated_at)
-            VALUES ({station_id}, '{request_datetime}', now(), now())
+            VALUES (%s, %s, now(), now())
             ON CONFLICT DO NOTHING
         """,
-        "create_hourly_summary": f"""
+        "create_hourly_summary": """
             INSERT INTO wx_hourlysummarytask (station_id, datetime, created_at, updated_at)
-            VALUES ({station_id}, '{request_datetime}', now(), now())
+            VALUES (%s, %s, now(), now())
             ON CONFLICT DO NOTHING
         """,
-        "get_last_updated": f"""
+        "get_last_updated": """
             SELECT max(last_data_datetime)
             FROM wx_stationvariable
-            WHERE station_id = {station_id}
-              AND variable_id IN {variable_id_list}
+            WHERE station_id = %s
+              AND variable_id = ANY(%s)
             ORDER BY 1 DESC
         """,
-        "update_last_updated": f"""
+        "update_last_updated": """
             WITH rd AS (
                 SELECT station_id, variable_id, measured, code, datetime,
                        RANK() OVER (PARTITION BY station_id, variable_id ORDER BY datetime DESC) AS datetime_rank
-                FROM raw_data
-                WHERE station_id = {station_id}
-                  AND variable_id IN {variable_id_list}
+                FROM {raw_data_chunk}
+                WHERE station_id = %s
+                  AND variable_id = ANY(%s)
             )
             UPDATE wx_stationvariable sv
             SET last_data_datetime = rd.datetime,
@@ -8553,17 +8576,29 @@ def synop_delete(request):
 
     with psycopg2.connect(settings.SURFACE_CONNECTION_STRING) as conn:
         with conn.cursor() as cursor:
-            cursor.execute(queries["delete_raw_data"])
-            # After deleting from raw_data, is necessary to update the daily and hourly summary tables.
-            cursor.execute(queries["create_daily_summary"])
-            cursor.execute(queries["create_hourly_summary"])
+            # grab relevant chunks, holding data within 10 days of the request datetime
+            # this reduces the overhead of looking through the entire raw_data table
+            cursor.execute(queries['grab_relevant_chunks'], [request_start_range_dt, request_end_range_dt])
             
-            # If suceed in inserting new data, it's necessary to update the 'last data' columns in wx_stationvariable tabl.
-            cursor.execute(queries["get_last_updated"])
+            chunks = [row[0] for row in cursor.fetchall()]
+
+            for chunk in chunks:
+                cursor.execute(queries['delete_raw_data'].format(raw_data_chunk=chunk), [station_id, variable_id_list, request_datetime])
+
+            # After deleting from raw_data, is necessary to update the daily and hourly summary tables.
+            cursor.execute(queries["create_daily_summary"], [station_id, request_datetime])
+            cursor.execute(queries["create_hourly_summary"], [station_id, request_datetime])
+            
+            # If succeed in inserting new data, it's necessary to update the 'last data' columns in wx_stationvariable tabl.
+            cursor.execute(queries["get_last_updated"], [station_id, variable_id_list])
             
             last_data_datetime_row = cursor.fetchone()
+
             if last_data_datetime_row and last_data_datetime_row[0] == request_datetime:
-                cursor.execute(queries['update_last_updated'])
+                # loop through relevant chunks instead of the entire raw_data
+                for chunk in chunks:
+                    cursor.execute(queries["update_last_updated"].format(raw_data_chunk=chunk), [station_id, variable_id_list])
+
         conn.commit()
 
     return Response([], status=status.HTTP_200_OK)
@@ -9650,67 +9685,85 @@ def synop_capture_update_empty_col(request):
             message = "Invalid date format. The expected date format is 'YYYY-MM-DD'"
             return JsonResponse({"message": message}, status=status.HTTP_400_BAD_REQUEST)
         
-        variable_id_list = tuple(variable_id_list)
+        variable_id_list = [int(v) for v in tuple(variable_id_list)]
         station = Station.objects.get(id=station_id)
         datetime_offset = pytz.FixedOffset(station.utc_offset_minutes)
         request_datetime = datetime_offset.localize(request_date.replace(hour=hour))
+        request_start_range_dt = request_datetime - timedelta(days=10)
+        request_end_range_dt = request_datetime + timedelta(days=10)
 
-        queries = {
-            "delete_raw_data": f"""
-                DELETE FROM raw_data
-                WHERE station_id = {station_id}
-                  AND variable_id IN {variable_id_list}
-                  AND datetime = '{request_datetime}'
-            """,
-            "create_daily_summary": f"""
-                INSERT INTO wx_dailysummarytask (station_id, date, created_at, updated_at)
-                VALUES ({station_id}, '{request_datetime}', now(), now())
-                ON CONFLICT DO NOTHING
-            """,
-            "create_hourly_summary": f"""
-                INSERT INTO wx_hourlysummarytask (station_id, datetime, created_at, updated_at)
-                VALUES ({station_id}, '{request_datetime}', now(), now())
-                ON CONFLICT DO NOTHING
-            """,
-            "get_last_updated": f"""
-                SELECT max(last_data_datetime)
-                FROM wx_stationvariable
-                WHERE station_id = {station_id}
-                  AND variable_id IN {variable_id_list}
-                ORDER BY 1 DESC
-            """,
-            "update_last_updated": f"""
-                WITH rd AS (
-                    SELECT station_id, variable_id, measured, code, datetime,
-                           RANK() OVER (PARTITION BY station_id, variable_id ORDER BY datetime DESC) AS datetime_rank
-                    FROM raw_data
-                    WHERE station_id = {station_id}
-                      AND variable_id IN {variable_id_list}
-                )
-                UPDATE wx_stationvariable sv
-                SET last_data_datetime = rd.datetime,
-                    last_data_value = rd.measured,
-                    last_data_code = rd.code
-                FROM rd
-                WHERE sv.station_id = rd.station_id
-                  AND sv.variable_id = rd.variable_id
-                  AND rd.datetime_rank = 1
-            """
-        }
+    queries = {
+        "grab_relevant_chunks": """
+            SELECT 
+            show_chunks('raw_data', newer_than => %s, older_than => %s)
+        """,
+        "delete_raw_data": """
+            DELETE FROM {raw_data_chunk}
+            WHERE station_id = %s
+            AND variable_id = ANY(%s)
+            AND datetime = %s
+        """,
+        "create_daily_summary": """
+            INSERT INTO wx_dailysummarytask (station_id, date, created_at, updated_at)
+            VALUES (%s, %s, now(), now())
+            ON CONFLICT DO NOTHING
+        """,
+        "create_hourly_summary": """
+            INSERT INTO wx_hourlysummarytask (station_id, datetime, created_at, updated_at)
+            VALUES (%s, %s, now(), now())
+            ON CONFLICT DO NOTHING
+        """,
+        "get_last_updated": """
+            SELECT max(last_data_datetime)
+            FROM wx_stationvariable
+            WHERE station_id = %s
+              AND variable_id = ANY(%s)
+            ORDER BY 1 DESC
+        """,
+        "update_last_updated": """
+            WITH rd AS (
+                SELECT station_id, variable_id, measured, code, datetime,
+                       RANK() OVER (PARTITION BY station_id, variable_id ORDER BY datetime DESC) AS datetime_rank
+                FROM {raw_data_chunk}
+                WHERE station_id = %s
+                  AND variable_id = ANY(%s)
+            )
+            UPDATE wx_stationvariable sv
+            SET last_data_datetime = rd.datetime,
+                last_data_value = rd.measured,
+                last_data_code = rd.code
+            FROM rd
+            WHERE sv.station_id = rd.station_id
+              AND sv.variable_id = rd.variable_id
+              AND rd.datetime_rank = 1
+        """
+    }
 
-        with psycopg2.connect(settings.SURFACE_CONNECTION_STRING) as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(queries["delete_raw_data"])
-                # After deleting from raw_data, is necessary to update the daily and hourly summary tables.
-                cursor.execute(queries["create_daily_summary"])
-                cursor.execute(queries["create_hourly_summary"])
-                
-                # If suceed in inserting new data, it's necessary to update the 'last data' columns in wx_stationvariable tabl.
-                cursor.execute(queries["get_last_updated"])
-                
-                last_data_datetime_row = cursor.fetchone()
-                if last_data_datetime_row and last_data_datetime_row[0] == request_datetime:
-                    cursor.execute(queries['update_last_updated'])
-            conn.commit()
+    with psycopg2.connect(settings.SURFACE_CONNECTION_STRING) as conn:
+        with conn.cursor() as cursor:
+            # grab relevant chunks, holding data within 10 days of the request datetime
+            # this reduces the overhead of looking through the entire raw_data table
+            cursor.execute(queries['grab_relevant_chunks'], [request_start_range_dt, request_end_range_dt])
+            
+            chunks = [row[0] for row in cursor.fetchall()]
+
+            for chunk in chunks:
+                cursor.execute(queries['delete_raw_data'].format(raw_data_chunk=chunk), [station_id, variable_id_list, request_datetime])
+
+            # After deleting from raw_data, is necessary to update the daily and hourly summary tables.
+            cursor.execute(queries["create_daily_summary"], [station_id, request_datetime])
+            cursor.execute(queries["create_hourly_summary"], [station_id, request_datetime])
+            
+            # If succeed in inserting new data, it's necessary to update the 'last data' columns in wx_stationvariable tabl.
+            cursor.execute(queries["get_last_updated"], [station_id, variable_id_list])
+            
+            last_data_datetime_row = cursor.fetchone()
+
+            if last_data_datetime_row and last_data_datetime_row[0] == request_datetime:
+                # loop through relevant chunks instead of the entire raw_data
+                for chunk in chunks:
+                    cursor.execute(queries["update_last_updated"].format(raw_data_chunk=chunk), [station_id, variable_id_list])
+
+        conn.commit()
 
     return Response([], status=status.HTTP_200_OK)

@@ -35,6 +35,7 @@ from django.core.cache import cache
 from django.db import connection
 from django.utils.timezone import now, timedelta
 from django.db.models import Count, Q
+from django.db import transaction
 
 
 from tempestas_api import settings
@@ -408,8 +409,8 @@ def calculate_daily_summary(start_date=None, end_date=None, station_id_list=None
             station_ids = list(stations.filter(utc_offset_minutes=offset).values_list('id', flat=True))
             fixed_offset = pytz.FixedOffset(offset)
 
-            datetime_start_utc = datetime(start_date.year, start_date.month, start_date.day, 0, 0, 0, tzinfo=pytz.UTC)
-            datetime_end_utc = datetime(end_date.year, end_date.month, end_date.day, 0, 0, 0, tzinfo=pytz.UTC)
+            # datetime_start_utc = datetime(start_date.year, start_date.month, start_date.day, 0, 0, 0, tzinfo=pytz.UTC)
+            # datetime_end_utc = datetime(end_date.year, end_date.month, end_date.day, 0, 0, 0, tzinfo=pytz.UTC)
 
             datetime_start = datetime(start_date.year, start_date.month, start_date.day, 0, 0, 0,
                                       tzinfo=fixed_offset).astimezone(pytz.UTC)
@@ -483,10 +484,19 @@ def calculate_daily_summary(start_date=None, end_date=None, station_id_list=None
                   AND (rd.manual_flag in (1,4) OR (rd.manual_flag IS NULL AND rd.quality_flag in (1,4)))
                   AND rd.is_daily
                 GROUP BY 1,2,3
+                ON CONFLICT (day, station_id, variable_id) DO UPDATE
+                SET min_value = EXCLUDED.min_value,
+                    max_value = EXCLUDED.max_value,
+                    avg_value = EXCLUDED.avg_value,
+                    sum_value = EXCLUDED.sum_value,
+                    num_records = EXCLUDED.num_records,
+                    updated_at = now();
             """
 
-            cursor.execute(delete_sql, {"datetime_start": datetime_start_utc, "datetime_end": datetime_end_utc,
+
+            cursor.execute(delete_sql, {"datetime_start": datetime_start, "datetime_end": datetime_end,
                                         "station_ids": station_ids})
+            
             cursor.execute(insert_sql,
                            {"datetime_start": datetime_start, "datetime_end": datetime_end, "station_ids": station_ids,
                             "offset": offset, "MISSING_VALUE": settings.MISSING_VALUE})
@@ -594,6 +604,96 @@ def calculate_station_minimum_interval(start_date=None, end_date=None, station_i
     conn.close()
 
     logger.info(f'Calculate minimum interval finished at {datetime.now(pytz.UTC)}. Took {time() - start_at} seconds.')
+
+# def calculate_station_minimum_interval(start_date, end_date, station_id):
+#     """
+#     Calculate the minimum data interval for a single station for a 24-hour period.
+#     """
+        
+#     logger.info(
+#         f'CALCULATE STATION MINIMUM INTERVAL started at {datetime.now(tz=pytz.UTC)} '
+#         f'for station_id={station_id}, start_date={start_date}, end_date={end_date}'
+#     )
+
+#     start_at = time()
+
+#     # Ensure start and end dates are set
+#     if start_date is None or end_date is None:
+#         start_date = datetime.now(pytz.UTC).date()
+#         end_date = start_date + timedelta(days=1)
+
+#     if start_date > end_date:
+#         logger.error("start_date is more recent than end_date.")
+#         return
+
+#     # UTC boundaries for the day
+#     datetime_start_utc = datetime(start_date.year, start_date.month, start_date.day, tzinfo=pytz.UTC)
+#     datetime_end_utc   = datetime(end_date.year, end_date.month, end_date.day, tzinfo=pytz.UTC)
+
+#     # Get the UTC offset for the station
+#     try:
+#         station = Station.objects.get(id=station_id)
+#     except Station.DoesNotExist:
+#         logger.error(f"Station {station_id} does not exist.")
+#         return
+
+#     fixed_offset = pytz.FixedOffset(station.utc_offset_minutes)
+
+#     sql = """
+#         INSERT INTO wx_stationdataminimuminterval (
+#              datetime, station_id, variable_id, minimum_interval,
+#              record_count, ideal_record_count, record_count_percentage,
+#              created_at, updated_at
+#         )
+#         SELECT current_day
+#               ,stationvariable.station_id
+#               ,stationvariable.variable_id
+#               ,MIN(value.data_interval) AS minimum_interval
+#               ,COALESCE(COUNT(value.formated_datetime), 0) AS record_count
+#               ,COALESCE(EXTRACT(EPOCH FROM INTERVAL '1 day') / NULLIF(EXTRACT(EPOCH FROM MIN(value.data_interval)),0), 0) AS ideal_record_count
+#               ,COALESCE(COUNT(value.formated_datetime) / NULLIF(EXTRACT(EPOCH FROM INTERVAL '1 day') / EXTRACT(EPOCH FROM MIN(value.data_interval)),0) * 100, 0) AS record_count_percentage
+#               ,NOW()
+#               ,NOW()
+#         FROM generate_series(%(datetime_start)s, %(datetime_end)s, INTERVAL '1 day') AS current_day
+#             ,wx_stationvariable AS stationvariable
+#             ,wx_station AS station
+#         LEFT JOIN LATERAL (
+#             SELECT 
+#                 date_trunc('day', rd.datetime - INTERVAL '1 second' + (COALESCE(station.utc_offset_minutes, 0) || ' minutes')::interval) AS formated_datetime,
+#                 CASE WHEN rd.is_daily THEN '24:00:00'
+#                      ELSE LEAD(datetime,1) OVER (PARTITION BY station_id, variable_id ORDER BY datetime) - datetime
+#                 END AS data_interval
+#             FROM raw_data rd
+#             WHERE rd.datetime > current_day - ((COALESCE(station.utc_offset_minutes, 0) || ' minutes')::interval)
+#               AND rd.datetime <= current_day + INTERVAL '1 DAY' - ((COALESCE(station.utc_offset_minutes, 0) || ' minutes')::interval)
+#               AND rd.station_id = stationvariable.station_id
+#               AND rd.variable_id = stationvariable.variable_id
+#         ) value ON TRUE
+#         WHERE stationvariable.station_id = %(station_id)s
+#           AND stationvariable.station_id = station.id
+#           AND (value.formated_datetime = current_day OR value.formated_datetime IS NULL)
+#         GROUP BY current_day, stationvariable.station_id, stationvariable.variable_id
+#         ON CONFLICT (datetime, station_id, variable_id)
+#         DO UPDATE SET
+#              minimum_interval        = EXCLUDED.minimum_interval,
+#              record_count            = EXCLUDED.record_count,
+#              ideal_record_count      = EXCLUDED.ideal_record_count,
+#              record_count_percentage = EXCLUDED.record_count_percentage,
+#              updated_at              = NOW()
+#     """
+
+#     with connection.cursor() as cursor:
+#         cursor.execute(sql, {
+#             "datetime_start": datetime_start_utc,
+#             "datetime_end": datetime_end_utc,
+#             "station_id": station_id
+#         })
+#         connection.commit()
+
+#     logger.info(
+#         f'Calculate minimum interval finished at {datetime.now(pytz.UTC)}. '
+#         f'Took {time() - start_at:.2f} seconds for station_id={station_id}.'
+#     )
 
 
 # retrived data inventory (Individul MONTH VIEW)
@@ -1073,73 +1173,74 @@ def save_flash_data(data_string):
 
 @shared_task
 def export_data(station_id, source, start_date, end_date, variable_ids, file_id, agg, displayUTC):
-    logger.info(f'Exporting data (file "{file_id}")')
+    try:
+        logger.info(f'Exporting data (file "{file_id}")')
 
-    timezone_offset = pytz.timezone(settings.TIMEZONE_NAME)
-    start_date_utc = pytz.UTC.localize(datetime.strptime(start_date, '%Y-%m-%d %H:%M:%S'))
-    end_date_utc = pytz.UTC.localize(datetime.strptime(end_date, '%Y-%m-%d %H:%M:%S'))
+        timezone_offset = pytz.timezone(settings.TIMEZONE_NAME)
+        start_date_utc = pytz.UTC.localize(datetime.strptime(start_date, '%Y-%m-%d %H:%M:%S'))
+        end_date_utc = pytz.UTC.localize(datetime.strptime(end_date, '%Y-%m-%d %H:%M:%S'))
 
-    station = Station.objects.get(pk=station_id)
-    current_datafile = DataFile.objects.get(pk=file_id)
+        station = Station.objects.get(pk=station_id)
+        current_datafile = DataFile.objects.get(pk=file_id)
 
-    variable_ids = tuple(variable_ids)
-    # variable_ids = ','.join([str(x) for x in variable_ids])
+        variable_ids = tuple(variable_ids)
+        # variable_ids = ','.join([str(x) for x in variable_ids])
 
-    # Diferent data sources have diferents columns names for the measurement data and diferents intervals
-    if source == 'raw_data':
-        datetime_variable = 'datetime'
-        data_source_description = 'Raw data'
-        converted_start_date = start_date_utc
-        converted_end_date = end_date_utc
-
-    else:
-        # measured_source = '''
-        #     CASE WHEN var.sampling_operation_id in (1,2) THEN data.avg_value
-        #          WHEN var.sampling_operation_id = 3      THEN data.min_value
-        #          WHEN var.sampling_operation_id = 4      THEN data.max_value
-        #          WHEN var.sampling_operation_id = 6      THEN data.sum_value
-        #     ELSE data.sum_value END as value '''
-        if source == 'hourly_summary':
+        # Diferent data sources have diferents columns names for the measurement data and diferents intervals
+        if source == 'raw_data':
             datetime_variable = 'datetime'
-            date_source = f"(datetime + interval '{station.utc_offset_minutes} minutes') at time zone 'utc' as date"
-            data_source_description = 'Hourly summary'
+            data_source_description = 'Raw data'
             converted_start_date = start_date_utc
             converted_end_date = end_date_utc
 
-        elif source == 'daily_summary':
-            datetime_variable = 'day'
-            data_source_description = 'Daily summary'
-            date_source = "day::date"
-            converted_start_date = start_date_utc.astimezone(timezone_offset).date()
-            converted_end_date = end_date_utc.astimezone(timezone_offset).date()
-
-        elif source == 'monthly_summary':
+        else:
             # measured_source = '''
-            #     CASE WHEN var.sampling_operation_id in (1,2) THEN data.avg_value::real
-            #         WHEN var.sampling_operation_id = 3      THEN data.min_value
-            #         WHEN var.sampling_operation_id = 4      THEN data.max_value
-            #         WHEN var.sampling_operation_id = 6      THEN data.sum_value
+            #     CASE WHEN var.sampling_operation_id in (1,2) THEN data.avg_value
+            #          WHEN var.sampling_operation_id = 3      THEN data.min_value
+            #          WHEN var.sampling_operation_id = 4      THEN data.max_value
+            #          WHEN var.sampling_operation_id = 6      THEN data.sum_value
             #     ELSE data.sum_value END as value '''
-            datetime_variable = 'date'
-            date_source = "date::date"
-            data_source_description = 'Monthly summary'
-            converted_start_date = start_date_utc.astimezone(timezone_offset).date()
-            converted_end_date = end_date_utc.astimezone(timezone_offset).date()
+            if source == 'hourly_summary':
+                datetime_variable = 'datetime'
+                date_source = f"(datetime + interval '{station.utc_offset_minutes} minutes') at time zone 'utc' as date"
+                data_source_description = 'Hourly summary'
+                converted_start_date = start_date_utc
+                converted_end_date = end_date_utc
 
-        elif source == 'yearly_summary':
-            # measured_source = '''
-            #     CASE WHEN var.sampling_operation_id in (1,2) THEN data.avg_value::real
-            #         WHEN var.sampling_operation_id = 3      THEN data.min_value
-            #         WHEN var.sampling_operation_id = 4      THEN data.max_value
-            #         WHEN var.sampling_operation_id = 6      THEN data.sum_value
-            #     ELSE data.sum_value END as value '''
-            datetime_variable = 'date'
-            date_source = "date::date"
-            data_source_description = 'Yearly summary'
-            converted_start_date = start_date_utc.astimezone(timezone_offset).date()
-            converted_end_date = end_date_utc.astimezone(timezone_offset).date()
+            elif source == 'daily_summary':
+                datetime_variable = 'day'
+                data_source_description = 'Daily summary'
+                date_source = "day::date"
+                converted_start_date = start_date_utc.astimezone(timezone_offset).date()
+                converted_end_date = end_date_utc.astimezone(timezone_offset).date()
 
-    try:
+            elif source == 'monthly_summary':
+                # measured_source = '''
+                #     CASE WHEN var.sampling_operation_id in (1,2) THEN data.avg_value::real
+                #         WHEN var.sampling_operation_id = 3      THEN data.min_value
+                #         WHEN var.sampling_operation_id = 4      THEN data.max_value
+                #         WHEN var.sampling_operation_id = 6      THEN data.sum_value
+                #     ELSE data.sum_value END as value '''
+                datetime_variable = 'date'
+                date_source = "date::date"
+                data_source_description = 'Monthly summary'
+                converted_start_date = start_date_utc.astimezone(timezone_offset).date()
+                converted_end_date = end_date_utc.astimezone(timezone_offset).date()
+
+            elif source == 'yearly_summary':
+                # measured_source = '''
+                #     CASE WHEN var.sampling_operation_id in (1,2) THEN data.avg_value::real
+                #         WHEN var.sampling_operation_id = 3      THEN data.min_value
+                #         WHEN var.sampling_operation_id = 4      THEN data.max_value
+                #         WHEN var.sampling_operation_id = 6      THEN data.sum_value
+                #     ELSE data.sum_value END as value '''
+                datetime_variable = 'date'
+                date_source = "date::date"
+                data_source_description = 'Yearly summary'
+                converted_start_date = start_date_utc.astimezone(timezone_offset).date()
+                converted_end_date = end_date_utc.astimezone(timezone_offset).date()
+
+
         variable_dict = {}
         variable_names_string = ''
 
@@ -2170,6 +2271,7 @@ def ftp_ingest_highfrequency_station_files():
     hfreq_data = True
     ftp_ingest_station_files(hist_data, hfreq_data)
 
+@shared_task
 def ftp_ingest_station_files(historical_data, highfrequency_data):
     """
     Get and process station data files via FTP protocol
@@ -2197,73 +2299,81 @@ def ftp_ingest_station_files(historical_data, highfrequency_data):
     for ftp_server in ftp_servers:
         logging.info(f'Connecting to {ftp_server}')
 
-        with FTP() as ftp:
-            ftp.connect(ftp_server.host, ftp_server.port)
-            ftp.login(ftp_server.username, ftp_server.password)
-            ftp.set_pasv(not ftp_server.is_active_mode)
-            home_folder = ftp.pwd()
+        try:
+            with FTP() as ftp:
+                ftp.connect(ftp_server.host, ftp_server.port)
+                ftp.login(ftp_server.username, ftp_server.password)
+                ftp.set_pasv(not ftp_server.is_active_mode)
+                home_folder = ftp.pwd()
 
-            for sfi in [s for s in station_file_ingestions if s.ftp_server == ftp_server]:
-                try:
-                    ftp.cwd(sfi.remote_folder)
-                except error_perm as e:
-                    logger.error(f'Error on access the directory "{sfi.remote_folder}". {repr(e)}')
-                    db_logger.error(f'Error on access the directory "{sfi.remote_folder}". {repr(e)}')
-
-                # list remote files
-                remote_files = ftp.nlst(sfi.file_pattern)
-
-                for fname in remote_files:
+                for sfi in [s for s in station_file_ingestions if s.ftp_server == ftp_server]:
                     try:
-                        local_folder = '/data/documents/ingest/%s/%s/%s/%04d/%02d/%02d' % (
-                            sfi.decoder.name, sfi.station.code, data_type, dt.year, dt.month, dt.day)
-                        local_filename = '%04d%02d%02d%02d%02d%02d_%s' % (
-                            dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, fname)
-                        local_path = '%s/%s' % (local_folder, local_filename)
-                        os.makedirs(local_folder, exist_ok=True)
+                        ftp.cwd(sfi.remote_folder)
+                    except error_perm as e:
+                        logger.error(f'Error on access the directory "{sfi.remote_folder}". {repr(e)}')
+                        db_logger.error(f'Error on access the directory "{sfi.remote_folder}". {repr(e)}')
 
-                        hash_md5 = hashlib.md5()
-                        if sfi.is_binary_transfer:
-                            with open(local_path, 'wb') as fp_binary:
-                                ftp.retrbinary(f'RETR {fname}',
-                                               lambda data: [fp_binary.write(data), hash_md5.update(data)])
-                        else:
-                            with open(local_path, 'w') as fp:
-                                ftp.retrlines(f'RETR {fname}', lambda line: [fp.write(line + '\n'),
-                                                                             hash_md5.update(line.encode('utf8'))])
+                    # list remote files
+                    remote_files = ftp.nlst(sfi.file_pattern)
 
-                        if sfi.delete_from_server:
-                            try:
-                                ftp.delete(fname)
-                            except error_perm as e:
-                                logger.error(
-                                    'Permission error on delete the ftp server file "{0}".'.format(local_path) + repr(
-                                        e))
-                                db_logger.error(
-                                    'Permission error on delete the ftp server file "{0}".'.format(local_path) + repr(
-                                        e))
-                            except error_reply as e:
-                                logger.error('Unknown reply received "{0}".'.format(local_path) + repr(e))
-                                db_logger.error('Unknown reply received "{0}".'.format(local_path) + repr(e))
+                    for fname in remote_files:
+                        try:
+                            local_folder = '/data/documents/ingest/%s/%s/%s/%04d/%02d/%02d' % (
+                                sfi.decoder.name, sfi.station.code, data_type, dt.year, dt.month, dt.day)
+                            local_filename = '%04d%02d%02d%02d%02d%02d_%s' % (
+                                dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, fname)
+                            local_path = '%s/%s' % (local_folder, local_filename)
+                            os.makedirs(local_folder, exist_ok=True)
 
-                        # Inserts a StationDataFile object with status = 1 (Not processed)
-                        station_data_file = StationDataFile(station=sfi.station
-                                                            , decoder=sfi.decoder
-                                                            , status_id=1
-                                                            , utc_offset_minutes=sfi.utc_offset_minutes
-                                                            , filepath=local_path
-                                                            , file_hash=hash_md5.hexdigest()
-                                                            , file_size=os.path.getsize(local_path)
-                                                            , is_historical_data=sfi.is_historical_data
-                                                            , is_highfrequency_data=sfi.is_highfrequency_data
-                                                            , override_data_on_conflict=sfi.override_data_on_conflict)
-                        station_data_file.save()
-                        logging.info(f'Downloaded FTP file: {local_path}')
-                    except OSError as e:
-                        logger.error('OS error. ' + repr(e))
-                        db_logger.error('OS error. ' + repr(e))
+                            hash_md5 = hashlib.md5()
+                            if sfi.is_binary_transfer:
+                                with open(local_path, 'wb') as fp_binary:
+                                    ftp.retrbinary(f'RETR {fname}',
+                                                lambda data: [fp_binary.write(data), hash_md5.update(data)])
+                            else:
+                                with open(local_path, 'w') as fp:
+                                    ftp.retrlines(f'RETR {fname}', lambda line: [fp.write(line + '\n'),
+                                                                                hash_md5.update(line.encode('utf8'))])
 
-                ftp.cwd(home_folder)
+                            if sfi.delete_from_server:
+                                try:
+                                    ftp.delete(fname)
+                                except error_perm as e:
+                                    logger.error(
+                                        'Permission error on delete the ftp server file "{0}".'.format(local_path) + repr(
+                                            e))
+                                    db_logger.error(
+                                        'Permission error on delete the ftp server file "{0}".'.format(local_path) + repr(
+                                            e))
+                                except error_reply as e:
+                                    logger.error('Unknown reply received "{0}".'.format(local_path) + repr(e))
+                                    db_logger.error('Unknown reply received "{0}".'.format(local_path) + repr(e))
+
+                            # Inserts a StationDataFile object with status = 1 (Not processed)
+                            station_data_file = StationDataFile(station=sfi.station
+                                                                , decoder=sfi.decoder
+                                                                , status_id=1
+                                                                , utc_offset_minutes=sfi.utc_offset_minutes
+                                                                , filepath=local_path
+                                                                , file_hash=hash_md5.hexdigest()
+                                                                , file_size=os.path.getsize(local_path)
+                                                                , is_historical_data=sfi.is_historical_data
+                                                                , is_highfrequency_data=sfi.is_highfrequency_data
+                                                                , override_data_on_conflict=sfi.override_data_on_conflict)
+                            station_data_file.save()
+                            logging.info(f'Downloaded FTP file: {local_path}')
+                        except OSError as e:
+                            logger.error('OS error. ' + repr(e))
+                            db_logger.error('OS error. ' + repr(e))
+
+                    ftp.cwd(home_folder)
+
+        except Exception as err:
+            logger.error(f'Error during ftp_ingest_station_files. Host: {ftp_server.host}    Port: {ftp_server.port}    Username: {ftp_server.username}')
+            logger.error(repr(err))
+
+            db_logger.error(f'Error during ftp_ingest_station_files. Host: {ftp_server.host}    Port: {ftp_server.port}    Username: {ftp_server.username}')
+            db_logger.error(repr(err))
 
     process_station_data_files(historical_data, highfrequency_data)
 
@@ -2730,7 +2840,7 @@ def recalculate_summary(df, station_id, s_datetime, e_datetime, summary_type):
             dates = set([dt.date() for dt in datetimes])
             for date in dates:
                 _dailysummaries = DailySummaryTask.objects.filter(station_id=station_id, date=date, started_at__isnull=True)
-                if not _hourlysummaries:
+                if not _dailysummaries:
                     insert_summay(date, station_id, summary_type)
 
 def hourly_summary(hourly_summary_tasks_ids, station_ids, s_datetime, e_datetime):
@@ -2765,12 +2875,12 @@ def daily_summary(daily_summary_tasks_ids, station_ids, s_datetime, e_datetime):
     try:
         DailySummaryTask.objects.filter(id__in=daily_summary_tasks_ids).update(started_at=datetime.now(tz=pytz.UTC))
         calculate_daily_summary(s_datetime, e_datetime, station_id_list=station_ids)
-        for station_id in station_ids:
-           calculate_station_minimum_interval(s_datetime, e_datetime, station_id_list=(station_id,))
+
+        # # calculation of station minimum interval will be disabled until it is re-worked
+        # for station_id in station_ids:
+        #    calculate_station_minimum_interval(s_datetime, e_datetime, station_id_list=(station_id,))
     except Exception as err:
         logger.error('Error calculation daily summary for day "{0}". '.format(s_datetime) + repr(err))
-
-        print('Error calculation daily summary for day "{0}". '.format(s_datetime) + repr(err)) # delete after use
 
         db_logger.error('Error calculation daily summary for day "{0}". '.format(s_datetime) + repr(err))
     else:
@@ -2781,6 +2891,7 @@ def process_daily_summary_tasks():
     try:
         # process only 500 daily summaries per execution
         unprocessed_daily_summary_dates = DailySummaryTask.objects.filter(started_at=None).values_list('date',flat=True).distinct()[:501]
+        
         for daily_summary_date in unprocessed_daily_summary_dates:
 
             start_date = daily_summary_date
@@ -2795,10 +2906,10 @@ def process_daily_summary_tasks():
 
             daily_summary(daily_summary_tasks_ids, station_ids, start_date, end_date)
     except Exception as err:
-        logger.error('Error processing daily summary for day "{0}". '.format(start_date) + repr(err))
+        logger.error('Error processing daily summary. ' + repr(err))
 
-        print('Error processing daily summary for day "{0}". '.format(start_date) + repr(err)) # delete after use
         raise
+
 
 def predict_data(start_datetime, end_datetime, prediction_id, station_ids, target_station_id, variable_id,
                  data_period_in_minutes, interval_in_minutes, result_mapping):

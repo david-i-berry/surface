@@ -658,12 +658,15 @@
                       {% endif %}
                                   
                       {% if 'synop-capture-form' in request.user_permissions or request.user.is_superuser %}
-                        <a id="synop-capture-form" href="{% url 'synop-capture-form' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Synop Capture **New<i class="material-icons secondary-content">keyboard</i></a>
+                        <a id="synop-capture-form" href="{% url 'synop-capture-form' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Synop Capture<i class="material-icons secondary-content">keyboard</i></a>
                       {% endif %}
 
+                      <!-- Old synop capture form-->
+                      <!--
                       {% if 'synop-capture' in request.user_permissions or request.user.is_superuser %}
                         <a id="synop-capture" href="{% url 'synop-capture' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Synop Capture **Old<i class="material-icons secondary-content">keyboard</i></a>
-                      {% endif %}
+                      {% endif %} 
+                      -->
                       
                       {% if 'data-inventory' in request.user_permissions or request.user.is_superuser %}
                         <a id="data-inventory" href="{% url 'data-inventory' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Data Inventory<i class="material-icons secondary-content">web</i></a>
