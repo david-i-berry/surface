@@ -35,3 +35,4 @@ django-simple-history==3.3.0
 numpy==1.22.0
 Jinja2==3.1.5
 aquacrop==3.0.11
+supabase==2.22.0
