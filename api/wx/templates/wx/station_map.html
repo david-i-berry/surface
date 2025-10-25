@@ -259,22 +259,29 @@
             @click="openStationsDetailDialog(marker, $event)"
             @add="openPopup"
           >
+
             <l-tooltip :options="tooltipOptions"
               >[[ marker.tooltip ]]</l-tooltip
             >
+
             <l-popup v-show="showMarkerValues" :options="popupOptions">
+
               <div class="left">
                 <div class="value temp-max">[[ marker.tempMax ]]</div>
                 <div class="value temp-min">[[ marker.tempMin ]]</div>
               </div>
+
               <div class="right">
                 <div class="value atm-pressure">[[ marker.atmPressure ]]</div>
                 <div class="value precipitation">
                   [[ marker.precipitation ]]
                 </div>
               </div>
+
             </l-popup>
+
           </l-marker>
+
         </div>
 
         <l-geo-json
@@ -606,7 +613,7 @@
         tooltipAnchor: [0, -34]
       }),
       showWindBarbs: true,
-      popupOptions: { closeButton: false, className: 'windbarbPopup', autoClose: false, closeOnClick: false },
+      popupOptions: { closeButton: false, className: 'windbarbPopup', autoClose: false, closeOnClick: false, autoPan: false },
       tooltipOptions: { permanent: false, direction: 'top', className: '' },
       menu: false,
       lastUpdate: null,
