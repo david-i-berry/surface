@@ -7504,9 +7504,6 @@ class AquacropModelRunView(views.APIView):
             model_history_df_2, output_2 = self._simulation_strategy_2(json_data, model_params, weather_df, schedule_df)
             model_history_df_3, output_3 = self._simulation_strategy_3(json_data, model_params, weather_df, schedule_df)
 
-            print('History 1=2?', model_history_df_1.equals(model_history_df_2))
-            print('History 1=3?', model_history_df_1.equals(model_history_df_3))
-
             response = {
                 'history': model_history_df_1.to_dict('list'),
                 'strategies':[{
@@ -7593,6 +7590,14 @@ class AquacropModelRunView(views.APIView):
             'last_date': '2010-03-31',
             'amount': '1',
         }]
+        
+        # irrigation_schedule = [{
+        #     'id': None,
+        #     'simulation_scenario_id': '498c24b6-19f1-4878-b99a-f1c4b539ed90',
+        #     'first_date': '2010-01-01',
+        #     'last_date': '2010-04-04',
+        #     'amount': '5',
+        # }]
 
         schedule_dfs = []
         for entry in irrigation_schedule:
@@ -7616,31 +7621,43 @@ class AquacropModelRunView(views.APIView):
         ], axis=1)
         output_df = output_df.loc[:, ~output_df.columns.duplicated()]
         output_df = output_df.round(2)
+
+
         output_df = output_df.drop(columns='z_gw') # This column has NaN values
+
+        # For some reason AquacropOSPy os calculating Yield as HI * Biomass/100 and not 1000
+        # so we need to convert the biomass to t/ha dividing by 100. Furthe investigation is needed
+        output_df['biomass'] = output_df['biomass']/100
+        output_df['biomass_ns'] = output_df['biomass_ns']/100
 
         output_df = pd.concat([output_df.reset_index(drop=True), additional_df.reset_index(drop=True)], axis=1)
         output_df['Depletion'] = output_df['Depletion'].fillna(0)
         output_df['TAW'] = output_df['TAW'].fillna(0)
         output_df['WaterContent'] = output_df['WaterContent'].fillna(0)
-        output_df['WaterContent_Pct'] = (output_df['WaterContent'] / output_df['TAW']).replace(np.inf, np.nan).fillna(0)
+        output_df['WaterContentPct'] = (output_df['WaterContent'] / output_df['TAW']).replace(np.inf, np.nan).fillna(0)
 
         # Compute statistics for growing season (after planting and before maturity)
-        output_df['gdd_stall'] = ((output_df['growing_season'] == 1) & (output_df['gdd'] == 0)).astype(int)
-        output_df['gdd_active'] = ((output_df['growing_season'] == 1) & (output_df['gdd'] > 0)).astype(int)
-        output_df['gdd_stall_count'] = output_df['gdd_stall'].cumsum()
-        output_df['gdd_active_count'] = output_df['gdd_active'].cumsum()
+        output_df['gdd_nonpositive'] = ((output_df['growing_season'] == 1) & (output_df['gdd'] == 0)).astype(int)
+        output_df['gdd_positive'] = ((output_df['growing_season'] == 1) & (output_df['gdd'] > 0)).astype(int)
+        output_df['gdd_nonpositive_count'] = output_df['gdd_nonpositive'].cumsum()
+        output_df['gdd_positive_count'] = output_df['gdd_positive'].cumsum()
 
-        output_df['wc_25'] = ((output_df['growing_season'] == 1) & (output_df['WaterContent_Pct'] < 0.25)).astype(int)
-        output_df['wc_50'] = ((output_df['growing_season'] == 1) & (output_df['WaterContent_Pct'] < 0.50)).astype(int)
-        output_df['wc_75'] = ((output_df['growing_season'] == 1) & (output_df['WaterContent_Pct'] < 0.75)).astype(int)
+        output_df['wc_25'] = ((output_df['growing_season'] == 1) & (output_df['WaterContentPct'] < 0.25)).astype(int)
+        output_df['wc_50'] = ((output_df['growing_season'] == 1) & (output_df['WaterContentPct'] < 0.50)).astype(int)
+        output_df['wc_75'] = ((output_df['growing_season'] == 1) & (output_df['WaterContentPct'] < 0.75)).astype(int)
         
         output_df['wc_25_count'] = output_df['wc_25'].cumsum()
         output_df['wc_50_count'] = output_df['wc_50'].cumsum()
         output_df['wc_75_count'] = output_df['wc_75'].cumsum()
+
+        output_df['growing_season_count'] = output_df['growing_season'].cumsum()
         
         history_df = output_df[output_df['Date'] <= model_params['endDatetimeHistory']]
         forecast_df = output_df[output_df['Date'] > model_params['endDatetimeHistory']]
         forecast_df = forecast_df.iloc[:-1] # Aquacrop does not output last day metrics
+
+        history_df['Date'] = history_df['Date'].dt.date
+        forecast_df['Date'] = forecast_df['Date'].dt.date
 
         data = forecast_df.to_dict('list')
 
@@ -7667,7 +7684,8 @@ class AquacropModelRunView(views.APIView):
         while model._clock_struct.model_is_finished is False:
             additional_data['Depletion'].append(model._init_cond.depletion)
             additional_data['TAW'].append(model._init_cond.taw)
-            additional_data['WaterContent'].append(model._init_cond.taw - max(model._init_cond.depletion, 0))
+            water_content = max(0, model._init_cond.taw - max(0, model._init_cond.depletion))
+            additional_data['WaterContent'].append(water_content)
             model.run_model(initialize_model=False, num_steps=1)
 
         additional_df = pd.DataFrame(additional_data)        
@@ -7701,7 +7719,8 @@ class AquacropModelRunView(views.APIView):
         while model._clock_struct.model_is_finished is False:
             additional_data['Depletion'].append(model._init_cond.depletion)
             additional_data['TAW'].append(model._init_cond.taw)
-            additional_data['WaterContent'].append(model._init_cond.taw - max(model._init_cond.depletion, 0))
+            water_content = max(0, model._init_cond.taw - max(0, model._init_cond.depletion))
+            additional_data['WaterContent'].append(water_content)
             model.run_model(initialize_model=False, num_steps=1)
 
         additional_df = pd.DataFrame(additional_data)        
@@ -7728,7 +7747,8 @@ class AquacropModelRunView(views.APIView):
         while model._clock_struct.model_is_finished is False:
             additional_data['Depletion'].append(model._init_cond.depletion)
             additional_data['TAW'].append(model._init_cond.taw)
-            additional_data['WaterContent'].append(model._init_cond.taw - max(model._init_cond.depletion, 0))
+            water_content = max(0, model._init_cond.taw - max(0, model._init_cond.depletion))
+            additional_data['WaterContent'].append(water_content)
 
             t = model._clock_struct.time_step_counter # current timestep
             if model._clock_struct.step_start_time > model_params['endDatetimeHistory']:
@@ -7756,8 +7776,10 @@ class AquacropModelRunView(views.APIView):
         # harvest_datetime = planting_datetime+datetime.timedelta(days=crop.MaturityCD)
 
         # Add 1 so that Aquacrop handle last date of simulation
-        harvest_datetime = planting_datetime+datetime.timedelta(days=crop.MaturityCD+1)
-        
+        # harvest_datetime = planting_datetime+datetime.timedelta(days=crop.MaturityCD+1)
+
+        harvest_datetime = planting_datetime+datetime.timedelta(days=min(364, crop.MaturityCD+1))
+
         today = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
         if (harvest_datetime > today):
@@ -7779,13 +7801,13 @@ class AquacropModelRunView(views.APIView):
             # end_datetime_forecast = None
 
             # For demonstration purposes we will use this
-            end_datetime_forecast = harvest_datetime-datetime.timedelta(days=20)
+            end_datetime_forecast = harvest_datetime-datetime.timedelta(days=1)
             start_datetime_forecast = end_datetime_forecast-datetime.timedelta(days=15)
             
             end_datetime_history = end_datetime_forecast-datetime.timedelta(days=16)
             start_datetime_history = planting_datetime-datetime.timedelta(days=90)
             
-        return start_datetime_history, end_datetime_history, start_datetime_forecast, end_datetime_forecast
+        return harvest_datetime, start_datetime_history, end_datetime_history, start_datetime_forecast, end_datetime_forecast
             
     def _get_model_params(self, json_data):
         # To do: get simulation scenario from supabase
@@ -7803,8 +7825,8 @@ class AquacropModelRunView(views.APIView):
         if len(response.data) > 0:
             simulation_scenario = response.data[0]
             simulation_scenario['crop'] = 'Tomato'
-            simulation_scenario['soil_type'] = 'Loam'
-            simulation_scenario['planting_date'] = '2010-02-01'            
+            simulation_scenario['soil_type'] = 'LoamySand'
+            simulation_scenario['planting_date'] = '2010-01-01'
         else:
             pass # Handle no data found
             # simulation_scenario = {
@@ -7837,11 +7859,15 @@ class AquacropModelRunView(views.APIView):
 
         sim_datetimes = self._get_simulation_datetimes(planting_datetime, crop)
 
-        start_datetime_history = sim_datetimes[0]
-        end_datetime_history = sim_datetimes[1]
-        start_datetime_forecast = sim_datetimes[2]
-        end_datetime_forecast = sim_datetimes[3]
+        harvest_datetime = sim_datetimes[0]
+        start_datetime_history = sim_datetimes[1]
+        end_datetime_history = sim_datetimes[2]
+        start_datetime_forecast = sim_datetimes[3]
+        end_datetime_forecast = sim_datetimes[4]
                 
+        # Some crops require harvest datetime to work properly
+        crop.harvest_date = harvest_datetime.strftime("%m/%d")
+
         model_params = {
             'crop': crop,
             'soil': soil,
@@ -7862,12 +7888,22 @@ class AquacropModelRunView(views.APIView):
         output_df['B_ind'] = output_df['biomass']/output_df['biomass_ns']
         output_df['CC_ind'] = output_df['canopy_cover']/output_df['canopy_cover_ns']
         output_df['Yield_ind'] = output_df['DryYield']/output_df['YieldPot']
+        output_df['GDD_ind'] = output_df['gdd_positive_count']/output_df['growing_season_count']
+        output_df['WC25_ind'] = 1-output_df['wc_25_count']/output_df['growing_season_count']
+        output_df['WC50_ind'] = 1-output_df['wc_50_count']/output_df['growing_season_count']
+        output_df['WC75_ind'] = 1-output_df['wc_75_count']/output_df['growing_season_count']
 
         output_df['Tr_ind'] = round(output_df['Tr_ind'].fillna(1), 2)
         output_df['Es_ind'] = round(output_df['Es_ind'].fillna(1), 2)
         output_df['B_ind'] = round(output_df['B_ind'].fillna(1), 2)
         output_df['CC_ind'] = round(output_df['CC_ind'].fillna(1), 2)
         output_df['Yield_ind'] = round(output_df['Yield_ind'].fillna(1), 2)
+        output_df['GDD_ind'] = round(output_df['GDD_ind'].fillna(1), 2)
+        output_df['WC25_ind'] = round(output_df['WC25_ind'].fillna(1), 2)
+        output_df['WC50_ind'] = round(output_df['WC50_ind'].fillna(1), 2)
+        output_df['WC75_ind'] = round(output_df['WC75_ind'].fillna(1), 2)
+        output_df['WC_ind'] = round(output_df['WaterContentPct'].fillna(1), 2)
+        
 
         if model_params['endDatetimeForecast'] is not None:
             delta = model_params['endDatetimeForecast']-model_params['endDatetimeHistory']
@@ -7875,8 +7911,6 @@ class AquacropModelRunView(views.APIView):
         else:
             delta_days = 15
             
-        print('delta_days:', delta_days)
-        # print()
 
         # indicators = {
         #     'Transpiration': output_df['Tr_ind'].iloc[-delta_days:-1].mean(),    
@@ -7892,6 +7926,11 @@ class AquacropModelRunView(views.APIView):
             'Biomass': output_df['B_ind'].iloc[-2],
             'Canopy cover': output_df['CC_ind'].iloc[-2],
             'Yield': output_df['Yield_ind'].iloc[-2],
+            'GDD': output_df['GDD_ind'].iloc[-2],
+            'WC25':output_df['WC25_ind'].iloc[-2],
+            'WC50':output_df['WC50_ind'].iloc[-2],
+            'WC75':output_df['WC75_ind'].iloc[-2],
+            'WC':output_df['WC_ind'].iloc[-2],
         }
 
 
@@ -7919,8 +7958,8 @@ class AquacropAvailableDataView(views.APIView):
             if len(response.data) > 0:
                 simulation_scenario = response.data[0]
                 simulation_scenario['crop'] = 'Tomato'
-                simulation_scenario['soil_type'] = 'Loam'
-                simulation_scenario['planting_date'] = '2010-02-01'
+                simulation_scenario['soil_type'] = 'LoamySand'
+                simulation_scenario['planting_date'] = '2010-01-01'
             else:
                 pass # Handle no data found
                 # simulation_scenario = {
@@ -7966,7 +8005,7 @@ class AquacropAvailableDataView(views.APIView):
 
             template = env.get_template(template_name)
             query = template.render(context)
-            logger.info(query)
+            # logger.info(query)
 
             config = settings.SURFACE_CONNECTION_STRING
             with psycopg2.connect(config) as conn:
@@ -8009,7 +8048,10 @@ class AquacropAvailableDataView(views.APIView):
     def _get_history_datetimes(self, planting_datetime, crop):
         # Calculate initial harvest date using the planting year
         # Crop maturity in calendar days +30 for latest harvest date
-        harvest_datetime = planting_datetime+datetime.timedelta(days=crop.MaturityCD+30)
+        # harvest_datetime = planting_datetime+datetime.timedelta(days=crop.MaturityCD+30)
+
+        harvest_datetime = planting_datetime+datetime.timedelta(days=min(364, crop.MaturityCD+1))
+
         today = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
         if (harvest_datetime > today):
