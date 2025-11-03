@@ -12,6 +12,7 @@ WITH requested_entries AS (
         ,ds.min_value
         ,ds.max_value
         ,ds.avg_value
+        ,ds.sum_value
     FROM requested_entries re
     FULL OUTER JOIN (
         SELECT 
@@ -29,7 +30,8 @@ WITH requested_entries AS (
         *,
         COUNT(min_value) OVER (PARTITION BY vr_symbol ORDER BY day) AS min_group,
         COUNT(max_value) OVER (PARTITION BY vr_symbol ORDER BY day) AS max_group,
-        COUNT(avg_value) OVER (PARTITION BY vr_symbol ORDER BY day) AS avg_group
+        COUNT(avg_value) OVER (PARTITION BY vr_symbol ORDER BY day) AS avg_group,
+        COUNT(avg_value) OVER (PARTITION BY vr_symbol ORDER BY day) AS sum_group
     FROM extended_daily_summary
 ),
 filled_daily_summary AS (
@@ -51,7 +53,12 @@ filled_daily_summary AS (
             PARTITION BY vr_symbol, avg_group 
             ORDER BY day
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-        ) AS avg_value
+        ) AS avg_value,
+        FIRST_VALUE(sum_value) OVER (
+            PARTITION BY vr_symbol, avg_group 
+            ORDER BY day
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS sum_value        
     FROM grouped_data
 )
 ,daily_data AS (
@@ -63,7 +70,7 @@ filled_daily_summary AS (
         ,EXTRACT(DOY FROM fds.day)::integer AS doy
         ,SUM(CASE WHEN fds.vr_symbol = 'TEMP' THEN fds.min_value END) AS temp_min
         ,SUM(CASE WHEN fds.vr_symbol = 'TEMP' THEN fds.max_value END) AS temp_max
-        ,SUM(CASE WHEN fds.vr_symbol = 'PRECIP' THEN fds.avg_value END) AS precip
+        ,SUM(CASE WHEN fds.vr_symbol = 'PRECIP' THEN fds.sum_value END) AS precip
         ,SUM(CASE WHEN fds.vr_symbol = 'PRESSTN' THEN fds.avg_value END) AS pressure 
         ,SUM(CASE WHEN fds.vr_symbol = 'WNDSPAVG' THEN fds.avg_value END) AS wind_speed
         ,SUM(CASE WHEN fds.vr_symbol = 'SOLARRAD' THEN fds.avg_value END) AS solar_rad

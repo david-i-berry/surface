@@ -12,6 +12,7 @@ WITH requested_entries AS (
         ,ds.min_value
         ,ds.max_value
         ,ds.avg_value
+        ,ds.sum_value
     FROM requested_entries re
     FULL OUTER JOIN (
         SELECT 
@@ -29,7 +30,8 @@ WITH requested_entries AS (
         *,
         COUNT(min_value) OVER (PARTITION BY vr_symbol ORDER BY day) AS min_group,
         COUNT(max_value) OVER (PARTITION BY vr_symbol ORDER BY day) AS max_group,
-        COUNT(avg_value) OVER (PARTITION BY vr_symbol ORDER BY day) AS avg_group
+        COUNT(avg_value) OVER (PARTITION BY vr_symbol ORDER BY day) AS avg_group,
+        COUNT(avg_value) OVER (PARTITION BY vr_symbol ORDER BY day) AS sum_group
     FROM extended_daily_summary
 ),
 filled_daily_summary AS (
@@ -51,7 +53,12 @@ filled_daily_summary AS (
             PARTITION BY vr_symbol, avg_group 
             ORDER BY day
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-        ) AS avg_value
+        ) AS avg_value,
+        FIRST_VALUE(sum_value) OVER (
+            PARTITION BY vr_symbol, avg_group 
+            ORDER BY day
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS sum_value        
     FROM grouped_data
 )
 ,daily_data AS (

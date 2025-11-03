@@ -8,7 +8,7 @@ WITH daily_data AS (
         ,EXTRACT(DOY FROM ds.day)::integer AS doy
         ,SUM(CASE WHEN vr.symbol = 'TEMPMIN' THEN ds.min_value END) AS temp_min
         ,SUM(CASE WHEN vr.symbol = 'TEMPMAX' THEN ds.max_value END) AS temp_max 
-        ,SUM(CASE WHEN vr.symbol = 'PRECIP' THEN ds.avg_value END) AS precip
+        ,SUM(CASE WHEN vr.symbol = 'PRECIP' THEN ds.sum_value END) AS precip
     FROM daily_summary ds
     JOIN wx_variable vr ON vr.id = ds.variable_id
     JOIN wx_station st ON st.id = ds.station_id

@@ -7,7 +7,7 @@ WITH daily_data AS (
         ,EXTRACT(DOY FROM ds.day)::integer AS doy
         ,SUM(CASE WHEN vr.symbol = 'TEMP' THEN ds.min_value END) AS temp_min
         ,SUM(CASE WHEN vr.symbol = 'TEMP' THEN ds.max_value END) AS temp_max
-        ,SUM(CASE WHEN vr.symbol = 'PRECIP' THEN ds.avg_value END) AS precip
+        ,SUM(CASE WHEN vr.symbol = 'PRECIP' THEN ds.sum_value END) AS precip
         ,SUM(CASE WHEN vr.symbol = 'PRESSTN' THEN ds.avg_value END) AS pressure 
         ,SUM(CASE WHEN vr.symbol = 'WNDSPAVG' THEN ds.avg_value END) AS wind_speed
         ,SUM(CASE WHEN vr.symbol = 'SOLARRAD' THEN ds.avg_value END) AS solar_rad
