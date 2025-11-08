@@ -6,7 +6,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+
+    <!-- surfarce logo -->
     <link rel="icon" type="image/png" href="{% static 'images/circle_logo_small.png' %}">
+
     <title>{% block title %}Surface{% endblock %}</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -107,439 +110,524 @@
         }
         /* main-overlay style end */
 
-            html {
-              font-family: "Encode Sans", sans-serif;
-              overflow: auto;
-            }
-            .hide-menu {
-              display: none!important;
-            }
-            .hide-menu-text {
-              display: none;
-            }
-            .show-menu {
-              display: block!important;
-            }
-            .app-version {
-              width: 100%;
-            }
-            .open-mode {
-              width: 300px!important;
-              transition: 0.3s;
-            }
-            .collapsed-mode {
-              width: 55px!important;
-              transition: 0.3s;
-            }
-            .collapsible-item {
-              overflow: hidden;
-            }
-            .user-menu > div > div.mdl-menu__container.is-upgraded {
-              top: auto!important;
-            }
-            .user-options-style {
-              display: none !important;
-            }
-            .accent_background {
-              background: rgba(0, 123, 255, 0.1) !important;
-              background: linear-gradient(0deg, rgba(0, 123, 255, 0.25) 0%, rgba(255, 193, 7, 0.34) 100%) !important;
-            }
-            .user-menu .collapsible-header{
-              cursor: default!important;
-            }
-            .to-uppercase {
-              text-transform: uppercase!important;
-            }
-            .sidenav {
-              font-size: 13px;
-            }
-            table.dataTable thead .sorting, 
-            table.dataTable thead .sorting_asc, 
-            table.dataTable thead .sorting_desc {
-              background : none;
-            }
-            .v-date-picker-table--date.theme--light > table > tbody > tr {
-              border: none;
-            }
-            .v-date-picker-table--date.theme--light > table > thead > tr {
-              border: none;
-            }
-            .v-menu__content {
-              min-width: 290px!important;
-            }
-            .srf-field-max-300 {
-              max-width: 300px;
-            }
-            .jumbotron {
-              margin-bottom: 0px;
-              padding: 2rem 1rem;
-            }
-            .separate-items > *:not(:first-child) {
-              margin-left: 8px;
-            }
-            .img-logo {
-              height: 45px;
-            }
-            .img-logo-surface {
-              height: 25px;
-            }
-            textarea {
-              background: #e2e2e2;
-            }
-            textarea:disabled {
-              color: rgb(104, 104, 104) !important;
-            }
+        html {
+          font-family: "Encode Sans", sans-serif;
+          overflow: auto;
+        }
+        .hide-menu {
+          display: none!important;
+        }
+        .hide-menu-text {
+          display: none;
+        }
+        .show-menu {
+          display: block!important;
+        }
+        .app-version {
+          width: 100%;
+        }
+        .open-mode {
+          width: 300px!important;
+          transition: 0.3s;
+        }
+        .collapsed-mode {
+          width: 55px!important;
+          transition: 0.3s;
+        }
+        .collapsible-item {
+          cursor: default!important;
+          overflow: hidden;
+        }
+        .accent_background {
+          background: rgba(0, 123, 255, 0.1) !important;
+          background: linear-gradient(0deg, rgba(0, 123, 255, 0.25) 0%, rgba(255, 193, 7, 0.34) 100%) !important;
+        }
+        .collapsible-header{
+          cursor: default!important;
+          overflow: hidden;
+        }
+        .to-uppercase {
+          text-transform: uppercase!important;
+        }
+        .sidenav {
+          font-size: 13px;
+        }
+        table.dataTable thead .sorting, 
+        table.dataTable thead .sorting_asc, 
+        table.dataTable thead .sorting_desc {
+          background : none;
+        }
+        .v-date-picker-table--date.theme--light > table > tbody > tr {
+          border: none;
+        }
+        .v-date-picker-table--date.theme--light > table > thead > tr {
+          border: none;
+        }
+        .v-menu__content {
+          min-width: 290px!important;
+        }
+        .srf-field-max-300 {
+          max-width: 300px;
+        }
+        .jumbotron {
+          margin-bottom: 0px;
+          padding: 2rem 1rem;
+        }
+        .separate-items > *:not(:first-child) {
+          margin-left: 8px;
+        }
+        .img-logo {
+          height: 45px;
+        }
+        .img-logo-surface {
+          height: 25px;
+        }
+        textarea {
+          background: #e2e2e2;
+        }
+        textarea:disabled {
+          color: rgb(104, 104, 104) !important;
+        }
 
-            input:disabled {
-              color: rgb(104, 104, 104) !important;
-            }
-            .mdl-textfield.is-disabled.is-disabled .mdl-textfield__label,
-            .mdl-textfield__label,
-            fieldset[disabled] .mdl-textfield .mdl-textfield__label {
-              color: rgba(0, 0, 0, 0.5);
-            }
-            label {
-              margin: 0 !important;
-            }
-            .srf-padding {
-              padding: 16px;
-            }
-            #id_station_list_length {
-              display: flex !important;
-              justify-content: flex-start !important;
-            }
-            #id_station_list_filter {
-              display: flex !important;
-              justify-content: flex-end !important;
-            }
-            a {
-              color: darkblue;
-            }
-            a:hover {
-              color: black;
-              text-decoration: none;
-            }
-            .mdl-button--icon {
-              width: 24px !important;
-              height: 24px !important;
-              min-width: 24px !important;
-            }
-            .custon-icon-16 {
-              font-size: 16px !important;
-            }
-            .srf-submenu {
-              width: 240px;
-            }
-            #id_station_list_wrapper {
-              width: 100% !important;
-            }
-            .srf-field-header {
-              color: rgba(0, 0, 0, 0.7);
-              font-size: 12px;
-            }
-            .srf-textfield .srf-field-content {
-              overflow-y: auto;
-              height: 100%;
-              max-height: 90px;
-            }
-            .srf-textfield {
-              position: relative;
-              font-size: 16px;
-              display: flex;
-              box-sizing: border-box;
-              max-width: 300px;
-              overflow-y: hidden;
-              width: 100%;
-            }
-            .srf-field {
-              position: relative;
-              font-size: 16px;
-              display: flex;
-              box-sizing: border-box;
-              max-width: 300px;
-              width: 100%;
-              flex-direction: column;
-            }
-            .btn-outline-danger {
-              color: #ff4444;
-              border: 1px solid #ff4444;
-            }
-            .btn-outline-danger:hover {
-              color: #d12121;
-              border: 1px solid #d12121;
-              background-color: #ffeeee;
-            }
-            .btn-outline-default {
-              box-shadow: none;
-              background-color: transparent;
-              color: #343434;
-              cursor: pointer;
-              transition: background-color 0.3s;
-              border: 1px solid black;
-            }
-            .btn-outline-default:hover {
-              background-color: #e2e2e2;
-              box-shadow: 0 3px 3px 0 rgba(0,0,0,0.14), 0 1px 7px 0 rgba(0,0,0,0.12), 0 3px 1px -1px rgba(0,0,0,0.2);
-              transition: 0.3s;
-            }
-            .btn-small {
-              background-color: transparent!important;
-            }
-            .icon-danger {
-              color: #ff4444;
-            }
-            .srf-container {
-              flex: 1 1 100%;
-              margin: auto;
-              padding: 24px;
-              width: 100%;
-            }
-            .srf-layout {
-              position: relative;
-              display: flex;
-              width: 100%;
-              flex-direction: column;
-            }
+        input:disabled {
+          color: rgb(104, 104, 104) !important;
+        }
+        .mdl-textfield.is-disabled.is-disabled .mdl-textfield__label,
+        .mdl-textfield__label,
+        fieldset[disabled] .mdl-textfield .mdl-textfield__label {
+          color: rgba(0, 0, 0, 0.5);
+        }
+        label {
+          margin: 0 !important;
+        }
+        .srf-padding {
+          padding: 16px;
+        }
+        #id_station_list_length {
+          display: flex !important;
+          justify-content: flex-start !important;
+        }
+        #id_station_list_filter {
+          display: flex !important;
+          justify-content: flex-end !important;
+        }
+        a {
+          color: darkblue;
+        }
+        a:hover {
+          color: black;
+          text-decoration: none;
+        }
+        .mdl-button--icon {
+          width: 24px !important;
+          height: 24px !important;
+          min-width: 24px !important;
+        }
+        .custon-icon-16 {
+          font-size: 16px !important;
+        }
+        .srf-submenu {
+          width: 240px;
+        }
+        #id_station_list_wrapper {
+          width: 100% !important;
+        }
+        .srf-field-header {
+          color: rgba(0, 0, 0, 0.7);
+          font-size: 12px;
+        }
+        .srf-textfield .srf-field-content {
+          overflow-y: auto;
+          height: 100%;
+          max-height: 90px;
+        }
+        .srf-textfield {
+          position: relative;
+          font-size: 16px;
+          display: flex;
+          box-sizing: border-box;
+          max-width: 300px;
+          overflow-y: hidden;
+          width: 100%;
+        }
+        .srf-field {
+          position: relative;
+          font-size: 16px;
+          display: flex;
+          box-sizing: border-box;
+          max-width: 300px;
+          width: 100%;
+          flex-direction: column;
+        }
+        .btn-outline-danger {
+          color: #ff4444;
+          border: 1px solid #ff4444;
+        }
+        .btn-outline-danger:hover {
+          color: #d12121;
+          border: 1px solid #d12121;
+          background-color: #ffeeee;
+        }
+        .btn-outline-default {
+          box-shadow: none;
+          background-color: transparent;
+          color: #343434;
+          cursor: pointer;
+          transition: background-color 0.3s;
+          border: 1px solid black;
+        }
+        .btn-outline-default:hover {
+          background-color: #e2e2e2;
+          box-shadow: 0 3px 3px 0 rgba(0,0,0,0.14), 0 1px 7px 0 rgba(0,0,0,0.12), 0 3px 1px -1px rgba(0,0,0,0.2);
+          transition: 0.3s;
+        }
+        .btn-small {
+          background-color: transparent!important;
+        }
+        .icon-danger {
+          color: #ff4444;
+        }
+        .srf-container {
+          flex: 1 1 100%;
+          margin: auto;
+          padding: 24px;
+          width: 100%;
+        }
+        .srf-layout {
+          position: relative;
+          display: flex;
+          width: 100%;
+          flex-direction: column;
+        }
 
-            .p-300 {
-              padding-left: 300px;
-              transition: 0.3s;
-            }
+        .p-300 {
+          padding-left: 300px;
+          transition: 0.3s;
+        }
 
-            .p-55 {
-              padding-left: 55px;
-              transition: 0.3s;
-            }
+        .p-55 {
+          padding-left: 55px;
+          transition: 0.3s;
+        }
 
-            .srf-display-1 {
-              font-size: 2em;
-            }
-            .srf-display-2 {
-              font-size: 1.3em;
-              color: #4d4d4d;
-            }
+        .srf-display-1 {
+          font-size: 2em;
+        }
+        .srf-display-2 {
+          font-size: 1.3em;
+          color: #4d4d4d;
+        }
 
-            .srf-display-1-1 {
-              font-size: 1.3em;
-            }
-            .srf-display-2-2 {
-              font-size: .5em;
-              color: #4d4d4d;
-            }
+        .srf-display-1-1 {
+          font-size: 1.3em;
+        }
+        .srf-display-2-2 {
+          font-size: .5em;
+          color: #4d4d4d;
+        }
 
-            .mdl-grid {
-              width: 100%;
-            }
-            #mapid {
-              height: 180px;
-            }
-          .secondary-content {
-            float: right;
-            color: #4d4d4d;
+        .mdl-grid {
+          width: 100%;
+        }
+        #mapid {
+          height: 180px;
+        }
+
+        .secondary-content {
+          float: right !important;
+          color: #4d4d4d;
+        }
+        a.collection-item {
+          color: black;
+        }
+        .left-space {
+          padding-left: 60px!important;
+        }
+        .sidenav-trigger {
+          display: none;
+        }
+        .custom-row i{
+          margin: 0px 0px 0px 0px;
+          color: black;
+        }
+        .sidenav li>a>i, .sidenav li>a>[class^="mdi-"], .sidenav li>a li>a>[class*="mdi-"], .sidenav li>a>i.material-icons {
+          margin: 0 14px 0 0;
+          color: #212529;
+          width: 2rem;
+        }
+        .user-row {
+          padding: 10px 20px 10px 30px;
+          border-top: 1px solid #b6b6b6;
+          border-bottom: 1px solid #b6b6b6;
+          display: flex;
+          justify-content: space-between;
+        }
+        .v-expansion-panel:before {
+          box-shadow: none!important;
+        }
+        .bold {
+          font-weight: bold;
+        }
+
+        .stationInfo {
+          display: flex;
+          justify-content: space-between;
+          max-width: 300px;
+          color: rgb(107, 107, 107);
+        }
+
+        .manual-flag-td-cs {
+          width: 140px;
+          padding: 0 !important;
+        }
+
+        .manual-flag-cs {
+          font-size: 10pt;
+        }
+
+        .manual-flag-cs.v-text-field > .v-input__control > .v-input__slot:before {
+          border-style: none;
+        }
+
+        .manual-flag-cs.v-text-field > .v-input__control > .v-input__slot:after {
+          border-style: none;
+        }
+
+        .srf-message {
+          width: 100%;
+          height: 36px;
+          background-color: #D4EDDA;
+          color: #155724;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          border-radius: 2px;
+        }
+
+        /* TO HIDE CONTENT AFTER 5 SECONDS */
+        #hideMe {
+          -moz-animation: cssAnimation 0s ease-in 5s forwards;
+          /* Firefox */
+          -webkit-animation: cssAnimation 0s ease-in 5s forwards;
+          /* Safari and Chrome */
+          -o-animation: cssAnimation 0s ease-in 5s forwards;
+          /* Opera */
+          animation: cssAnimation 0s ease-in 5s forwards;
+          -webkit-animation-fill-mode: forwards;
+          animation-fill-mode: forwards;
+        }
+        @keyframes cssAnimation {
+          to {
+              width:0;
+              height:0;
+              overflow:hidden;
           }
-          a.collection-item {
-            color: black;
+        }
+        @-webkit-keyframes cssAnimation {
+          to {
+              width:0;
+              height:0;
+              visibility:hidden;
           }
-          .left-space {
-            padding-left: 60px!important;
-          }
-          .sidenav-trigger {
+        }
+        /* TO HIDE CONTENT AFTER 5 SECONDS */
+
+        td, th {
+          padding: 0px;
+          display: table-cell;
+
+          vertical-align: middle;
+          border-radius: 0px;
+        }
+
+        /* RESET VUE + VUETIFY QUIRKS */
+        .v-select:not(.v-text-field--single-line):not(.v-text-field--outlined) .v-select__slot>input,
+        .v-autocomplete:not(.v-input--is-disabled).v-select.v-text-field input,
+        .theme--light.v-input:not(.v-input--is-disabled) input, .theme--light.v-input:not(.v-input--is-disabled) textarea,
+        input:not([type]):disabled, input:not([type])[readonly="readonly"], input[type=text]:not(.browser-default):disabled, input[type=text]:not(.browser-default)[readonly="readonly"], input[type=password]:not(.browser-default):disabled, input[type=password]:not(.browser-default)[readonly="readonly"], input[type=email]:not(.browser-default):disabled, input[type=email]:not(.browser-default)[readonly="readonly"], input[type=url]:not(.browser-default):disabled, input[type=url]:not(.browser-default)[readonly="readonly"], input[type=time]:not(.browser-default):disabled, input[type=time]:not(.browser-default)[readonly="readonly"], input[type=date]:not(.browser-default):disabled, input[type=date]:not(.browser-default)[readonly="readonly"], input[type=datetime]:not(.browser-default):disabled, input[type=datetime]:not(.browser-default)[readonly="readonly"], input[type=datetime-local]:not(.browser-default):disabled, input[type=datetime-local]:not(.browser-default)[readonly="readonly"], input[type=tel]:not(.browser-default):disabled, input[type=tel]:not(.browser-default)[readonly="readonly"], input[type=number]:not(.browser-default):disabled, input[type=number]:not(.browser-default)[readonly="readonly"], input[type=search]:not(.browser-default):disabled, input[type=search]:not(.browser-default)[readonly="readonly"], textarea.materialize-textarea:disabled, textarea.materialize-textarea[readonly="readonly"] {
+            margin: 0;
+            border: none;
+        }
+
+        [v-cloak] { display:none; }
+        /* END RESET VUE + VUETIFY QUIRKS */
+
+
+        .highcharts-data-table table {
+            border-collapse: collapse;
+            border-spacing: 0;
+            background: white;
+            min-width: 100%;
+            margin-top: 10px;
+            font-family: sans-serif;
+            font-size: 0.9em;
+        }
+        .highcharts-data-table td, .highcharts-data-table th, .highcharts-data-table caption {
+            border: 1px solid silver;
+            padding: 0.5em;
+        }
+        .highcharts-data-table tr:nth-child(even), .highcharts-data-table thead tr {
+            background: #f8f8f8;
+        }
+        .highcharts-data-table tr:hover {
+            background: #eff;
+        }
+        .highcharts-data-table caption {
+            border-bottom: none;
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+
+        #screen_check_container {
+          display: none; /* hidden by default */
+        }
+
+        #screen_check {
+          background-color: white;
+          width: 400px;
+          filter: drop-shadow(-10px -10px 20px rgba(0, 0, 0, 0.16));
+          display: flex !important;
+          flex-direction: column;
+          padding: 16px;
+          border-radius: 10px;
+          align-items: center;
+          justify-content: center; 
+          text-align: center;
+        }
+
+        /* restrict smaller screen (until a mobile view is brought about) */
+        @media screen and (max-width: 992px){
+          /* SURFACE doesn't properly support smaller displays yet */
+          main {
             display: none;
           }
-          .custom-row i{
-            margin: 0px 0px 0px 0px;
-            color: black;
-          }
-          .sidenav li>a>i, .sidenav li>a>[class^="mdi-"], .sidenav li>a li>a>[class*="mdi-"], .sidenav li>a>i.material-icons {
-            margin: 0 14px 0 0;
-            color: #212529;
-            width: 2rem;
-          }
-          .user-row {
-            padding: 10px 20px 10px 30px;
-            border-top: 1px solid #b6b6b6;
-            border-bottom: 1px solid #b6b6b6;
-            display: flex;
-            justify-content: space-between;
-          }
-          .v-expansion-panel:before {
-            box-shadow: none!important;
-          }
-          .bold {
-            font-weight: bold;
-          }
 
-          .stationInfo {
-            display: flex;
-            justify-content: space-between;
-            max-width: 300px;
-            color: rgb(107, 107, 107);
-          }
-
-          .manual-flag-td-cs {
-            width: 140px;
-            padding: 0 !important;
-          }
-
-          .manual-flag-cs {
-            font-size: 10pt;
-          }
-
-          .manual-flag-cs.v-text-field > .v-input__control > .v-input__slot:before {
-            border-style: none;
-          }
-
-          .manual-flag-cs.v-text-field > .v-input__control > .v-input__slot:after {
-            border-style: none;
-          }
-
-          .srf-message {
+          #screen_check_container {
             width: 100%;
-            height: 36px;
-            background-color: #D4EDDA;
-            color: #155724;
+            height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            border-radius: 2px;
           }
+        }
 
-          /* TO HIDE CONTENT AFTER 5 SECONDS */
-          #hideMe {
-            -moz-animation: cssAnimation 0s ease-in 5s forwards;
-            /* Firefox */
-            -webkit-animation: cssAnimation 0s ease-in 5s forwards;
-            /* Safari and Chrome */
-            -o-animation: cssAnimation 0s ease-in 5s forwards;
-            /* Opera */
-            animation: cssAnimation 0s ease-in 5s forwards;
-            -webkit-animation-fill-mode: forwards;
-            animation-fill-mode: forwards;
+        .img-full {
+          background-image: url("{% static 'images/background.png' %}");
+          position: absolute;
+          width: 100%;
+          height: 100vh;
+          background-repeat: no-repeat;
+          -webkit-background-size: cover;
+          -moz-background-size: cover;
+          -o-background-size: cover;
+          background-size: cover;
+          background-position: center;
+        }
+
+        .wide_accent_background {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          pointer-events: none; /* keeps it behind the login section */
+          /* z-index: 1; */
+          background: rgba(0, 123, 255, 0.1) !important;
+          background: linear-gradient(0deg, rgba(0, 123, 255, 0.25) 0%, rgba(255, 193, 7, 0.34) 100%) !important;
+        }
+
+        .custom-navbar-text-fade-out {
+          display: inline-block;
+          opacity: 1;
+          animation: customFadeOut 0.3s forwards; /* 0.3s fade-out */
+        }
+
+        @keyframes customFadeOut {
+          to {
+            opacity: 0;
+            visibility: hidden;
           }
-          @keyframes cssAnimation {
-            to {
-                width:0;
-                height:0;
-                overflow:hidden;
-            }
+        }
+
+        .custom-navbar-text-fade-in {
+          display: inline-block;
+          opacity: 0;
+          visibility: hidden;
+          animation: customFadeIn 0.55s forwards; /* 0.55s fade-in */
+        }
+
+        @keyframes customFadeIn {
+          to {
+            opacity: 1;
+            visibility: visible;
           }
-          @-webkit-keyframes cssAnimation {
-            to {
-                width:0;
-                height:0;
-                visibility:hidden;
-            }
-          }
-          /* TO HIDE CONTENT AFTER 5 SECONDS */
+        }
 
-          td, th {
-            padding: 0px;
-            display: table-cell;
+        /* START Control for nav options drop down */
+        /* Parent <li> */
+        .hover-item {
+          position: relative;
+        }
 
-            vertical-align: middle;
-            border-radius: 0px;
-          }
+        /* First link always visible */
+        .hover-item a:first-child {
+          display: block;
+          cursor: pointer; /* indicate clickable */
+        }
 
-          /* RESET VUE + VUETIFY QUIRKS */
-          .v-select:not(.v-text-field--single-line):not(.v-text-field--outlined) .v-select__slot>input,
-          .v-autocomplete:not(.v-input--is-disabled).v-select.v-text-field input,
-          .theme--light.v-input:not(.v-input--is-disabled) input, .theme--light.v-input:not(.v-input--is-disabled) textarea,
-          input:not([type]):disabled, input:not([type])[readonly="readonly"], input[type=text]:not(.browser-default):disabled, input[type=text]:not(.browser-default)[readonly="readonly"], input[type=password]:not(.browser-default):disabled, input[type=password]:not(.browser-default)[readonly="readonly"], input[type=email]:not(.browser-default):disabled, input[type=email]:not(.browser-default)[readonly="readonly"], input[type=url]:not(.browser-default):disabled, input[type=url]:not(.browser-default)[readonly="readonly"], input[type=time]:not(.browser-default):disabled, input[type=time]:not(.browser-default)[readonly="readonly"], input[type=date]:not(.browser-default):disabled, input[type=date]:not(.browser-default)[readonly="readonly"], input[type=datetime]:not(.browser-default):disabled, input[type=datetime]:not(.browser-default)[readonly="readonly"], input[type=datetime-local]:not(.browser-default):disabled, input[type=datetime-local]:not(.browser-default)[readonly="readonly"], input[type=tel]:not(.browser-default):disabled, input[type=tel]:not(.browser-default)[readonly="readonly"], input[type=number]:not(.browser-default):disabled, input[type=number]:not(.browser-default)[readonly="readonly"], input[type=search]:not(.browser-default):disabled, input[type=search]:not(.browser-default)[readonly="readonly"], textarea.materialize-textarea:disabled, textarea.materialize-textarea[readonly="readonly"] {
-              margin: 0;
-              border: none;
-          }
+        /* Hidden links inside the <li> */
+        .hover-item .hidden-link {
+          display: flex;                 /* flex for icon + text */
+          align-items: center;           /* vertical centering */
+          justify-content: space-between;/* text left, icon right */
 
-          [v-cloak] { display:none; }
-          /* END RESET VUE + VUETIFY QUIRKS */
+          max-height: 0;                 /* collapsed */
+          overflow: hidden;              /* hide content */
+          opacity: 0;                    /* invisible */
+          transform: translateY(6px);    /* start slightly lower */
+          transition: max-height 0.3s ease, opacity 0.3s ease, transform 0.3s ease;
+          pointer-events: none;          /* not clickable when hidden */
+          padding: 0 16px;               /* optional spacing to match first link */
+          width: 100%;
+        }
 
+        /* HR at the bottom (pill) */
+        .hover-item .hidden-end {
+          max-height: 0;                 /* collapsed */
+          opacity: 0;
+          overflow: hidden;
+          margin: 0 auto;                /* remove vertical space when collapsed */
+          transition: max-height 0.3s ease, opacity 0.3s ease, margin 0.3s ease;
+          border: none !important;
+          border-top: 3px solid #212529 !important;
+          width: 15%;
+          border-radius: 5px;
+        }
 
-          .highcharts-data-table table {
-              border-collapse: collapse;
-              border-spacing: 0;
-              background: white;
-              min-width: 100%;
-              margin-top: 10px;
-              font-family: sans-serif;
-              font-size: 0.9em;
-          }
-          .highcharts-data-table td, .highcharts-data-table th, .highcharts-data-table caption {
-              border: 1px solid silver;
-              padding: 0.5em;
-          }
-          .highcharts-data-table tr:nth-child(even), .highcharts-data-table thead tr {
-              background: #f8f8f8;
-          }
-          .highcharts-data-table tr:hover {
-              background: #eff;
-          }
-          .highcharts-data-table caption {
-              border-bottom: none;
-              font-size: 1.1em;
-              font-weight: bold;
-          }
+        /* OPEN STATE: show hidden links and HR */
+        .hover-item.open .hidden-link,
+        .hover-item.open .hidden-end {
+          max-height: 40px;              /* adjust to actual content height */
+          opacity: 1;
+          pointer-events: auto;
+          transform: translateY(0);      /* slide into place */
+          margin: 5px auto;              /* restore HR spacing */
+        }
+        /* END Control for nav options drop down */
 
-          .mobile-menu {
-            display: none;
-          }
+        .hide-dropdown-icon {
+          display: none;
+        }
 
-          #menu-closer { display: none; }
+        .dropdown-icon {
+          margin-left: auto; /* pushes arrow all the way right */
+          display: flex;
+          opacity: 0;
+          visibility: hidden;
+          align-items: center;
+          animation: customFadeIn 0.55s forwards; /* 0.55s fade-in */
+        }
 
-          @media screen and (max-width: 992px){
-              header, main, footer {
-                padding-left: 0;
-              }
-
-              .srf-layout.p-300 { padding-left: 0; }
-
-              #version-label {
-                display: none;
-              }
-
-              .sidenav.sidenav-fixed {
-                  width: 100vw;
-                  z-index: 99999;
-                  position: fixed;
-              }
-
-              .sidenav.sidenav-fixed.open {
-                transform: translateX(0);
-              }
-
-              #menu-closer {
-                width: 4rem;
-                height: 4rem;
-                position: fixed;
-                left: 87vw;
-                top: 2vh;
-                z-index: 99999;
-              }
-
-              #menu-closer .material-icons {
-                font-size: 3em;
-              }
-
-              #menu-closer.open { 
-                display: block;          
-              }
-
-              .mobile-menu { display: block; }
-
-              .mobile-menu nav {          
-                padding: 0 1rem;
-                display: flex;
-                flex-direction: row;
-                justify-content: space-between;
-                align-items: center;
-              }
-
-              .mobile-menu nav h1{
-                font-size: 2em;
-              }
-
-              a.collection-item.left-space.active.text-white {
-                color: white !important;
-              }
-          }
     </style>
     {% block extrastyle %} {% endblock %}
   </head>
@@ -554,232 +642,256 @@
 
         <div id="wrap-sidenav">
 
-          <div onmouseleave="hideUserOptionsNavClose()">
-            <li class="py-4">
-              <div class="d-flex">
-                <div style="max-width: 55px;" class="w-100">
-                  <a href="{% url 'stations-map' %}">
-                    <img style="padding: 0px 8px" class="img-logo" src="{% static 'images/circle_logo_small.png' %}" />
-                  </a>
-                </div>
-                <div class="w-100" style="position: relative;">
-                  <a href="{% url 'stations-map' %}">
-                    <img class="img-logo-surface" src="{% static 'images/surface_logo_smaller.png' %}" />
-                  </a>
-                </div>
+          <!-- SURFACE logo at the top of the navbar -->
+          <li class="py-4">
+            <div class="d-flex">
+              <div style="max-width: 55px;" class="w-100">
+                <a href="{% url 'stations-map' %}">
+                  <img style="padding: 0px 8px" class="img-logo" src="{% static 'images/circle_logo_small.png' %}" />
+                </a>
               </div>
-            </li>
-
-            <li class="collapsible-item user-menu">
-              <div class="collapsible-header" style="padding: 0px 16px;"><i class="material-icons">person</i>
-                <div class="w-100" style="position: relative;">
-                <span class="to-uppercase">{{ request.user.username }}</span>
-                <button id="user-menu-button" style="
-                  position: absolute;
-                  right: 0px;
-                  top: 12px;" class="mdl-button mdl-js-button mdl-button--icon">
-                  <i class="material-icons">more_vert</i>
-                </button>
-                </div>
-                <div id="user-options" style="              background: rgba(0, 123, 255, 0.1) !important;
-              background: linear-gradient(0deg, rgba(0, 123, 255, 0.25) 0%, rgba(255, 193, 7, 0.34) 100%) !important;">
-                  <ul class="mdl-menu mdl-menu--bottom-right mdl-js-menu mdl-js-ripple-effect" for="user-menu-button">
-                    <a href="{% url 'change_password' %}">
-                      <li class="mdl-menu__item">
-                        Change password
-                      </li>
-                    </a>
-                  </ul>
-                </div>
+              <div class="w-100" style="position: relative;">
+                <a href="{% url 'stations-map' %}">
+                  <img class="img-logo-surface" src="{% static 'images/surface_logo_smaller.png' %}" />
+                </a>
               </div>
-            </li>
+            </div>
+          </li>
 
-            <hr style="border: none !important; border-top: 3px solid #1e8fff40 !important; width: 90%; border-radius: 5px; margin: 5px auto;">
+          <!-- Signed in users name -->
+          <li class="collapsible-item">
+            <a href="{% url 'change_password' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()"><i class="material-icons">person</i><span class="to-uppercase custom-navbar-text-fade-out">{{ request.user.username }}</span></a>
+          </li>
 
-          </div>
-
+          <!-- Horizontal rule divider -->
+          <hr style="border: none !important; border-top: 3px solid #1e8fff40 !important; width: 90%; border-radius: 5px; margin: 5px auto;">
+          
           <ul class="collapsible to-uppercase trans_background">
             <!-- stations tab -->
-            <li id="stations-group" class="">
-              <div class="collapsible-header"><i class="material-icons">my_location</i>STATIONS</div>
-              <div class="collapsible-body">
-                <div class="collapsible-subitem mb-2">
-                  <ul class="collection">
-                    {% if 'stations-map' in request.user_permissions or request.user.is_superuser%}
-                    <a id="stations-map" href="{% url 'stations-map' %}" class=" collection-item left-space " onclick="mainOverlayLoader()">MAP<i class="material-icons secondary-content">map</i></a>
-                    {% endif%}
+            <li id="stations-group" class="hover-item nav-dropdown-toggle">
 
-                    {% if 'station-create' in request.user_permissions or request.user.is_superuser%}
-                      <a id="station-create" href="{% url 'station-create' %}" class=" collection-item left-space " onclick="mainOverlayLoader()">CREATE A STATION<i class="material-icons secondary-content">create</i></a>
-                    {% endif%}
+              <!-- tab name -->
+              <a class="collapsible-item" style="padding: 0px 16px; position: relative;">
+                <i class="material-icons">my_location</i>
+                <span class="custom-navbar-text-fade-out">STATIONS</span>
 
-                    {% if 'stations-list' in request.user_permissions or request.user.is_superuser%}
-                      <a id="stations-list" href="{% url 'stations-list' %}" class=" collection-item left-space " onclick="mainOverlayLoader()">LIST<i class="material-icons secondary-content">list</i></a>
-                    {% endif%}
+                <!-- new span for vert buttons, absolutely positioned to the right -->
+                <span class="hide-dropdown-icon" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%);">
+                  <i class="material-icons">more_vert</i>
+                </span>
+              </a>
 
-                    {% if 'station-metadata' in request.user_permissions or request.user.is_superuser%}
-                      <a id="station-metadata" href="{% url 'station-metadata' %}" class=" collection-item left-space " onclick="mainOverlayLoader()">METADATA<i class="material-icons secondary-content">assessment</i></a>
-                    {% endif%}
-                    
-                    {% if 'station-oscar-export' in request.user_permissions or request.user.is_superuser%}
-                      <a id="station-oscar-export" href="{% url 'station-oscar-export' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Export to OSCAR<i class="material-icons secondary-content">send</i></a>
-                    {% endif%}
-                    
-                    {% if 'stations-monitoring' in request.user_permissions or request.user.is_superuser%}
-                      <a id="stations-monitoring" href="{% url 'stations-monitoring' %}" class=" collection-item left-space " onclick="mainOverlayLoader()">STATIONS MONITORING<i class="material-icons secondary-content">monitor</i></a>                    
-                    {% endif%}
-                  </ul>
-                </div>
-              </div>
-            </li>
+
+              {% if 'stations-map' in request.user_permissions or request.user.is_superuser%}
+                <a id="stations-map" href="{% url 'stations-map' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">MAP<i class="material-icons secondary-content">map</i></a>
+              {% endif%}
+
+              {% if 'station-create' in request.user_permissions or request.user.is_superuser%}
+                <a id="station-create" href="{% url 'station-create' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">CREATE&nbsp;STATION<i class="material-icons secondary-content">create</i></a>
+              {% endif%}
+
+              {% if 'stations-list' in request.user_permissions or request.user.is_superuser%}
+                <a id="stations-list" href="{% url 'stations-list' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">LIST<i class="material-icons secondary-content">list</i></a>
+              {% endif%}
+
+              {% if 'station-metadata' in request.user_permissions or request.user.is_superuser%}
+                <a id="station-metadata" href="{% url 'station-metadata' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">METADATA<i class="material-icons secondary-content">assessment</i></a>
+              {% endif%}
+              
+              {% if 'station-oscar-export' in request.user_permissions or request.user.is_superuser%}
+                <a id="station-oscar-export" href="{% url 'station-oscar-export' %}" class="left-space hidden-link"  onclick="mainOverlayLoader()">OSCAR&nbsp;Export<i class="material-icons secondary-content">send</i></a>
+              {% endif%}
+              
+              {% if 'stations-monitoring' in request.user_permissions or request.user.is_superuser%}
+                <a id="stations-monitoring" href="{% url 'stations-monitoring' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">MONITORING<i class="material-icons secondary-content">monitor</i></a>                    
+              {% endif%}
+
+              <!-- pill border at the bottom of the dropdown -->
+              <hr class="hidden-end">
             </li>
 
             <!-- maintenance tab -->
             {% if 'equipment-inventory' in request.user_permissions or 'maintenance-reports' in request.user_permissions or 'new-maintenance-report' in request.user_permissions or request.user.is_superuser %}
-            <li id="maintenance-group" class="">
-              <div class="collapsible-header"><i class="material-icons">build</i>MAINTENANCE</div>
-              <div class="collapsible-body">
-                <div class="collapsible-subitem mb-2">
-                  <ul class="collection">
-                    {% if 'equipment-inventory' in request.user_permissions or request.user.is_superuser%}
-                     <a id="equipement-inventory" href="{% url 'equipment-inventory' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Equipment Inventory<i class="material-icons-outlined secondary-content">inventory</i></a>
-                    {% endif %}
-                    {% if 'maintenance-reports' in request.user_permissions or 'new-maintenance-report' in request.user_permissions or request.user.is_superuser%}                
-                     <a id="maintenance-reports" href="{% url 'maintenance-reports' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Maintenance Reports<i class="material-icons secondary-content">build</i></a>
-                    {% endif %}
-                  </ul>
-                </div>
-              </div>
+            <li id="maintenance-group" class="hover-item nav-dropdown-toggle">
+
+              <!-- tab name -->
+              <a class="collapsible-item" style="padding: 0px 16px; position: relative;">
+                <i class="material-icons">build</i>
+                <span class="custom-navbar-text-fade-out">MAINTENANCE</span>
+              
+                <!-- new span for vert buttons, absolutely positioned to the right -->
+                <span class="hide-dropdown-icon" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%);">
+                  <i class="material-icons">more_vert</i>
+                </span>
+              </a>
+              
+              {% if 'maintenance-reports' in request.user_permissions or 'new-maintenance-report' in request.user_permissions or request.user.is_superuser%}                
+                <a id="maintenance-reports" href="{% url 'maintenance-reports' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Maint. Reports<i class="material-icons-outlined secondary-content">article</i></a>
+              {% endif %}
+
+              {% if 'equipment-inventory' in request.user_permissions or request.user.is_superuser%}
+                <a id="equipement-inventory" href="{% url 'equipment-inventory' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Equip. Inventory<i class="material-icons-outlined secondary-content">inventory</i></a>
+              {% endif %}
+
+              <!-- pill border at the bottom of the dropdown -->
+              <hr class="hidden-end nav-dropdown-toggle">
             </li>
             {% endif %}
 
             <!-- data tab -->
             {% if 'monthly-form' in request.user_permissions or 'data-export' in request.user_permissions or 'manual-data-import' in request.user_permissions or 'synop-capture-form' in request.user_permissions or 'synop-capture' in request.user_permissions or 'data-inventory' in request.user_permissions or request.user.is_superuser %}
-            <li id="data-group" class="">
-              <div class="collapsible-header"><i class="material-icons">data_usage</i>DATA</div>
-              <div class="collapsible-body">
-                <div class="collapsible-subitem mb-2">
-                  <ul class="collection">
-                      {% if 'monthly-form' in request.user_permissions or request.user.is_superuser %}
-                        <a id="monthly-form" href="{% url 'monthly-form' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Monthly Capture Form<i class="material-icons secondary-content">filter_center_focus</i></a>
-                      {% endif %}
-                                  
-                      {% if 'synop-capture-form' in request.user_permissions or request.user.is_superuser %}
-                        <a id="synop-capture-form" href="{% url 'synop-capture-form' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Synop Capture<i class="material-icons secondary-content">keyboard</i></a>
-                      {% endif %}
+            <li id="data-group" class="hover-item nav-dropdown-toggle">
 
-                      <!-- Old synop capture form-->
-                      <!--
-                      {% if 'synop-capture' in request.user_permissions or request.user.is_superuser %}
-                        <a id="synop-capture" href="{% url 'synop-capture' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Synop Capture **Old<i class="material-icons secondary-content">keyboard</i></a>
-                      {% endif %} 
-                      -->
-                      
-                      {% if 'data-inventory' in request.user_permissions or request.user.is_superuser %}
-                        <a id="data-inventory" href="{% url 'data-inventory' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Data Inventory<i class="material-icons secondary-content">web</i></a>
-                      {% endif %}
+              <!-- tab name -->
+              <a class="collapsible-item" style="padding: 0px 16px; position: relative;">
+                <i class="material-icons">data_usage</i>
+                <span class="custom-navbar-text-fade-out">DATA</span>
+                
+                <!-- new span for vert buttons, absolutely positioned to the right -->
+                <span class="hide-dropdown-icon" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%);">
+                  <i class="material-icons">more_vert</i>
+                </span>
+              </a>
 
-                      {% if 'manual-data-import' in request.user_permissions or request.user.is_superuser %}
-                        <a id="manual-data-import" href="{% url 'manual-data-import' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Import<i class="material-icons-outlined secondary-content">cloud_upload</i></a>
-                      {% endif %}
+              {% if 'monthly-form' in request.user_permissions or request.user.is_superuser %}
+                <a id="monthly-form" href="{% url 'monthly-form' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Monthly Capture<i class="material-icons secondary-content">filter_center_focus</i></a>
+              {% endif %}
+                          
+              {% if 'synop-capture-form' in request.user_permissions or request.user.is_superuser %}
+                <a id="synop-capture-form" href="{% url 'synop-capture-form' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Synop Capture<i class="material-icons secondary-content">keyboard</i></a>
+              {% endif %}
+              
+              {% if 'data-inventory' in request.user_permissions or request.user.is_superuser %}
+                <a id="data-inventory" href="{% url 'data-inventory' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Data Inventory<i class="material-icons secondary-content">web</i></a>
+              {% endif %}
 
-                      {% if 'data-export' in request.user_permissions or request.user.is_superuser %}
-                        <a id="data-export" href="{% url 'data-export' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Export<i class="material-icons secondary-content">cloud_download</i></a>
-                      {% endif %}
-                  </ul>
-                </div>
-              </div>
+              {% if 'manual-data-import' in request.user_permissions or request.user.is_superuser %}
+                <a id="manual-data-import" href="{% url 'manual-data-import' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Import<i class="material-icons-outlined secondary-content">cloud_upload</i></a>
+              {% endif %}
+
+              {% if 'data-export' in request.user_permissions or request.user.is_superuser %}
+                <a id="data-export" href="{% url 'data-export' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Export<i class="material-icons secondary-content">cloud_download</i></a>
+              {% endif %}
+
+              <!-- pill border at the bottom of the dropdown -->
+              <hr class="hidden-end">
             </li>
             {% endif %}
 
-
-            {% if 'wis2-dashboard' in request.user_permissions or request.user.is_superuser %}
-            <li class="collapsible-item">
-              <a href="{% url 'wis2-dashboard' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()"><i class="material-icons">space_dashboard</i>WIS2 DASHBOARD</a>
-            </li>
-            {% endif %}
-
-
+            <!-- Quality control-1 -->
             {% if 'persist-threshold' in request.user_permissions or 'step-threshold' in request.user_permissions or 'range-threshold' in request.user_permissions or 'quality-control' in request.user_permissions or request.user.is_superuser %}
-            <li id="quality-control-group" class="">
-              <div class="collapsible-header"><i class="material-icons">playlist_add_check</i>Quality<span>&nbsp;</span>Control</div>
-              <div class="collapsible-body">
-                <div class="collapsible-subitem mb-2">
-                  <ul class="collection">
-                    {% if 'quality-control' in request.user_permissions or request.user.is_superuser%}
-                      <a id="quality-control" href="{% url 'quality-control' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Data Validation<i class="material-icons secondary-content">done_all</i></a>
-                    {% endif %}
+            <li id="quality-control-group" class="hover-item nav-dropdown-toggle">
 
-                    {% if 'range-threshold' in request.user_permissions or request.user.is_superuser%}
-                      <a id="range-threshold" href="{% url 'range-threshold' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Range Threshold<i class="material-icons secondary-content">clear_all</i></a>
-                    {% endif %}
+              <!-- tab name -->
+              <a class="collapsible-item" style="padding: 0px 16px; position: relative;">
+                <i class="material-icons">verified</i>
+                <span class="custom-navbar-text-fade-out">Quality Control</span>
 
-                    {% if 'step-threshold' in request.user_permissions or request.user.is_superuser%}
-                      <a id="step-threshold" href="{% url 'step-threshold' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Step Threshold<i class="material-icons secondary-content">low_priority</i></a>
-                    {% endif %}
+                <!-- new span for vert buttons, absolutely positioned to the right -->
+                <span class="hide-dropdown-icon" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%);">
+                  <i class="material-icons">more_vert</i>
+                </span>
+              </a>
 
-                    {% if 'persist-threshold' in request.user_permissions or request.user.is_superuser%}
-                      <a id="persist-threshold" href="{% url 'persist-threshold' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Persist Threshold<i class="material-icons secondary-content">format_align_left</i></a>
-                    {% endif %}
-                  </ul>
-                </div>
-              </div>
+              {% if 'quality-control' in request.user_permissions or request.user.is_superuser%}
+                <a id="quality-control" href="{% url 'quality-control' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Data Validation<i class="material-icons secondary-content">done_all</i></a>
+              {% endif %}
+
+              {% if 'range-threshold' in request.user_permissions or request.user.is_superuser%}
+                <a id="range-threshold" href="{% url 'range-threshold' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Range Threshold<i class="material-icons secondary-content">clear_all</i></a>
+              {% endif %}
+
+              {% if 'step-threshold' in request.user_permissions or request.user.is_superuser%}
+                <a id="step-threshold" href="{% url 'step-threshold' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Step Threshold<i class="material-icons secondary-content">low_priority</i></a>
+              {% endif %}
+
+              {% if 'persist-threshold' in request.user_permissions or request.user.is_superuser%}
+                <a id="persist-threshold" href="{% url 'persist-threshold' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Persist Threshold<i class="material-icons secondary-content">format_align_left</i></a>
+              {% endif %}
+
+              <!-- pill border at the bottom of the dropdown -->
+              <hr class="hidden-end">
             </li>
             {% endif %}
 
+            <!-- products -->
             {% if 'wave-data' in request.user_permissions or 'extremes-means' in request.user_permissions or 'spatial-analysis' in request.user_permissions or 'product-compare' in request.user_permissions or 'variable-report' in request.user_permissions or 'station-report' in request.user_permissions or request.user.is_superuser %}
-            <li id="products-group" class="">
-              <div class="collapsible-header"><i class="material-icons">list_alt</i>PRODUCTS</div>
-              <div class="collapsible-body">
-                <div class="collapsible-subitem mb-2">
-                  <ul class="collection">
-                    {% if 'station-report' in request.user_permissions or request.user.is_superuser%}
-                      <a id="station-report" href="{% url 'station-report' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Station Report<i class="material-icons secondary-content">people</i></a>
-                    {% endif %}
+            <li id="products-group" class="hover-item nav-dropdown-toggle">
 
-                    {% if 'variable-report' in request.user_permissions or request.user.is_superuser%}
-                      <a id="variable-report" href="{% url 'variable-report' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Variable Report<i class="material-icons secondary-content">view_list</i></a>
-                    {% endif %}
+              <!-- tab name -->
+              <a class="collapsible-item" style="padding: 0px 16px; position: relative;">
+                <i class="material-icons">list_alt</i>
+                <span class="custom-navbar-text-fade-out">PRODUCTS</span>
+              
+                <!-- new span for vert buttons, absolutely positioned to the right -->
+                <span class="hide-dropdown-icon" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%);">
+                  <i class="material-icons">more_vert</i>
+                </span>
+              </a>
 
-                    {% if 'product-compare' in request.user_permissions or request.user.is_superuser%}
-                      <a id="product-compare" href="{% url 'product-compare' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Station Compare<i class="material-icons secondary-content">compare_arrows</i></a>
-                    {% endif %}
+              {% if 'station-report' in request.user_permissions or request.user.is_superuser%}
+                <a id="station-report" href="{% url 'station-report' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Station Report<i class="material-icons secondary-content">people</i></a>
+              {% endif %}
 
-                    {% if 'yearly-average' in request.user_permissions or request.user.is_superuser%}
-                      <a id="yearly-average" href="{% url 'yearly-average' %}" class="collection-item left-space">Yearly Average<i class="material-icons secondary-content" onclick="mainOverlayLoader()">timeline</i></a>
-                    {% endif %}
+              {% if 'variable-report' in request.user_permissions or request.user.is_superuser%}
+                <a id="variable-report" href="{% url 'variable-report' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Variable Report<i class="material-icons secondary-content">view_list</i></a>
+              {% endif %}
 
-                    {% if 'spatial-analysis' in request.user_permissions or request.user.is_superuser%}
-                      <a id="spatial-analysis" href="{% url 'spatial-analysis' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Spatial analysis<i class="material-icons secondary-content">dashboard</i></a>
-                    {% endif %}
+              {% if 'product-compare' in request.user_permissions or request.user.is_superuser%}
+                <a id="product-compare" href="{% url 'product-compare' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Station Compare<i class="material-icons secondary-content">compare_arrows</i></a>
+              {% endif %}
 
-                    {% if 'extremes-means' in request.user_permissions or request.user.is_superuser%}
-                      <a id="extremes-means" href="{% url 'extremes-means' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Extremes and Means<i class="material-icons secondary-content">equalizer</i></a>
-                    {% endif %}
-                    
-                    {% if 'wave-data' in request.user_permissions or request.user.is_superuser%}
-                      <a id="wave-data" href="{% url 'wave-data' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Wave data analysis<i class="material-icons secondary-content">water</i></a>
-                    {% endif %}
-                  </ul>
-                </div>
-            </div>
+              {% if 'yearly-average' in request.user_permissions or request.user.is_superuser%}
+                <a id="yearly-average" href="{% url 'yearly-average' %}" class="left-space hidden-link">Yearly Average<i class="material-icons secondary-content" onclick="mainOverlayLoader()">timeline</i></a>
+              {% endif %}
+
+              {% if 'spatial-analysis' in request.user_permissions or request.user.is_superuser%}
+                <a id="spatial-analysis" href="{% url 'spatial-analysis' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Spatial analysis<i class="material-icons secondary-content">dashboard</i></a>
+              {% endif %}
+
+              {% if 'extremes-means' in request.user_permissions or request.user.is_superuser%}
+                <a id="extremes-means" href="{% url 'extremes-means' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Extremes & Means<i class="material-icons secondary-content">equalizer</i></a>
+              {% endif %}
+              
+              {% if 'wave-data' in request.user_permissions or request.user.is_superuser%}
+                <a id="wave-data" href="{% url 'wave-data' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Wave data analysis<i class="material-icons secondary-content">water</i></a>
+              {% endif %}
+
+              <!-- pill border at the bottom of the dropdown -->
+              <hr class="hidden-end">
             </li>
             {% endif %}
 
+            <!-- wis2dashboard -->
+            {% if 'wis2-dashboard' in request.user_permissions or request.user.is_superuser %}
+            <li class="">
+
+              <!-- tab name -->
+              <a class="collapsible-item" href="{% url 'wis2-dashboard' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()">
+                <i class="material-icons">space_dashboard</i>
+                <span class="custom-navbar-text-fade-out">WIS2 DASHBOARD</span>
+              </a>
+            </li>
+            {% endif %}
+
+            <!-- administrative area -->
             {% if request.user.is_staff or request.user.is_superuser %}
-            <li class="collapsible-item">
-              <a href="{% url 'admin:index' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()"><i class="material-icons">people</i>ADMINISTRATIVE AREA</a>
+            <li class="">
+
+              <!-- tab name -->
+              <a class="collapsible-item" href="{% url 'admin:index' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()"><i class="material-icons">people</i><span class="custom-navbar-text-fade-out">ADMINISTRATIVE AREA</span></a>
             </li>
             {% endif %}
 
-            <li class="collapsible-item">
-              <a href="{% url 'logout' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()"><i class="material-icons">directions</i>LOGOUT</a>
+            <!-- logout -->
+            <li class="">
+              <a class="collapsible-item" href="{% url 'logout' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()"><i class="material-icons">directions</i><span class="custom-navbar-text-fade-out">LOGOUT</span></a>
             </li>
           </ul>
 
         </div>
 
-        <!-- The version lable -->
+        <!-- The version label -->
         <div id="version-label">
           <li class="collapsible-item app-version">
             <a href="#" style="padding: 0px 16px; color: #1e90ff;"><i id="version-icon" class="material-icons" style="color: #1e90ff;">info</i>{{ APP_VERSION_LABEL }}</a>
@@ -789,21 +901,6 @@
       </div>
 
     </ul>
-
-    <a href="#" data-target="slide-out" class="sidenav-trigger"><i class="material-icons">menu</i></a>
-    
-    <a id="menu-closer" href="javascript:void(0)">
-      <i class="material-icons">close</i>
-    </a>
-
-    <header class="mobile-menu">
-      <nav>
-        <a id="menu-toggler" href="javascript:void(0)">
-          <i class="material-icons">menu</i>
-        </a>
-        <h1>SURFACE</h1>
-      </nav>
-    </header>
 
 
     <main style="height: 100vh; width: 100%">
@@ -844,6 +941,44 @@
       </div>
 
     </main>
+
+    <!-- Only displayed on small screens -->
+    <section id="screen_check_container">
+
+    <!-- Placeholder for screens which are too small -->
+      <div class="img-full"></div> <!-- background image -->
+
+      <div class="wide_accent_background"></div> <!-- gradient accent -->
+
+      <!-- screen check box -->
+      <div id="screen_check">
+        
+        <!-- Main Heading -->
+        <h4>
+          Screen Size Too Small
+        </h4>
+
+        <!-- Thin Separator Line -->
+        <hr style="
+            width: 200px;
+            border: none;
+            border-top: 1px solid #ccc;
+            margin: 0.5rem 0 1.5rem;
+          "
+        >
+
+        <!-- Icon -->
+        <i class="material-icons mb-2" style="font-size: 35px;">
+            desktop_access_disabled
+        </i>
+
+        <!-- Explanatory Text -->
+        <p style="color: #555;">
+          For the best experience, please view this page on a larger device or rotate your screen to landscape mode.
+        </p>
+      </div>
+
+    </section>
 
     <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
 
@@ -892,6 +1027,8 @@
 
 
 
+
+
     <script type="text/javascript" src="https://cdn.datatables.net/v/bs4/dt-1.10.20/b-1.6.1/b-html5-1.6.1/fh-3.1.6/datatables.min.js"></script>
     {% block js %}
     <script>
@@ -899,99 +1036,49 @@
 
         $('.collapsible').collapsible();
         const menu = document.getElementById('slide-out');
-        const closer = document.getElementById('menu-closer');
         const blockContent = document.getElementById('block-content');
         const wrapSidenav = document.getElementById('wrap-sidenav');
         const instance = M.Collapsible.getInstance(document.querySelector('.collapsible')); 
+        
+        // Select all elements with the class "custom-navbar-text-fade-out"
+        const navbarItems = document.querySelectorAll('.custom-navbar-text-fade-out');
 
-        //MOBILE
-        document.getElementById('menu-toggler')
-          .addEventListener('click', function(evt) {
-            menu.classList.add('open');
-            closer.classList.add('open');
-          });
-
-        document.getElementById('menu-closer')
-          .addEventListener('click', function(evt) {
-            menu.classList.remove('open');
-            closer.classList.remove('open');
-          });
+        // Select all elements with the class "hide-dropdown-icon"
+        const dropdownIconItems = document.querySelectorAll('.hide-dropdown-icon');
         
         // WEB
-        // collapseHideMenuText = function() {
-          
-        //   for (let index = 1; index <= 7; index++) {
-            
-        //     var element = document.getElementById('hide-menu-text-' + index);
-        //     element.classList.add('hide-menu-text');
-            
-        //   }
-
-        // }
-
-        // collapseShowMenuText = function() {
-
-        //   for (let index = 1; index <= 7; index++) {
-            
-        //     var element = document.getElementById('hide-menu-text-' + index);
-        //     element.classList.remove('hide-menu-text');
-            
-        //   }
-
-        // }
-
-        showUserOptions = function() {
-
-          // to show user options when side nav collapses
-          var user_option = document.getElementById('user-options');
-          user_option.classList.remove('user-options-style');
-
-          // var user_option = document.querySelectorAll('div.is-upgraded');
-
-          // // Iterate through the retrieved elements and add the necessary class names.
-          // for(var i = 0; i < user_option.length; i++)
-          // {
-          //     user_option[i].classList.add('is-visible');
-          // }
-
-        }
-
-        hideUserOptions = function() {
-
-          // to show user options when side nav collapses
-          var user_option = document.getElementById('user-options');
-          user_option.classList.add('user-options-style');
-
-        }
-
-        hideUserOptionsNavClose = function() {
-
-          var user_option = document.querySelectorAll('div.is-upgraded');
-          
-          // Iterate through the retrieved elements and add the necessary class names.
-          for(var i = 0; i < user_option.length; i++)
-          {
-              user_option[i].classList.remove('is-visible');
-          }
-
-        }
-
         hoverOpenSidebar = function() {
+          // Loop through each element to fade IN the navbar options
+          navbarItems.forEach(el => {
+            el.classList.replace('custom-navbar-text-fade-out', 'custom-navbar-text-fade-in'); // remove the fade OUT and add the fade IN
+          });
+
+          // Loop through each dropdown icon item
+          dropdownIconItems.forEach(el => {
+            el.classList.replace('hide-dropdown-icon', 'dropdown-icon')
+          });
+
           menu.classList.add('open-mode');
           menu.classList.remove('collapsed-mode');
           blockContent.classList.add('p-300');
           blockContent.classList.remove('p-55');
-          showUserOptions();
-          // collapseShowMenuText();
         }
 
         hoverCloseSidebar = function() {
+          // Loop through each element to fade OUT the navbar options
+          navbarItems.forEach(el => {
+            el.classList.replace('custom-navbar-text-fade-in', 'custom-navbar-text-fade-out'); // remove the fade IN and add the fade OUT
+          });
+
+          // Loop through each dropdown icon item and hid it
+          dropdownIconItems.forEach(el => {
+            el.classList.replace('dropdown-icon', 'hide-dropdown-icon')
+          });
+
           menu.classList.remove('open-mode');
           menu.classList.add('collapsed-mode');
           blockContent.classList.remove('p-300');
           blockContent.classList.add('p-55');
-          hideUserOptions();
-          // collapseHideMenuText();
 
           setTimeout(() => {
             instance.close($('li.active').index());
@@ -999,34 +1086,14 @@
         }
 
         closeSidebarSubMenu = function() {
+          // close all open nav bar options
+          document.querySelectorAll('.hover-item').forEach(item => {
+            item.classList.remove('open');
+          });
+
           instance.close($('li.active').index());
         }
 
-
-
-
-        // function addWrapOnSidebar() {
-        //   wrapSidenav.classList.add('wrap-menu');
-        // }
-        
-        // function removeWrapOnSidebar() {
-        //   wrapSidenav.classList.remove('wrap-menu');
-        // }
-
-        // [].slice.call(document.querySelectorAll('.active.collection-item'))
-        //   .forEach(el => {
-        //     el.classList.remove('active', 'text-white');
-        //   });
-        // [].slice.call(document.querySelectorAll(`.collection-item[href="${window.location.pathname}"]`))
-        //   .forEach(el => { 
-        //     el.classList.add('active', 'text-white');
-        //   });
-        
-        //   let query = document.querySelector(`.collection-item[href="${window.location.pathname}"]`)
-        //   if (query) {
-        //     const li = query.parentElement.parentElement.parentElement.parentElement;
-        //     instance.open([].slice.call(document.querySelector('.collapsible').children).indexOf(li));
-        //   }
       });
     
       // JS for main-overlay loader
@@ -1058,6 +1125,22 @@
               document.getElementById('main-spinner').style.display = 'none';
           }
       });
+
+      // JS to show the dropdow options in navbar
+      document.querySelectorAll('.nav-dropdown-toggle').forEach(link => {
+        link.addEventListener('click', function() {
+          const li = this.closest('.hover-item');
+
+          // close all other hover-items
+          document.querySelectorAll('.hover-item').forEach(item => {
+            if (item !== li) item.classList.remove('open');
+          });
+
+          // toggle this one
+          li.classList.toggle('open');
+        });
+      });
+
 
 
 

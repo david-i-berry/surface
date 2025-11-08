@@ -1,6 +1,5 @@
 {% extends "base.html" %} {% block content %} {% load static %} {% load material_form %}
 
-
 <div class="srf-container">
     <!-- Heading -->
     <div class="srf-flex flex-row align-items-center justify-content-between srf-padding">
@@ -257,7 +256,7 @@
 
                     <!-- Synop table grid container -->
                     <!-- Non Sticky header -->
-                    {% comment %} <ag-grid-vue
+                    <ag-grid-vue
                         v-show="!hideTable"
                         :row-data="rowData"
                         :column-defs="colDefs"
@@ -270,10 +269,10 @@
                         @cell-editing-stopped="onCellEditingStopped"
                         dom-layout="autoHeight"
                     >
-                    </ag-grid-vue> {% endcomment %}
+                    </ag-grid-vue>
 
                     <!-- Sticky header -->
-                    <ag-grid-vue
+                    <!-- <ag-grid-vue
                         v-show="!hideTable"
                         :row-data="rowData"
                         :column-defs="colDefs"
@@ -285,7 +284,7 @@
                         @cell-editing-started="onCellEditingStarted"
                         @cell-editing-stopped="onCellEditingStopped"
                     >
-                    </ag-grid-vue>
+                    </ag-grid-vue> -->
 
 
                 </v-carousel-item>
@@ -365,6 +364,29 @@
 
 {% endblock %} 
 {% block localjavascript %}
+
+<style>
+    .ag-header-group-text {
+        white-space: normal !important;
+        line-height: 1.2;
+        text-align: center;
+        word-break: break-word;
+    }
+
+    .ag-grid-header-center {
+        display: flex;
+        justify-content: center; /* centers horizontally */
+        align-items: center;     /* centers vertically */
+        text-align: center;      /* fallback text align */
+    }
+
+    .misc-cols-group, .wind-cols-group, .temp-cols-group, 
+    .pressure-cols-group, .precip-cols-group, .sky-cols-group,
+    .cloud-cols-group {
+        justify-content: center;
+        text-align: center;      /* fallback text align */
+    }
+</style>
 
 <script>
 
@@ -447,7 +469,8 @@
         // Pinned "Time Column"
         {
             cellClass: "time-col",
-            headerName: "Time",
+            width: 100,
+            headerName: "Time Stamp",
             headerClass: "misc-cols-group",
             field: "time", 
             // show the dates in 12 hour format
@@ -455,6 +478,7 @@
             colId: "tz", // explicitly setting the column id
             pinned: "left",
             editable: false,
+            wrapHeaderText: true, // Wrap Text
         },
 
         // Dynamically generated weather columns
@@ -491,6 +515,8 @@
                         {% endif %}
                         {
                             headerName: "{{item.synoptic_code | safe}}", 
+                            wrapHeaderText: true, // Wrap Text
+                            autoHeaderHeight: true, // Adjust Cell Height to Fit Wrapped Text
                             field: "{{item.id | safe}}",
                             colId: "{{ item.id | safe}}", // explicityly setting the column id
                             width: {{item.col_width}},
@@ -505,9 +531,10 @@
                     ]
                 },
             {% else %}
-            // if the no synoptic code is found use the following
+            // if no synoptic code is found use the following
                 {
                     headerName: "{{item.name | safe}}",
+                    wrapHeaderText: true, // Wrap Text
                     headerClass: "{{item.col_class | safe}}",
                     field: "{{item.id | safe}}",
                     colId: "{{ item.id | safe}}", // explicityly setting the column id
@@ -807,9 +834,11 @@
                     requestedData: {},
                     // AG GRID DATA
                     // Possible themes: (**can append '-dark' to any option) [ag-theme-quartz, ag-theme-balham, ag-theme-material]
-                    tableTheme: "ag-theme-quartz",
+                    tableTheme: "ag-theme-balham",
                     // grid settings as a whole
                     gridOptions: {
+                        suppressMenuHide: true,       // keeps menu icon always visible
+                        groupHeaderHeight: 60, // Increase col height specifically for group headers
                         rowHeight: 30, // custom row height
                         rowClassRules: { // tag last 6 rows (statistics) with the CSS class 'grey-row'
                         'grey-row': params => params.node.rowPinned === 'bottom'
