@@ -369,23 +369,33 @@
     .ag-header-group-text {
         white-space: normal !important;
         line-height: 1.2;
-        text-align: center;
+        text-align: center !important;
         word-break: break-word;
     }
 
     .ag-grid-header-center {
         display: flex;
-        justify-content: center; /* centers horizontally */
-        align-items: center;     /* centers vertically */
-        text-align: center;      /* fallback text align */
+        justify-content: center !important; /* centers horizontally */
+        align-items: center !important;     /* centers vertically */
+        text-align: center !important;      /* fallback text align */
     }
 
     .misc-cols-group, .wind-cols-group, .temp-cols-group, 
     .pressure-cols-group, .precip-cols-group, .sky-cols-group,
     .cloud-cols-group {
-        justify-content: center;
-        text-align: center;      /* fallback text align */
+        justify-content: center !important;
+        text-align: center !important;      /* fallback text align */
     }
+
+    /* minimizing the padding from the header cells */
+    .ag-header-cell {
+        padding-left: 5px !important;
+        padding-right: 5px !important;
+    }
+
+    .ag-header-group-cell-with-group {padding: 3px !important;}
+    .ag-header-group-cell {padding: 3px !important;}
+
 </style>
 
 <script>
@@ -473,6 +483,7 @@
             headerName: "Time Stamp",
             headerClass: "misc-cols-group",
             field: "time", 
+            resizable: true,
             // show the dates in 12 hour format
             valueFormatter: params => formatHour(params.value),
             colId: "tz", // explicitly setting the column id
@@ -517,6 +528,7 @@
                             headerName: "{{item.synoptic_code | safe}}", 
                             wrapHeaderText: true, // Wrap Text
                             autoHeaderHeight: true, // Adjust Cell Height to Fit Wrapped Text
+                            resizable: true,
                             field: "{{item.id | safe}}",
                             colId: "{{ item.id | safe}}", // explicityly setting the column id
                             width: {{item.col_width}},
@@ -525,6 +537,7 @@
                                 cellEditor: 'agSelectCellEditor',
                                 cellEditorParams: {
                                     values: {{ item.dropdown_codes | safe}},
+                                    valueListMaxHeight: 240,
                                 }
                             {% endif %}
                         },
@@ -535,6 +548,7 @@
                 {
                     headerName: "{{item.name | safe}}",
                     wrapHeaderText: true, // Wrap Text
+                    resizable: true,
                     headerClass: "{{item.col_class | safe}}",
                     field: "{{item.id | safe}}",
                     colId: "{{ item.id | safe}}", // explicityly setting the column id
@@ -544,6 +558,7 @@
                         cellEditor: 'agSelectCellEditor',
                         cellEditorParams: {
                             values: {{ item.dropdown_codes | safe}},
+                            valueListMaxHeight: 240,
                         }
                     {% endif %}
                 },

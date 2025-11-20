@@ -7641,6 +7641,7 @@ def get_station_variable_day_data_inventory(request):
         return Response({"error": str(e)}, status=500)
 
 
+# check the status of celery tasks
 @api_view(['GET'])
 def get_task_status(request, task_id):
     result = AsyncResult(task_id)
@@ -9487,9 +9488,9 @@ def push_to_wis2box(request):
                 return JsonResponse({}, status=400)
 
             # attempt station push to wis2box
-            tasks.wis2publish_task_now(station_id)
+            wis2push_task = tasks.wis2publish_task_now.delay(station_id)
 
-            return JsonResponse({}, status=200)
+            return JsonResponse({"celery_task_id":wis2push_task.id}, status=200)
         except Exception as e:
             return JsonResponse({e}, status=500)
 
@@ -9576,13 +9577,6 @@ def get_synop_capture_config():
     #     200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 
     #     200, 200
     # ]
-    # col_widths = [
-    #     120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 
-    #     120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 
-    #     120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 
-    #     120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 
-    #     120, 120
-    # ]
     col_widths = [
         110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 
         110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 
@@ -9590,6 +9584,13 @@ def get_synop_capture_config():
         110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 
         110, 110
     ]
+    # col_widths = [
+    #     70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 
+    #     70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 
+    #     70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 
+    #     70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 
+    #     70, 70
+    # ]
 
     var_class_dict = {
         "misc-cols-group": ['RH', 'VISBY-km', 'SpPhenom'],

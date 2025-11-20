@@ -43,7 +43,7 @@
                                 <v-text-field append-icon="person" v-model="localCredentials.local_wis2_username" label="Username" type="text" disabled></v-text-field>
 
                                 <v-btn color="primary" @click="localForceCreate = true" class="mr-3">Yes, Create New</v-btn>
-                                <v-btn color="red" dark @click="closeDialog()">Cancel</v-btn>
+                                <v-btn color="red" dark @click="closeDialog()">Close</v-btn>
                             </v-card-text>
 
                             <!-- Show the form if the user confirms they want to create a new one -->
@@ -1656,48 +1656,126 @@
 
                 // Function to trigger the push to WIS2BOX
                 async pushToWis2Box(stationId) {
-                    // call the progress bar control
-                    this.progressLinearControl();
+                    try {
+                        // Start the progress bar (show user that work is in progress)
+                        this.progressLinearControl();
 
-                    await axios.post("push_to_wis2box/", { stationId })
-                    .then(response => {
-                    if (response.status === 200) {
-                        console.log("Success: Station pushed.");
-                        // this.dialogPushNow= false;
-                        this.snackbar = { show: true, message: 'Station push initiated. See Logs for more information', color: 'blue' }
-                    }
-                    })
-                    .catch(error => {
+                        // Initiate the push task on the server
+                        const response = await axios.post("push_to_wis2box/", { stationId });
+                        if (response.status !== 200) throw new Error("Failed to initiate push");
+
+                        console.log("Success: Station push initiated.");
+                        const task_id = response.data.celery_task_id;
+
+                        // Notify the user that the push has started
+                        this.snackbar = { 
+                            show: true, 
+                            message: 'Station push initiated. See Logs for more information', 
+                            color: 'blue' 
+                        }
+
+                        // Set up polling variables
+                        let attempts = 0;
+                        const maxAttempts = 60; // Maximum number of polls (~5 minutes if interval = 5s)
+
+                        // Recursive function to poll the task status
+                        const pollTask = async () => {
+                            try {
+                                const res = await axios.get(`/api/task/${task_id}/`);
+
+                                if (res.data.status === "completed") {
+                                    // Task completed successfully
+                                    console.log("Success: Station push completed.");
+                                    this.snackbar = { 
+                                        show: true, 
+                                        message: 'Station push completed! See Logs for more information', 
+                                        color: 'green' 
+                                    }
+                                    // Refresh logs after completion
+                                    await this.fetchPublishingLog();
+
+                                    // Mark progress bar as complete
+                                    clearInterval(this.progressLinearInterval); // stop incrementing
+                                    this.progressLinear = 100; // now it can hit 100%
+                                    this.progressLinearShow = false; // optionally hide the bar
+
+                                } else if (res.data.status === "failed") {
+                                    // Task failed on the server
+                                    console.error("Failed to push station! Push now celery task failed.");
+                                    this.snackbar = { show: true, message: 'Failed to push station', color: 'red' }
+                                    
+                                    // stop the progres bar
+                                    clearInterval(this.progressLinearInterval); // stop incrementing
+                                    this.progressLinearShow = false; // hide the bar
+
+                                } else {
+                                    // Task still running
+                                    attempts++;
+                                    if (attempts >= maxAttempts) {
+                                        // Maximum polling attempts reached, assume something went wrong
+                                        console.warn("Push task is taking too long.");
+                                        this.snackbar = { show: true, message: 'Task taking too long', color: 'orange' }
+                                        // stop the progres bar
+                                        clearInterval(this.progressLinearInterval); // stop incrementing
+                                        this.progressLinearShow = false; // hide the bar
+                                    } else {
+                                        // Poll again after 5 seconds
+                                        setTimeout(pollTask, 5000);
+                                    }
+                                }
+
+                            } catch (err) {
+                                // Error when checking task status (network/server error)
+                                console.error("Error polling task:", err.response?.status || err.message);
+                                this.snackbar = { show: true, message: 'Failed to push station', color: 'red' }
+                                
+                                // stop the progres bar
+                                clearInterval(this.progressLinearInterval); // stop incrementing
+                                this.progressLinearShow = false; // hide the bar
+                            }
+                        };
+
+                        // Start polling
+                        pollTask();
+
+                    } catch (error) {
+                        // Error initiating the push task
                         console.error("Failed to push station:", error.response?.status || error.message);
-                        // this.dialogPushNow= false;
                         this.snackbar = { show: true, message: 'Failed to push station', color: 'red' }
-                    });
 
-                    // reload the logs
-                    await this.fetchPublishingLog();
-
-                    // if the push was accepted end the progress linear
-                    this.progressLinear = 100;
-                },
-
-                // the loader to wait for the push now to complete
-                progressLinearControl () {
-                    this.progressLinearQuery = true
-                    this.progressLinearShow = true
-                    // this.progressLinear = Math.floor(Math.random() * 10);
-                    this.progressLinear = 0;
-                    
-                    this.progressLinearQuery = false
-
-                    this.progressLinearInterval = setInterval(() => {
-                    if (this.progressLinear === 100) {
-                        clearInterval(this.progressLinearInterval)
-                        this.progressLinearShow = false
-                        // return setTimeout(this.progressLinearControl, 2000) // makes the fxn recursive, causing the progress bar to loop
+                        // stop the progres bar
+                        clearInterval(this.progressLinearInterval); // stop incrementing
+                        this.progressLinearShow = false; // hide the bar
                     }
-                    this.progressLinear += Math.floor(Math.random() * 5) + 1;
-                    }, 1000)
                 },
+
+                
+                // Function to show a simulated progress bar while waiting for a task
+                // Loader to visually indicate progress until a push completes
+                progressLinearControl() {
+                    // Show the progress bar
+                    this.progressLinearShow = true;
+                    this.progressLinear = 0; // Start at 0%
+
+                    // Clear any previous interval to avoid duplicates
+                    if (this.progressLinearInterval) {
+                        clearInterval(this.progressLinearInterval);
+                    }
+
+                    // Smoothly increment progress while task is ongoing
+                    this.progressLinearInterval = setInterval(() => {
+                        // Increment by a small random value
+                        const increment = Math.floor(Math.random() * 2) + 1; // 1–2%
+                        // const increment = Number((Math.random() * 1).toFixed(2)); // 0 – 1%
+                        // Never allow it to reach 100 while task is in progress
+                        if (this.progressLinear < 99) {
+                            this.progressLinear += increment;
+                            if (this.progressLinear > 99) this.progressLinear = 99;
+                        }
+                        // When the task completes (success/fail), push function will set progressLinear = 100
+                    }, 500); // update every 0.5s
+                },
+
 
                 // fxns that controls the help dialog
                 openHelpDialog() {
