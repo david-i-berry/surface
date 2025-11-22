@@ -335,7 +335,9 @@
           </template>
           </v-data-table>
         </v-card-text>
+
         <v-divider></v-divider>
+        
         <v-card-actions>
           <v-dialog
             v-model="add_value_dialog"
@@ -871,21 +873,21 @@
     },
     methods: {
       getGeoJson() {
-        axios.get("{% static 'Belize_Basemap.geojson' %}").then(data => {
+        axios.get("{% static 'Basemap.geojson' %}").then(data => {
           this.Basemap_geojson = data.data;
         });
         axios
-          .get("{% static 'Belize_Watersheds_4326.geojson' %}")
+          .get("{% static 'Watersheds_4326.geojson' %}")
           .then(data => {
             this.Watersheds_geojson = data.data;
           });
         axios.get("{% static 'GWP_Campur.geojson' %}").then(data => {
           this.Groundwater_geojson = data.data;
         });
-        axios.get("{% static 'Belize_Rivers.geojson' %}").then(data => {
+        axios.get("{% static 'Rivers.geojson' %}").then(data => {
           this.River_geojson = data.data;
         });
-        axios.get("{% static 'Belize_NationalWaters.geojson' %}").then(data => {
+        axios.get("{% static 'NationalWaters.geojson' %}").then(data => {
           this.NationalWaters_geojson = data.data;
         });
       },

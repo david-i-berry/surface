@@ -77,7 +77,7 @@
         
                                 <!-- Control buttons -->
                                 <v-btn color="grey" dark v-if="localForceCreate" @click="backCredentialsDialog('local')" class="mr-3">Back</v-btn>
-                                <v-btn color="red" dark @click="closeDialog()" class="mr-3">Cancel</v-btn>
+                                <v-btn color="red" dark @click="closeDialog()" class="mr-3">Close</v-btn>
                                 <v-btn type="submit" dark color="green" :disabled="!isLocalFormValid">Update</v-btn>
                             </v-form>
                         </v-tab-item>
@@ -99,7 +99,7 @@
                                 <v-text-field append-icon="person" v-model="regionalCredentials.regional_wis2_username" label="Username" type="text" disabled></v-text-field>
 
                                 <v-btn color="primary" @click="regionalForceCreate = true" class="mr-3">Yes, Create New</v-btn>
-                                <v-btn color="red" dark @click="closeDialog()">Cancel</v-btn>
+                                <v-btn color="red" dark @click="closeDialog()">Close</v-btn>
                             </v-card-text>
 
                             <!-- Show the form if the user confirms they want to create a new one -->
@@ -133,7 +133,7 @@
         
                                 <!-- Control buttons -->
                                 <v-btn color="grey" dark v-if="regionalForceCreate" @click="backCredentialsDialog('regional')" class="mr-3">Back</v-btn>
-                                <v-btn color="red" dark @click="closeDialog()" class="mr-3">Cancel</v-btn>
+                                <v-btn color="red" dark @click="closeDialog()" class="mr-3">Close</v-btn>
                                 <v-btn type="submit" dark color="green" :disabled="!isRegionalFormValid">Update</v-btn>
                             </v-form>
                         </v-tab-item>
@@ -258,7 +258,7 @@
                         color="red"
                         @click="closeLogsDialog"
                     >
-                        Cancel
+                        Close
                     </v-btn>
                 </v-card-actions>
             </v-card>
@@ -465,7 +465,7 @@
                         </v-tab-item>
                     </v-tabs-items>
 
-                    <!-- the submit and cancel button -->
+                    <!-- the submit and Close button -->
                     <v-card-text>
                         <v-btn 
                             color="red" 
@@ -473,7 +473,7 @@
                             @click="closeStationDialog()" 
                             class="mr-3"
                         >
-                            Cancel
+                            Close
                         </v-btn>
 
                         <v-btn type="submit" 
@@ -516,7 +516,7 @@
 
 
         <!-- #################################### PAGE CONTENT START #################################### -->
-        <!-- heading -->
+        <!-- page title / heading -->
         <v-row no-gutters>
             <v-col class="d-flex" cols="12" sm="11">
                 <!-- title -->
@@ -524,11 +524,11 @@
             </v-col>
 
             <v-col class="d-flex align-center" cols="12" sm="1">
-                <!-- reload dropdown -->
+                <!-- refresh dropdown -->
                 <v-select
                     v-model="selectedInterval"
                     :items="intervalOptions"
-                    label="Reload"
+                    label="Refresh"
                     dense
                     outlined
                 ></v-select>
@@ -602,282 +602,283 @@
             
         </v-app-bar>    
 
+
         <!-- control for publishing status and logs -->
-        <v-carousel 
-            v-model="currentSlide" 
-            hide-delimiters
-            :show-arrows="false"
-        >
-            <!-- publish status and graphs stations-->
-            <v-carousel-item>
-                <v-row>
-                    <v-col cols="12" md="6">
-                        <v-card class="pb-2" height="455.86">
-                            <h6 class="text-center pt-4">Station Data Publishing Status</h6>
-                    
-                            <v-data-table
-                                :headers="publish_status_headers"
-                                :items="records"
-                                :loading="loadingPublishStatus"
-                                class="elevation-1"
-                                height="350"
-                            >
-                                <template v-slot:item.station__name="{ item }">
-                                    <!-- change the color of the station name based on the publishing setting -->
-                                    <span
-                                        v-if="item.publishing"
-                                        style="color: green;"
-                                    >
-                                        [[ item.station__name ]]
-                                    </span>
-                                    <span
-                                        v-if="!item.publishing"
-                                        style="color: orange;"
-                                    >
-                                        [[ item.station__name ]]
-                                    </span>
-
-                                    <!-- and the link icon and the hybrid station name if hybrid station is true -->
-                                    <v-icon
-                                        v-if="item.hybrid"
-                                        style="color: #0096FF;"
-                                    >
-                                        mdi-link-variant
-                                    </v-icon>
-                                    <span 
-                                        v-if="item.hybrid"
-                                        style="color: purple;"
-                                    >
-                                        [[ item.hybrid_station__name ]]
-                                    </span>
-                                </template>
-                            
-                                <template v-slot:item.station__wigos="{ value }">
-                                    <span :style="{ color: /\d/.test(value) ? 'inherit' : 'red' }">
-                                        [[ value ]]
-                                    </span>
-                                </template>
-                                
-                                <template v-slot:item.status="{ item }">
-                                    <v-chip
-                                        v-for="(status, index) in item.status"
-                                        :key="index"
-
-                                        outlined
-                                        label
-                                        :style="{ color:getColor(status), marginLeft: index > 0 && index < item.status.length ? '5px' : '0', marginTop: '8px', marginBottom: '8px', cursor: 'pointer' }"
-                                        @click.stop="openStationDialog(item)"
-                                    >
-                                        [[ status ]]
-                                    </v-chip>
-                                </template>
-
-                                <template v-slot:item.publish_success="{ item }">
-                                    <v-chip
-                                        :style="{ cursor: 'pointer' }"
-                                        :color="publishSuccessColour(item.publish_success)"
-                                        @click.stop="nextSlide(item.id)"
-                                         >
-                                        [[ item.publish_success ]]
-                                    </v-chip>
-                                </template>
-                            
-                                <template v-slot:item.publish_fail="{ item }">
-                                    <v-chip 
-                                        :style="{ cursor: 'pointer' }"
-                                        @click.stop="nextSlide(item.id)"
-                                        :color="publishFailColour(item.publish_fail)">
-                                        [[ item.publish_fail ]]
-                                    </v-chip>
-                                </template>
-                            </v-data-table>                        
-                        
-                        </v-card>
-                    </v-col>
-    
-                    <!-- the graph -->
-                    <v-col cols="12" md="6">
-                        <v-card class="pb-2">
-                            <h6 class="text-center pt-4">All Station Data Publishing Status Last 24 Hrs</h6>
-                    
-                            <highcharts :options="chartOptions"></highcharts>
-                            
-                        </v-card>
-                    </v-col>
-                </v-row>
-            </v-carousel-item>
-
-            <!-- logs -->
-            <v-carousel-item>
-                <!-- Overlay with Spinner -->
-                <v-overlay v-if="loadingLogsTableDialogOverlay" absolute opacity="0.3" style="border-radius: 4px;">
-                    <v-progress-circular indeterminate size="70"></v-progress-circular>
-                </v-overlay>
-
-                <!-- <div class="carousel-content">Log files STATION LOGIC</div> -->
-                <v-row>
-                    <!-- Station Logs -->
-                    <v-col cols="12" md="4">
-
-                        <v-card class="pb-2" height="455.86">
-                            <h6 class="pt-4"></h6>
-
-                            <v-card-text>
-                                <span>
-                                    <h5 class="pl-3">
-                                        [[ publish_logs_station_metadata.station__name ]]
-                                    </h5>
-
-                                    <span 
-                                        v-if="publish_logs_station_metadata.hybrid"
-                                    >
-                                        <h6 style="color: purple;"> 
-                                            <v-icon
-                                                style="color: #0096FF;"
-                                            >
-                                                mdi-link-variant
-                                            </v-icon>
-                                            [[ publish_logs_station_metadata.hybrid_station__name]] 
-                                        </h6>
-                                    </span>
-                                </span>
-
-                                <h6 class="pt-4 pl-3">[[ publish_logs_station_metadata.station__wigos ]]</h6>
-        
-                                <h6 class="pt-4 pl-3">WIS2BOX Accepted: [[ publish_logs_station_metadata.publish_success ]]</h6>
-        
-                                <h6 class="pt-4 pl-3">Error: [[ publish_logs_station_metadata.publish_fail ]]</h6>
-
-                            </v-card-text>
-
-                            <v-divider class="mx-4"></v-divider>
-
-                            <v-card-actions class="pt-3 pl-4">
-                                <v-btn
-                                    dark
-                                    color="green"
-                                    @click="downloadLogs"
-                                    :loading="downloading_publish_logs"
-                                >
-                                    Download Logs
-                                </v-btn>
-                            </v-card-actions>
-
-                            <v-card-actions class="pt-2 pl-4">
-                                <v-btn
-                                    dark
-                                    color="blue"
-                                    @click="downloadWIS2message"
-                                    :loading="downloading_publish_message"
-                                >
-                                    Download WIS2 Messages
-                                </v-btn>
-                            </v-card-actions>
-                        
-                        </v-card>
-
-                        <!-- <h6 class="pt-4"></h6> -->
-
-                        <!-- <h5 class="pt-4 pl-2">[[ publish_logs_station_metadata.station__name ]]</h5>
-
-                        <h6 class="pt-4 pl-2">[[ publish_logs_station_metadata.station__wigos ]]</h6>
-
-                        <h6 class="pt-4 pl-2">Success Count: [[ publish_logs_station_metadata.publish_success ]]</h6>
-
-                        <h6 class="pt-4 pl-2">Fail Count: [[ publish_logs_station_metadata.publish_fail ]]</h6> -->
-                    </v-col>
-
-                    <v-col cols="12" md="8">
-                        <v-card class="pb-2" height="455.86">
-                            <h6 class="text-center pt-4">Station Logs</h6>
-                    
-                            <v-data-table
-                                :headers="publish_logs_headers"
-                                :items="publish_logs_records"
-                                :loading="loadingPublishLogs"
-                                class="elevation-1"
-                                height="350"
-                                :sort-by.sync="sortLogsBy"
-                                :sort-desc.sync="sortLogsDesc"
-                                @click:row="(event, { item }) => openLogsDialog(item.log)"
-                            >
-                                <!-- created at column -->
-                                <template v-slot:item.created_at="{ item }">
-
-                                    <!-- formatting the date and the time -->
-                                    [[ formatDate(item.created_at) ]]
-                                    
-                                </template>
-
-                                <!-- created at column -->
-                                <template v-slot:item.last_modified="{ item }">
-
-                                    <!-- formatting the date and the time -->
-                                    [[ formatDate(item.last_modified) ]]
-                                    
-                                </template>
-
-                                <!-- Status Column -->
-                                <template v-slot:item.success_log="{ item }">
-                                    <v-chip 
-                                        v-if="item.success_log"
-                                        color="green"
-                                        outlined
-                                        label
-                                        style="color: #4caf50 !important; border-color: #4caf50 !important;"
-                                    >
-                                        WIS2BOX Accepted
-                                    </v-chip>
-
-                                    <v-chip 
-                                        v-else
-                                        color="red" 
-                                        outlined
-                                        label
-                                        style="color: #ff9800 !important; border-color: #ff9800 !important;"
-                                    >
-                                        Error
-                                    </v-chip>
-                                </template>
-
-                                <!-- Wis2 message column -->
-                                <template v-slot:item.wis2message_exist="{ item }">
-                                    <v-chip 
-                                        v-if="item.wis2message_exist"
-                                        color="blue"
-                                        outlined
-                                        label
-                                        style="color: #2196f3 !important; border-color: #2196f3 !important;"
-                                    >
-                                        Available
-                                    </v-chip>
-
-                                    <v-chip 
-                                        v-else
-                                        color="grey" 
-                                        outlined
-                                        label
-                                        style="color: rgb(158, 158, 158) !important; border-color: rgb(158, 158, 158) !important;"
-                                    >
-                                        Unavailable
-                                    </v-chip>
-                                </template>
-
-                            </v-data-table>                        
-                        
-                        </v-card>
-                    </v-col>
-                </v-row>
-            </v-carousel-item>
-        </v-carousel>
-
-        <!-- stations table-->
         <v-app>
-            <!-- Overlay with Spinner -->
-            <v-overlay v-if="loadingTableDialogOverlay" absolute opacity="0.3">
-                <v-progress-circular indeterminate size="70"></v-progress-circular>
-            </v-overlay>
+            <v-carousel 
+                v-model="currentSlide" 
+                hide-delimiters
+                :show-arrows="false"
+            >
+                <!-- publish status and graphs stations-->
+                <v-carousel-item>
+                    <v-row>
+                        <v-col cols="12" md="12">
+                            <v-card class="pb-2" height="455.86">
+                                <h6 class="text-center pt-4">Station Data Publishing Status</h6>
+                        
+                                <v-data-table
+                                    :headers="publish_status_headers"
+                                    :items="records"
+                                    :loading="loadingPublishStatus"
+                                    class="elevation-1"
+                                    height="360"
+                                >
+                                    <template v-slot:item.station__name="{ item }">
+                                        <!-- change the color of the station name based on the publishing setting -->
+                                        <span
+                                            v-if="item.publishing"
+                                            style="color: green;"
+                                        >
+                                            [[ item.station__name ]]
+                                        </span>
+                                        <span
+                                            v-if="!item.publishing"
+                                            style="color: orange;"
+                                        >
+                                            [[ item.station__name ]]
+                                        </span>
 
+                                        <!-- and the link icon and the hybrid station name if hybrid station is true -->
+                                        <v-icon
+                                            v-if="item.hybrid"
+                                            style="color: #0096FF;"
+                                        >
+                                            mdi-link-variant
+                                        </v-icon>
+                                        <span 
+                                            v-if="item.hybrid"
+                                            style="color: purple;"
+                                        >
+                                            [[ item.hybrid_station__name ]]
+                                        </span>
+                                    </template>
+                                
+                                    <template v-slot:item.station__wigos="{ value }">
+                                        <span :style="{ color: /\d/.test(value) ? 'inherit' : 'red' }">
+                                            [[ value ]]
+                                        </span>
+                                    </template>
+                                    
+                                    <template v-slot:item.status="{ item }">
+                                        <v-chip
+                                            v-for="(status, index) in item.status"
+                                            :key="index"
+
+                                            outlined
+                                            label
+                                            :style="{ color:getColor(status), marginLeft: index > 0 && index < item.status.length ? '5px' : '0', marginTop: '8px', marginBottom: '8px', cursor: 'pointer' }"
+                                            @click.stop="openStationDialog(item)"
+                                        >
+                                            [[ status ]]
+                                        </v-chip>
+                                    </template>
+
+                                    <template v-slot:item.publish_success="{ item }">
+                                        <v-chip
+                                            :style="{
+                                                    backgroundColor: publishSuccessColour(item.publish_success),
+                                                    color: 'white',
+                                                    cursor: 'pointer'
+                                                }"
+                                            @click.stop="nextSlide(item.id)"
+                                        >
+                                            [[ item.publish_success ]]
+                                        </v-chip>
+                                    </template>
+                                
+                                    <template v-slot:item.publish_fail="{ item }">
+                                        <v-chip 
+                                            :style="{
+                                                    backgroundColor: publishFailColour(item.publish_fail),
+                                                    color: 'white',
+                                                    cursor: 'pointer'
+                                                }"
+                                            @click.stop="nextSlide(item.id)"
+                                        >
+                                            [[ item.publish_fail ]]
+                                        </v-chip>
+                                    </template>
+                                </v-data-table>                        
+                            
+                            </v-card>
+                        </v-col>
+        
+                        <!-- the graph -->
+                        <!-- <v-col cols="12" md="6">
+                            <v-card class="pb-2">
+                                <h6 class="text-center pt-4">All Station Data Publishing Status Last 24 Hrs</h6>
+                        
+                                <highcharts :options="chartOptions"></highcharts>
+                                
+                            </v-card>
+                        </v-col> -->
+                    </v-row>
+                </v-carousel-item>
+
+                <!-- logs -->
+                <v-carousel-item>
+                    <!-- Overlay with Spinner -->
+                    <v-overlay v-if="loadingLogsTableDialogOverlay" absolute opacity="0.3" style="border-radius: 4px;">
+                        <v-progress-circular indeterminate size="70"></v-progress-circular>
+                    </v-overlay>
+
+                    <!-- <div class="carousel-content">Log files STATION LOGIC</div> -->
+                    <v-row>
+                        <!-- Station Logs -->
+                        <v-col cols="12" md="4">
+
+                            <v-card class="pb-2" height="455.86">
+                                <h6 class="pt-4"></h6>
+
+                                <v-card-text>
+                                    <span>
+                                        <h5 class="pl-3">
+                                            [[ publish_logs_station_metadata.station__name ]]
+                                        </h5>
+
+                                        <span 
+                                            v-if="publish_logs_station_metadata.hybrid"
+                                        >
+                                            <h6 style="color: purple;"> 
+                                                <v-icon
+                                                    style="color: #0096FF;"
+                                                >
+                                                    mdi-link-variant
+                                                </v-icon>
+                                                [[ publish_logs_station_metadata.hybrid_station__name]] 
+                                            </h6>
+                                        </span>
+                                    </span>
+
+                                    <h6 class="pt-4 pl-3">[[ publish_logs_station_metadata.station__wigos ]]</h6>
+            
+                                    <h6 class="pt-4 pl-3">WIS2BOX Accepted: [[ publish_logs_station_metadata.publish_success ]]</h6>
+            
+                                    <h6 class="pt-4 pl-3">Error: [[ publish_logs_station_metadata.publish_fail ]]</h6>
+
+                                </v-card-text>
+
+                                <v-divider class="mx-4"></v-divider>
+
+                                <v-card-actions class="pt-3 pl-4">
+                                    <v-btn
+                                        dark
+                                        color="green"
+                                        @click="downloadLogs"
+                                        :loading="downloading_publish_logs"
+                                    >
+                                        Download Logs
+                                    </v-btn>
+                                </v-card-actions>
+
+                                <v-card-actions class="pt-2 pl-4">
+                                    <v-btn
+                                        dark
+                                        color="blue"
+                                        @click="downloadWIS2message"
+                                        :loading="downloading_publish_message"
+                                    >
+                                        Download WIS2 Messages
+                                    </v-btn>
+                                </v-card-actions>
+                            
+                            </v-card>
+
+                            <!-- <h6 class="pt-4"></h6> -->
+
+                            <!-- <h5 class="pt-4 pl-2">[[ publish_logs_station_metadata.station__name ]]</h5>
+
+                            <h6 class="pt-4 pl-2">[[ publish_logs_station_metadata.station__wigos ]]</h6>
+
+                            <h6 class="pt-4 pl-2">Success Count: [[ publish_logs_station_metadata.publish_success ]]</h6>
+
+                            <h6 class="pt-4 pl-2">Fail Count: [[ publish_logs_station_metadata.publish_fail ]]</h6> -->
+                        </v-col>
+
+                        <v-col cols="12" md="8">
+                            <v-card class="pb-2" height="455.86">
+                                <h6 class="text-center pt-4">Station Logs</h6>
+                        
+                                <v-data-table
+                                    :headers="publish_logs_headers"
+                                    :items="publish_logs_records"
+                                    :loading="loadingPublishLogs"
+                                    class="elevation-1"
+                                    height="350"
+                                    :sort-by.sync="sortLogsBy"
+                                    :sort-desc.sync="sortLogsDesc"
+                                    @click:row="(event, { item }) => openLogsDialog(item.log)"
+                                >
+                                    <!-- created at column -->
+                                    <template v-slot:item.created_at="{ item }">
+
+                                        <!-- formatting the date and the time -->
+                                        [[ formatDate(item.created_at) ]]
+                                        
+                                    </template>
+
+                                    <!-- created at column -->
+                                    <template v-slot:item.last_modified="{ item }">
+
+                                        <!-- formatting the date and the time -->
+                                        [[ formatDate(item.last_modified) ]]
+                                        
+                                    </template>
+
+                                    <!-- Status Column -->
+                                    <template v-slot:item.success_log="{ item }">
+                                        <v-chip 
+                                            v-if="item.success_log"
+                                            color="green"
+                                            outlined
+                                            label
+                                            style="color: #4caf50 !important; border-color: #4caf50 !important;"
+                                        >
+                                            WIS2BOX Accepted
+                                        </v-chip>
+
+                                        <v-chip 
+                                            v-else
+                                            color="red" 
+                                            outlined
+                                            label
+                                            style="color: #ff9800 !important; border-color: #ff9800 !important;"
+                                        >
+                                            Error
+                                        </v-chip>
+                                    </template>
+
+                                    <!-- Wis2 message column -->
+                                    <template v-slot:item.wis2message_exist="{ item }">
+                                        <v-chip 
+                                            v-if="item.wis2message_exist"
+                                            color="blue"
+                                            outlined
+                                            label
+                                            style="color: #2196f3 !important; border-color: #2196f3 !important;"
+                                        >
+                                            Available
+                                        </v-chip>
+
+                                        <v-chip 
+                                            v-else
+                                            color="grey" 
+                                            outlined
+                                            label
+                                            style="color: rgb(158, 158, 158) !important; border-color: rgb(158, 158, 158) !important;"
+                                        >
+                                            Unavailable
+                                        </v-chip>
+                                    </template>
+
+                                </v-data-table>                        
+                            
+                            </v-card>
+                        </v-col>
+                    </v-row>
+                </v-carousel-item>
+            </v-carousel>
         </v-app>
         <!-- #################################### PAGE CONTENT END #################################### -->
     </div>

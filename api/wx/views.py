@@ -578,7 +578,10 @@ def GetInterpolationImage(request):
                                     con=connection
                                     )
     stations = geopandas.GeoDataFrame(
-        stations_df, geometry=geopandas.points_from_xy(stations_df.longitude, stations_df.latitude))
+        stations_df, 
+        geometry=geopandas.points_from_xy(stations_df.longitude, stations_df.latitude)
+    )
+    
     stations.crs = 'epsg:4326'
 
     stands_llat = settings.SPATIAL_ANALYSIS_INITIAL_LATITUDE
@@ -681,6 +684,12 @@ def GetInterpolationImage(request):
     fname = str(uuid.uuid4())
     fig.savefig("/surface/static/images/" + fname + ".png", dpi='figure', format='png', transparent=True,
                 bbox_inches=Bbox.from_bounds(2, 0, 2.333, 4.013))
+
+    # delete later
+    logger.warning(f"This is the value of 'fname': {fname}")
+    print(f"This is the value of 'fname': {fname}")
+    # delete later
+
     image1 = cv2.imread("/surface/static/images/" + fname + ".png", cv2.IMREAD_UNCHANGED)
     image2 = cv2.imread(settings.SPATIAL_ANALYSIS_SHAPE_FILE_PATH, cv2.IMREAD_UNCHANGED)
     image1 = cv2.resize(image1, dsize=(image2.shape[1], image2.shape[0]))
@@ -694,6 +703,8 @@ def GetInterpolationImage(request):
 
     os.remove("/surface/static/images/" + fname + ".png")
     os.remove("/surface/static/images/" + fname + "-output.png")
+
+    logger.warning(f"This is the value of 'fname': {fname}")
 
     return HttpResponse(img_data, content_type="image/jpeg")
 
@@ -799,7 +810,7 @@ def InterpolatePostData(request):
     fig.savefig("/surface/static/images/" + fname + ".png", dpi='figure', format='png', transparent=True,
                 bbox_inches=Bbox.from_bounds(2, 0, 2.333, 4.013))
     image1 = cv2.imread("/surface/static/images/" + fname + ".png", cv2.IMREAD_UNCHANGED)
-    image2 = cv2.imread('/surface/static/images/blz_shape.png', cv2.IMREAD_UNCHANGED)
+    image2 = cv2.imread(settings.SPATIAL_ANALYSIS_SHAPE_FILE_PATH, cv2.IMREAD_UNCHANGED)
     image1 = cv2.resize(image1, dsize=(image2.shape[1], image2.shape[0]))
     for i in range(image1.shape[0]):
         for j in range(image1.shape[1]):
