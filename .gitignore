@@ -5,8 +5,8 @@
 /api/static/material
 /api/static/rest_framework
 /api/static/ckeditor
-api/static/*.geojson
-api/static/images/
+/api/static/*.geojson
+/api/static/images/
 
 /data/
 
