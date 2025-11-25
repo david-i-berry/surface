@@ -157,3 +157,105 @@ FROM daily_data
 JOIN year_intervals ON TRUE
 ON CONFLICT (day, station_id, variable_id) 
 DO NOTHING;
+
+
+
+
+--------------------------------------------------------------------------------
+WITH daily_data AS (
+    SELECT
+        day,
+        station_id,
+        variable_id,
+        min_value,
+        max_value,
+        avg_value,
+        sum_value,
+        num_records
+    FROM daily_summary ds
+    JOIN wx_variable vr ON ds.variable_id = vr.id
+    WHERE vr.symbol IN ('TEMPMIN', 'TEMPMAX', 'PRECIP')
+      AND ds.station_id = 14
+      AND day >= '2008-01-01'
+      AND day <= '2008-11-13'
+),
+year_intervals AS (
+    SELECT generate_series(17, 17) AS year_offset
+)
+INSERT INTO daily_summary (
+    created_at,
+    updated_at,
+    day,
+    station_id,
+    variable_id,
+    min_value,
+    max_value,
+    avg_value,
+    sum_value,
+    num_records
+)
+SELECT
+    NOW(),
+    NOW(),
+    (day + (year_offset || ' years')::interval)::date AS day,
+    224 AS station_id,
+    variable_id,
+    min_value,
+    max_value,
+    avg_value,
+    sum_value,
+    num_records
+FROM daily_data
+JOIN year_intervals ON TRUE
+ON CONFLICT (day, station_id, variable_id) 
+DO NOTHING;
+
+
+
+WITH daily_data AS (
+    SELECT
+        day,
+        station_id,
+        variable_id,
+        min_value,
+        max_value,
+        avg_value,
+        sum_value,
+        num_records
+    FROM daily_summary ds
+    JOIN wx_variable vr ON ds.variable_id = vr.id
+    WHERE vr.symbol IN ('TEMP', 'PRECIP', 'PRESSTN', 'WNDSPAVG', 'SOLARRAD', 'RH')
+      AND ds.station_id = 123
+      AND day >= '2024-01-01'
+      AND day <= '2024-11-13'
+),
+year_intervals AS (
+    SELECT generate_series(1, 1) AS year_offset
+)
+INSERT INTO daily_summary (
+    created_at,
+    updated_at,
+    day,
+    station_id,
+    variable_id,
+    min_value,
+    max_value,
+    avg_value,
+    sum_value,
+    num_records
+)
+SELECT
+    NOW(),
+    NOW(),
+    (day + (year_offset || ' years')::interval)::date AS day,
+    225 AS station_id,
+    variable_id,
+    min_value,
+    max_value,
+    avg_value,
+    sum_value,
+    num_records
+FROM daily_data
+JOIN year_intervals ON TRUE
+ON CONFLICT (day, station_id, variable_id) 
+DO NOTHING;

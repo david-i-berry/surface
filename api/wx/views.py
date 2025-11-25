@@ -7466,60 +7466,81 @@ def get_agromet_irrigation_data(request):
     return JsonResponse(response, status=status.HTTP_200_OK, safe=False)   
 
 from supabase import create_client, Client
+import requests
 
 class AquacropModelRunView(views.APIView):
     permission_classes = (IsAuthenticated,)
+
+    FORECAST_DAYS = 16
 
     def post(self, request):
         try:
             json_data = json.loads(request.body)
 
+            print(json_data)
+
             model_params = self._get_model_params(json_data)
             schedule_df = self._get_irrigation_history(json_data)
             # schedule_df = schedule_df[schedule_df['Date' >= model_params['plantingDatetime'].strftime('%Y/%m/%d')]]
 
-            if model_params['startDatetimeHistory'] is not None:
+            is_historical_simulation = model_params['startDatetimeForecast'] is None
+
+            history_df = self._get_weather_history(
+                station_id=json_data['stationId'],
+                start_date_history=model_params['startDatetimeHistory'].strftime('%Y/%m/%d'),
+                end_date_history=model_params['endDatetimeHistory'].strftime('%Y/%m/%d'),
+                data_type='last_filled'
+            )
+
+            if not is_historical_simulation:
                 forecast_df = self._get_weather_forecast(
                     station_id=json_data['stationId'],
                     start_date_forecast=model_params['startDatetimeForecast'].strftime('%Y/%m/%d'),
                     end_date_forecast=model_params['endDatetimeForecast'].strftime('%Y/%m/%d'),
                     data_type='last_filled'
                 )
+
+                weather_df = pd.concat([history_df, forecast_df])
+
+                # Extend weather_df to harvesting date because AquaCrop can't handle some cases
+                date_range = pd.date_range(weather_df['Date'].max() + pd.Timedelta(days=1), model_params['harvestDate'])
+                extended_df = pd.DataFrame(date_range, columns=['Date'])
+                weather_df = pd.concat([weather_df, extended_df], ignore_index=True).ffill()
+
             else:
-                forecast_df = pd.DataFrame()
+                weather_df = history_df
 
-            if model_params['startDatetimeForecast'] is not None:
-                history_df = self._get_weather_history(
-                    station_id=json_data['stationId'],
-                    start_date_history=model_params['startDatetimeHistory'].strftime('%Y/%m/%d'),
-                    end_date_history=model_params['endDatetimeHistory'].strftime('%Y/%m/%d'),
-                    data_type='last_filled'
-                )
+            if is_historical_simulation:
+                model_history_df_1, output_1 = self._simulation_historical(json_data, model_params, weather_df, schedule_df)
+                response = {
+                    'history': model_history_df_1.to_dict('list'),
+                    'strategies':[{
+                        'id': 1,
+                        'name': 'Historical Simulation',
+                        'output': output_1
+                    }]
+                }
             else:
-                history_df = pd.DataFrame()
-            
-            weather_df = pd.concat([history_df, forecast_df])
+                model_history_df_1, output_1 = self._simulation_strategy_1(json_data, model_params, weather_df, schedule_df)
+                model_history_df_2, output_2 = self._simulation_strategy_2(json_data, model_params, weather_df, schedule_df)
+                model_history_df_3, output_3 = self._simulation_strategy_3(json_data, model_params, weather_df, schedule_df)
 
-            model_history_df_1, output_1 = self._simulation_strategy_1(json_data, model_params, weather_df, schedule_df)
-            model_history_df_2, output_2 = self._simulation_strategy_2(json_data, model_params, weather_df, schedule_df)
-            model_history_df_3, output_3 = self._simulation_strategy_3(json_data, model_params, weather_df, schedule_df)
-
-            response = {
-                'history': model_history_df_1.to_dict('list'),
-                'strategies':[{
-                    'id': 1,
-                    'name': 'Rainfed',
-                    'output': output_1
-                },{
-                    'id': 2,
-                    'name': f"Irrigate {json_data['irrStratFixedAmount']} mm/day",
-                    'output': output_2
-                },{
-                    'id': 3,
-                    'name': f"Irrigate {json_data['irrStratWCAmount']} mm/day if water content is below {json_data['irrStratWCPct']}%",
-                    'output': output_3
-                }]
-            }
+                response = {
+                    'history': model_history_df_1.to_dict('list'),
+                    'strategies':[{
+                        'id': 1,
+                        'name': 'Rainfed',
+                        'output': output_1
+                    },{
+                        'id': 2,
+                        'name': f"Irrigate {json_data['irrStratFixedAmount']} mm/day",
+                        'output': output_2
+                    },{
+                        'id': 3,
+                        'name': f"Irrigate {json_data['irrStratWCAmount']} mm/day if water content is below {json_data['irrStratWCPct']}%",
+                        'output': output_3
+                    }]
+                }
 
 
             return JsonResponse(response, status=status.HTTP_200_OK)
@@ -7566,30 +7587,77 @@ class AquacropModelRunView(views.APIView):
         return df
 
     def _get_weather_forecast(self, station_id: int, start_date_forecast: str, end_date_forecast: str, data_type: str):
-        forecast_df = self._get_weather_history(
-            station_id=station_id,
-            start_date_history=start_date_forecast,
-            end_date_history=end_date_forecast,
-            data_type=data_type
-        )
+        # response = requests.get(f"https://storage.googleapis.com/surfaceforecast/forecast_station_{station_id}.json")
+        # response.raise_for_status()
+
+        # forecast_data = response.json()
+
+        station = Station.objects.get(id=station_id)
+        latitude = station.latitude
+        longitude = station.longitude
+
+        forecast_list = []
+        OPENMETEO_URL = "https://api.open-meteo.com/v1/forecast"
+        variables = "temperature_2m_max,temperature_2m_min,precipitation_sum,et0_fao_evapotranspiration"
+        timezone = "America%2FChicago" # GMT-6 same as Belize
+
+        url = f"{OPENMETEO_URL}?latitude={latitude}&longitude={longitude}&daily={variables}&timezone={timezone}&forecast_days={self.FORECAST_DAYS}"
+        forecast_response = requests.get(url, timeout=20)
+        forecast_data = forecast_response.json()
+
+        # forecast_df = pd.DataFrame(forecast_data['forecast']['daily'])
+        forecast_df = pd.DataFrame(forecast_data['daily'])
+        forecast_df = forecast_df.rename(columns={
+            'time': 'Date',
+            'temperature_2m_max': 'MaxTemp',
+            'temperature_2m_min': 'MinTemp',
+            'precipitation_sum': 'Precipitation',
+            'et0_fao_evapotranspiration': 'ReferenceET'
+        })
+        forecast_df['Date'] = pd.to_datetime(forecast_df['Date'])
+        columns_order = ['Date', 'MinTemp', 'MaxTemp', 'Precipitation', 'ReferenceET']  
+        forecast_df = forecast_df[columns_order]
+
+        forecast_df = forecast_df[
+            (forecast_df['Date'] >= pd.to_datetime(start_date_forecast)) &
+            (forecast_df['Date'] <= pd.to_datetime(end_date_forecast))
+        ]
+
         return forecast_df
+
 
     def _get_irrigation_history(self, json_data):
         # To do: Replace with real data from Supabase
         # Dummy data for testing
-        irrigation_schedule = [{
-            'id': None,
-            'simulation_scenario_id': '498c24b6-19f1-4878-b99a-f1c4b539ed90',
-            'first_date': '2010-01-01',
-            'last_date': '2010-02-01',
-            'amount': '2',
-        },{
-            'id': None,
-            'simulation_scenario_id': '498c24b6-19f1-4878-b99a-f1c4b539ed90',
-            'first_date': '2010-02-02',
-            'last_date': '2010-03-31',
-            'amount': '1',
-        }]
+
+        supabase_url = os.getenv('SUPABASE_URL')
+        supabase_key = os.getenv('SUPABASE_ANON_KEY')
+
+        supabase: Client = create_client(supabase_url, supabase_key)        
+
+        response = supabase.table('irrigations')\
+            .select('*')\
+            .eq('crop_id', json_data['simulationScenarioId'])\
+            .execute()
+
+        if len(response.data) > 0:
+            irrigation_schedule = response.data
+        else:
+            irrigation_schedule = []      
+
+        # irrigation_schedule = [{
+        #     'id': None,
+        #     'simulation_scenario_id': '498c24b6-19f1-4878-b99a-f1c4b539ed90',
+        #     'first_date': '2010-01-01',
+        #     'last_date': '2010-02-01',
+        #     'amount': '2',
+        # },{
+        #     'id': None,
+        #     'simulation_scenario_id': '498c24b6-19f1-4878-b99a-f1c4b539ed90',
+        #     'first_date': '2010-02-02',
+        #     'last_date': '2010-03-31',
+        #     'amount': '1',
+        # }]
         
         # irrigation_schedule = [{
         #     'id': None,
@@ -7599,29 +7667,48 @@ class AquacropModelRunView(views.APIView):
         #     'amount': '5',
         # }]
 
-        schedule_dfs = []
-        for entry in irrigation_schedule:
-            all_days = pd.date_range(entry['first_date'], entry['last_date'])
-            depths = [entry['amount']] * len(all_days)
-            entry_df = pd.DataFrame({'Date': all_days,'Depth': depths})
-            schedule_dfs.append(entry_df)
+        if len(irrigation_schedule) > 0:
+            schedule_dfs = []
+            for entry in irrigation_schedule:
+                all_days = pd.date_range(entry['start_date'], entry['end_date'])
+                depths = [entry['amount']] * len(all_days)
+                entry_df = pd.DataFrame({'Date': all_days,'Depth': depths})
+                schedule_dfs.append(entry_df)
 
-        schedule_df = pd.concat(schedule_dfs, ignore_index=True)
-
-        # schedule_df['Date'] = pd.to_datetime(schedule_df['Date'])
+            schedule_df = pd.concat(schedule_dfs, ignore_index=True)
+        else:
+            schedule_df =  pd.DataFrame(columns=['Date', 'Depth'])
 
         return schedule_df
 
-    def _prepare_output(self, model, model_params, additional_df):
+    def _prepare_output(self, model, model_params, additional_df, is_historical_simulation):
+        # output_df = pd.concat([
+        #     model.weather_df.reset_index(drop=True),
+        #     model._outputs.water_storage,
+        #     model._outputs.water_flux,
+        #     model._outputs.crop_growth
+        # ], axis=1)
+
+        model_output_cols = {
+            'water_storage': ['time_step_counter', 'growing_season', 'dap', 'th1', 'th2', 'th3', 'th4', 'th5', 'th6', 'th7', 'th8', 'th9', 'th10', 'th11', 'th12'],
+            'water_flux': ['time_step_counter', 'season_counter', 'dap', 'Wr', 'z_gw', 'surface_storage', 'IrrDay', 'Infl', 'Runoff', 'DeepPerc', 'CR', 'GwIn', 'Es', 'EsPot', 'Tr', 'TrPot'],
+            'crop_growth': ['time_step_counter', 'season_counter', 'dap', 'gdd', 'gdd_cum', 'z_root', 'canopy_cover', 'canopy_cover_ns', 'biomass', 'biomass_ns', 'harvest_index', 'harvest_index_adj', 'DryYield', 'FreshYield', 'YieldPot']
+        }
+
         output_df = pd.concat([
             model.weather_df.reset_index(drop=True),
-            model._outputs.water_storage,
-            model._outputs.water_flux,
-            model._outputs.crop_growth
+            pd.DataFrame(model._outputs.water_storage, columns=model_output_cols['water_storage']),
+            pd.DataFrame(model._outputs.water_flux, columns=model_output_cols['water_flux']),
+            pd.DataFrame(model._outputs.crop_growth, columns=model_output_cols['crop_growth'])
         ], axis=1)
+
+        output_df = output_df[output_df['Date'] <= model_params['simEndDate']]
+        
         output_df = output_df.loc[:, ~output_df.columns.duplicated()]
         output_df = output_df.round(2)
 
+        # Drop last simulation day as AquacropOSPy does not output last day metrics
+        output_df = output_df.iloc[:-1]
 
         output_df = output_df.drop(columns='z_gw') # This column has NaN values
 
@@ -7652,22 +7739,148 @@ class AquacropModelRunView(views.APIView):
 
         output_df['growing_season_count'] = output_df['growing_season'].cumsum()
         
-        history_df = output_df[output_df['Date'] <= model_params['endDatetimeHistory']]
-        forecast_df = output_df[output_df['Date'] > model_params['endDatetimeHistory']]
-        forecast_df = forecast_df.iloc[:-1] # Aquacrop does not output last day metrics
+        if is_historical_simulation:
+            history_df = output_df
 
-        history_df['Date'] = history_df['Date'].dt.date
-        forecast_df['Date'] = forecast_df['Date'].dt.date
+            display_df = output_df.iloc[-self.FORECAST_DAYS:]
+            data =  display_df.to_dict('list')
+            indicators = self._compute_indicators(output_df, model_params, is_historical_simulation)
 
-        data = forecast_df.to_dict('list')
+        else:
+            history_df = output_df[output_df['Date'] <= model_params['endDatetimeHistory']]
+            forecast_df = output_df[output_df['Date'] > model_params['endDatetimeHistory']]
+            forecast_df = forecast_df.iloc[:-1] # Aquacrop does not output last day metrics
 
-        indicators = self._compute_indicators(output_df, model_params)
+            # history_df['Date'] = history_df['Date'].dt.date
+            # forecast_df['Date'] = forecast_df['Date'].dt.date
+
+            history_df.loc[:, 'Date'] = history_df['Date'].dt.date
+            forecast_df.loc[:, 'Date'] = forecast_df['Date'].dt.date
+
+            data = forecast_df.to_dict('list')
+
+            indicators = self._compute_indicators(output_df, model_params)
 
 
         return history_df, {'data': data, 'indicators': indicators}
 
     def _simulation_strategy_1(self, json_data, model_params, weather_df, schedule_df):     
         # Rainfed the next days
+        # Even if we are rainfeding the next days, we need to account for past irrigations
+        model = AquaCropModel(
+            sim_start_time=model_params['simStartDate'],
+            sim_end_time=model_params['harvestDate'],
+            weather_df=weather_df,
+            soil=model_params['soil'],
+            crop=model_params['crop'],
+            irrigation_management=IrrigationManagement(irrigation_method=3,Schedule=schedule_df),
+            initial_water_content=InitialWaterContent(value=['FC']),
+        )
+
+        additional_data = {'Depletion': [], 'TAW': [], 'WaterContent': []}
+        model._initialize()
+        t = datetime.datetime.strptime(model_params['simStartDate'], '%Y/%m/%d') 
+        # while model._clock_struct.model_is_finished is False:
+        while t < datetime.datetime.strptime(model_params['simEndDate'], '%Y/%m/%d') :
+            t = model._clock_struct.step_start_time
+
+            additional_data['Depletion'].append(model._init_cond.depletion)
+            additional_data['TAW'].append(model._init_cond.taw)
+            water_content = max(0, model._init_cond.taw - max(0, model._init_cond.depletion))
+            additional_data['WaterContent'].append(water_content)
+            model.run_model(initialize_model=False, num_steps=1)
+
+        additional_df = pd.DataFrame(additional_data)        
+
+        historical_data, output = self._prepare_output(model, model_params, additional_df, is_historical_simulation=False)
+        
+        return historical_data, output
+
+    def _simulation_strategy_2(self, json_data, model_params, weather_df, schedule_df):
+        # Apply constant irrigation for the forecast period
+        all_days = pd.date_range(model_params['startDatetimeForecast'], model_params['endDatetimeForecast'])
+
+        depths = [json_data['irrStratFixedAmount']] * len(all_days)
+        schedule_forecast_df = pd.DataFrame({'Date': all_days,'Depth': depths})
+
+        combined_schedules_df = pd.concat([schedule_df, schedule_forecast_df])
+
+        combined_schedules_df = combined_schedules_df[
+            (combined_schedules_df['Date'] >= model_params['plantingDatetime'].strftime('%Y/%m/%d'))
+        ]
+
+        model = AquaCropModel(
+            sim_start_time=model_params['simStartDate'],
+            sim_end_time=model_params['harvestDate'],
+            weather_df=weather_df,
+            soil=model_params['soil'],
+            crop=model_params['crop'],
+            irrigation_management=IrrigationManagement(irrigation_method=3,Schedule=combined_schedules_df),
+            initial_water_content=InitialWaterContent(value=['FC']),
+        )
+
+        additional_data = {'Depletion': [], 'TAW': [], 'WaterContent': []}
+
+        model._initialize()
+        t = datetime.datetime.strptime(model_params['simStartDate'], '%Y/%m/%d') 
+        # while model._clock_struct.model_is_finished is False:
+        while t < datetime.datetime.strptime(model_params['simEndDate'], '%Y/%m/%d') :
+            t = model._clock_struct.step_start_time
+
+            additional_data['Depletion'].append(model._init_cond.depletion)
+            additional_data['TAW'].append(model._init_cond.taw)
+            water_content = max(0, model._init_cond.taw - max(0, model._init_cond.depletion))
+            additional_data['WaterContent'].append(water_content)
+            model.run_model(initialize_model=False, num_steps=1)
+
+        additional_df = pd.DataFrame(additional_data)        
+
+        historical_data, output = self._prepare_output(model, model_params, additional_df, is_historical_simulation=False)
+        return historical_data, output
+
+    def _simulation_strategy_3(self, json_data, model_params, weather_df, schedule_df):
+        # Irrigate based on depletion threshold for the forecast period
+
+        model = AquaCropModel(
+            sim_start_time=model_params['simStartDate'],
+            sim_end_time=model_params['harvestDate'],
+            weather_df=weather_df,
+            soil=model_params['soil'],
+            crop=model_params['crop'],
+            irrigation_management=IrrigationManagement(irrigation_method=3,Schedule=schedule_df),
+            initial_water_content=InitialWaterContent(value=['FC']),
+        )
+        
+        # Custom run to modify irrigation schedule on the fly
+        additional_data = {'Depletion': [], 'TAW': [], 'WaterContent': []}
+        model._initialize()
+        t = datetime.datetime.strptime(model_params['simStartDate'], '%Y/%m/%d') 
+        # while model._clock_struct.model_is_finished is False:
+        while t < datetime.datetime.strptime(model_params['simEndDate'], '%Y/%m/%d') :
+            t = model._clock_struct.step_start_time
+            
+            additional_data['Depletion'].append(model._init_cond.depletion)
+            additional_data['TAW'].append(model._init_cond.taw)
+            water_content = max(0, model._init_cond.taw - max(0, model._init_cond.depletion))
+            additional_data['WaterContent'].append(water_content)
+
+            if model._clock_struct.step_start_time > model_params['endDatetimeHistory']:
+                if (model._init_cond.taw > 0):
+                    wc_pct = 1-max(model._init_cond.depletion, 0)/model._init_cond.taw
+                    if wc_pct < json_data['irrStratWCPct']/100:
+                        model._param_struct.IrrMngt.Schedule[t]=json_data['irrStratWCAmount']
+                else:
+                    pass # No irrigation if TAW is 0
+            
+            model.run_model(initialize_model=False, num_steps=1)
+
+        additional_df = pd.DataFrame(additional_data)
+        
+        historical_data, output = self._prepare_output(model, model_params, additional_df, is_historical_simulation=False)
+
+        return historical_data, output              
+    
+    def _simulation_historical(self, json_data, model_params, weather_df, schedule_df):     
         # Even if we are rainfeding the next days, we need to account for past irrigations
         model = AquaCropModel(
             sim_start_time=model_params['simStartDate'],
@@ -7688,84 +7901,11 @@ class AquacropModelRunView(views.APIView):
             additional_data['WaterContent'].append(water_content)
             model.run_model(initialize_model=False, num_steps=1)
 
-        additional_df = pd.DataFrame(additional_data)        
-
-        historical_data, output = self._prepare_output(model, model_params, additional_df)
-        
-        return historical_data, output
-
-    def _simulation_strategy_2(self, json_data, model_params, weather_df, schedule_df):
-        # Apply constant irrigation for the forecast period
-        all_days = pd.date_range(model_params['startDatetimeForecast'], model_params['endDatetimeForecast'])
-
-        depths = [json_data['irrStratFixedAmount']] * len(all_days)
-        schedule_forecast_df = pd.DataFrame({'Date': all_days,'Depth': depths})
-
-        combined_schedules_df = pd.concat([schedule_df, schedule_forecast_df])
-
-        model = AquaCropModel(
-            sim_start_time=model_params['simStartDate'],
-            sim_end_time=model_params['simEndDate'],
-            weather_df=weather_df,
-            soil=model_params['soil'],
-            crop=model_params['crop'],
-            irrigation_management=IrrigationManagement(irrigation_method=3,Schedule=combined_schedules_df),
-            initial_water_content=InitialWaterContent(value=['FC']),
-        )
-
-        additional_data = {'Depletion': [], 'TAW': [], 'WaterContent': []}
-
-        model._initialize()
-        while model._clock_struct.model_is_finished is False:
-            additional_data['Depletion'].append(model._init_cond.depletion)
-            additional_data['TAW'].append(model._init_cond.taw)
-            water_content = max(0, model._init_cond.taw - max(0, model._init_cond.depletion))
-            additional_data['WaterContent'].append(water_content)
-            model.run_model(initialize_model=False, num_steps=1)
-
-        additional_df = pd.DataFrame(additional_data)        
-
-        historical_data, output = self._prepare_output(model, model_params, additional_df)
-        return historical_data, output
-
-    def _simulation_strategy_3(self, json_data, model_params, weather_df, schedule_df):
-        # Irrigate based on depletion threshold for the forecast period
-
-        model = AquaCropModel(
-            sim_start_time=model_params['simStartDate'],
-            sim_end_time=model_params['simEndDate'],
-            weather_df=weather_df,
-            soil=model_params['soil'],
-            crop=model_params['crop'],
-            irrigation_management=IrrigationManagement(irrigation_method=3,Schedule=schedule_df),
-            initial_water_content=InitialWaterContent(value=['FC']),
-        )
-        
-        # Custom run to modify irrigation schedule on the fly
-        additional_data = {'Depletion': [], 'TAW': [], 'WaterContent': []}
-        model._initialize()
-        while model._clock_struct.model_is_finished is False:
-            additional_data['Depletion'].append(model._init_cond.depletion)
-            additional_data['TAW'].append(model._init_cond.taw)
-            water_content = max(0, model._init_cond.taw - max(0, model._init_cond.depletion))
-            additional_data['WaterContent'].append(water_content)
-
-            t = model._clock_struct.time_step_counter # current timestep
-            if model._clock_struct.step_start_time > model_params['endDatetimeHistory']:
-                if (model._init_cond.taw > 0):
-                    wc_pct = 1-max(model._init_cond.depletion, 0)/model._init_cond.taw
-                    if wc_pct < json_data['irrStratWCPct']/100:
-                        model._param_struct.IrrMngt.Schedule[t]=json_data['irrStratWCAmount']
-                else:
-                    pass # No irrigation if TAW is 0
-            
-            model.run_model(initialize_model=False, num_steps=1)
-
         additional_df = pd.DataFrame(additional_data)
+        historical_data, output = self._prepare_output(model, model_params, additional_df, is_historical_simulation=True)
         
-        historical_data, output = self._prepare_output(model, model_params, additional_df)
+        return historical_data, output
 
-        return historical_data, output              
     
     def _get_simulation_datetimes(self, planting_datetime, crop):
         # Calculate initial harvest date using the planting year
@@ -7778,35 +7918,32 @@ class AquacropModelRunView(views.APIView):
         # Add 1 so that Aquacrop handle last date of simulation
         # harvest_datetime = planting_datetime+datetime.timedelta(days=crop.MaturityCD+1)
 
-        harvest_datetime = planting_datetime+datetime.timedelta(days=min(364, crop.MaturityCD+1))
+        harvest_datetime = planting_datetime+datetime.timedelta(days=min(364, crop.MaturityCD))
+
 
         today = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        yestday = today - datetime.timedelta(days=1)
 
-        if (harvest_datetime > today):
+        if (harvest_datetime > yestday):
+            is_historical_simulation = False
+
             # Get forecast days
-            delta = harvest_datetime - today
-            forecast_days = min(15, delta.days())
+            delta = harvest_datetime - yestday
+            forecast_days = min(self.FORECAST_DAYS, delta.days)
 
             start_datetime_history = planting_datetime-datetime.timedelta(days=90)
-            end_datetime_history = today
+            end_datetime_history = yestday
             
-            start_datetime_forecast = end_datetime_history+datetime.timedelta(days=1)
+            start_datetime_forecast = today
             end_datetime_forecast = end_datetime_history+datetime.timedelta(days=forecast_days)
 
         else:
-            # # This is the apropriate
-            # start_datetime_history = planting_datetime-datetime.timedelta(days=90)
-            # end_datetime_history = harvest_datetime
-            # start_datetime_forecast = None
-            # end_datetime_forecast = None
-
-            # For demonstration purposes we will use this
-            end_datetime_forecast = harvest_datetime-datetime.timedelta(days=1)
-            start_datetime_forecast = end_datetime_forecast-datetime.timedelta(days=15)
-            
-            end_datetime_history = end_datetime_forecast-datetime.timedelta(days=16)
             start_datetime_history = planting_datetime-datetime.timedelta(days=90)
-            
+            end_datetime_history = harvest_datetime
+            start_datetime_forecast = None
+            end_datetime_forecast = None
+
+        
         return harvest_datetime, start_datetime_history, end_datetime_history, start_datetime_forecast, end_datetime_forecast
             
     def _get_model_params(self, json_data):
@@ -7819,16 +7956,17 @@ class AquacropModelRunView(views.APIView):
 
         response = supabase.table('crops')\
             .select('*')\
-            .eq('id', '498c24b6-19f1-4878-b99a-f1c4b539ed90')\
+            .eq('id', json_data['simulationScenarioId'])\
             .execute()
 
         if len(response.data) > 0:
             simulation_scenario = response.data[0]
-            simulation_scenario['crop'] = 'Tomato'
-            simulation_scenario['soil_type'] = 'LoamySand'
-            simulation_scenario['planting_date'] = '2010-01-01'
+            # simulation_scenario['crop'] = 'Tomato'
+            # simulation_scenario['soil_type'] = 'LoamySand'
+            # simulation_scenario['planting_date'] = '2010-01-01'
         else:
-            pass # Handle no data found
+            raise ValueError("No simulation scenario found with the provided ID.")
+            # pass # Handle no data found
             # simulation_scenario = {
             #     'id': '498c24b6-19f1-4878-b99a-f1c4b539ed90',
             #     'property_id': '32b16e11-39b2-40e9-8828-ede8d2e24e5f',
@@ -7840,6 +7978,12 @@ class AquacropModelRunView(views.APIView):
             #     'created_at': '2025-09-25T01:34:37.884447+00:00',
             #     'updated_at': '2025-09-25T01:34:37.884447+00:00'
             # }
+            # simulation_scenario['crop'] = 'Tomato'
+            # simulation_scenario['soil_type'] = 'LoamySand'
+            # simulation_scenario['planting_date'] = '2010-01-01'
+            # simulation_scenario['planting_date'] = planting_date_test.strftime("%Y-%m-%d")
+        
+
 
         crop_origin = 'default'
         soil_origin = 'default'
@@ -7868,6 +8012,14 @@ class AquacropModelRunView(views.APIView):
         # Some crops require harvest datetime to work properly
         crop.harvest_date = harvest_datetime.strftime("%m/%d")
 
+        is_historical_simulation = start_datetime_forecast is None
+
+        sim_start_datetime = start_datetime_history
+        if is_historical_simulation:
+            sim_end_datetime = end_datetime_history            
+        else:
+            sim_end_datetime = end_datetime_forecast
+
         model_params = {
             'crop': crop,
             'soil': soil,
@@ -7876,13 +8028,14 @@ class AquacropModelRunView(views.APIView):
             'endDatetimeHistory': end_datetime_history,
             'startDatetimeForecast': start_datetime_forecast,
             'endDatetimeForecast': end_datetime_forecast,
-            'simStartDate': start_datetime_history.strftime("%Y/%m/%d"),
-            'simEndDate': end_datetime_forecast.strftime('%Y/%m/%d'),
+            'simStartDate': sim_start_datetime.strftime("%Y/%m/%d"),
+            'simEndDate': sim_end_datetime.strftime('%Y/%m/%d'),
+            'harvestDate': harvest_datetime.strftime('%Y/%m/%d'),
         }
 
         return model_params
 
-    def _compute_indicators(self, output_df, model_params):
+    def _compute_indicators(self, output_df, model_params, is_historical_simulation=False):
         output_df['Tr_ind'] = output_df['Tr']/output_df['TrPot']
         output_df['Es_ind'] = output_df['Es']/output_df['EsPot']
         output_df['B_ind'] = output_df['biomass']/output_df['biomass_ns']
@@ -7904,22 +8057,6 @@ class AquacropModelRunView(views.APIView):
         output_df['WC75_ind'] = round(output_df['WC75_ind'].fillna(1), 2)
         output_df['WC_ind'] = round(output_df['WaterContentPct'].fillna(1), 2)
         
-
-        if model_params['endDatetimeForecast'] is not None:
-            delta = model_params['endDatetimeForecast']-model_params['endDatetimeHistory']
-            delta_days = delta.days
-        else:
-            delta_days = 15
-            
-
-        # indicators = {
-        #     'Transpiration': output_df['Tr_ind'].iloc[-delta_days:-1].mean(),    
-        #     'Evaporation': output_df['Es_ind'].iloc[-delta_days:-1].mean(),  
-        #     'Biomass': output_df['B_ind'].iloc[-delta_days:-1].mean(),   
-        #     'Canopy cover': output_df['CC_ind'].iloc[-delta_days:-1].mean(), 
-        #     'Yield': output_df['Yield_ind'].iloc[-delta_days:-1].mean()  
-        # }
-
         indicators = {
             'Transpiration': output_df['Tr_ind'].iloc[-2],
             'Evaporation': output_df['Es_ind'].iloc[-2],
@@ -7942,6 +8079,8 @@ class AquacropAvailableDataView(views.APIView):
     def post(self, request):
         try:
             json_data = json.loads(request.body)
+
+            print(json_data)
             
             # To do: get simulation scenario from supabase
             # Dummy data for testing
@@ -7952,16 +8091,17 @@ class AquacropAvailableDataView(views.APIView):
 
             response = supabase.table('crops')\
                 .select('*')\
-                .eq('id', '498c24b6-19f1-4878-b99a-f1c4b539ed90')\
+                .eq('id', json_data['simulationScenarioId'])\
                 .execute()
 
             if len(response.data) > 0:
                 simulation_scenario = response.data[0]
-                simulation_scenario['crop'] = 'Tomato'
-                simulation_scenario['soil_type'] = 'LoamySand'
-                simulation_scenario['planting_date'] = '2010-01-01'
+                # simulation_scenario['crop'] = 'Tomato'
+                # simulation_scenario['soil_type'] = 'LoamySand'
+                # simulation_scenario['planting_date'] = '2010-01-01'
             else:
-                pass # Handle no data found
+                raise ValueError("No simulation scenario found with the provided ID.")
+                # # pass # Handle no data found
                 # simulation_scenario = {
                 #     'id': '498c24b6-19f1-4878-b99a-f1c4b539ed90',
                 #     'property_id': '32b16e11-39b2-40e9-8828-ede8d2e24e5f',
@@ -7973,6 +8113,11 @@ class AquacropAvailableDataView(views.APIView):
                 #     'created_at': '2025-09-25T01:34:37.884447+00:00',
                 #     'updated_at': '2025-09-25T01:34:37.884447+00:00'
                 # }
+                # simulation_scenario['crop'] = 'Tomato'
+                # simulation_scenario['soil_type'] = 'LoamySand'
+                # simulation_scenario['planting_date'] = '2010-01-01'                   
+        
+            print(simulation_scenario)
 
             planting_datetime = datetime.datetime.strptime(simulation_scenario['planting_date'], "%Y-%m-%d")
             planting_date = simulation_scenario['planting_date'].replace('-','/')[5:]
@@ -8050,19 +8195,15 @@ class AquacropAvailableDataView(views.APIView):
         # Crop maturity in calendar days +30 for latest harvest date
         # harvest_datetime = planting_datetime+datetime.timedelta(days=crop.MaturityCD+30)
 
-        harvest_datetime = planting_datetime+datetime.timedelta(days=min(364, crop.MaturityCD+1))
-
+        harvest_datetime = planting_datetime+datetime.timedelta(days=min(364, crop.MaturityCD))
+        start_datetime_history = planting_datetime-datetime.timedelta(days=90)
+        
         today = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-
-        if (harvest_datetime > today):
-            # Get forecast days
-            delta = harvest_datetime - today
-            forecast_days = min(15, delta.days())
-
-            start_datetime_history = planting_datetime-datetime.timedelta(days=90)
-            end_datetime_history = today
+        yestday = today - datetime.timedelta(days=1)
+        if (harvest_datetime > yestday):
+            end_datetime_history = yestday
         else:
-            start_datetime_history = planting_datetime-datetime.timedelta(days=90)
             end_datetime_history = harvest_datetime
 
         return start_datetime_history, end_datetime_history
+
