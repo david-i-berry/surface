@@ -22,6 +22,7 @@
 						<v-switch 
 							v-model="filters.is_automatic"
 							:label='filters.is_automatic?"Automatic Stations":"Manual Stations"'
+							@change="requestData.isDailyData = true;"
 							inset
 						/>
 					</v-col>
@@ -37,7 +38,7 @@
 							:rules="[rules.required]"
 						/>
 					</v-col>
-					<v-col cols="6">
+					<v-col cols="4">
 						<v-autocomplete
 							label="Select Variables"
 							:items="filteredVariableList"
@@ -54,6 +55,14 @@
 							:rules="[rules.required, rules.nonEmpty]"
 						/>
 					</v-col>
+					<v-col cols="2" class="d-flex justify-left">
+						<v-switch 
+							:disabled="!filters.is_automatic"
+							v-model="requestData.isDailyData"
+							:label='requestData.isDailyData?"Daily Summary":"Hourly Summary"'
+							inset
+						/>
+					</v-col>					
 				</v-row>
 				<v-row>
 					<v-col cols="2">
@@ -290,6 +299,7 @@
 			requestData: {
 				stationId: {{station_id}},
 				variableIds: {{variable_ids | safe}},
+				isDailyData: true,
 				summaryType: 'Seasonal',
 				months: [],
 				interval: null,
@@ -303,6 +313,7 @@
 			requestedData: {
 				stationId: null,
 				variableIds: [],
+				isDailyData: true,
 				summaryType: 'Seasonal',
 				months: [],
 				interval: null,
@@ -449,6 +460,7 @@
 
 				this.requestedData.stationId = this.requestData.stationId
 				this.requestedData.variableIds = this.requestData.variableIds
+				this.requestedData.isDailyData = this.requestData.isDailyData
 				this.requestedData.months = this.requestData.months
 				this.requestedData.interval = this.requestData.interval
 				this.requestedData.startYear = this.requestData.startYear
@@ -467,6 +479,7 @@
 				const params = {
 					station_id: this.requestedData.stationId,
 					variable_ids: this.requestedData.variableIds.join(','),
+					is_daily_data: this.requestedData.isDailyData,
 					months: this.requestedData.months.join(','),
 					interval: this.requestedData.interval,
 					start_year: this.requestedData.startYear,

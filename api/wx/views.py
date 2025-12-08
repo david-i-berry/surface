@@ -6631,6 +6631,7 @@ def get_agromet_summary_data(request):
             'end_year': request.GET.get('end_year'), #
             'station_id': request.GET.get('station_id'), #
             'variable_ids': request.GET.get('variable_ids'), #
+            'is_daily_data': request.GET.get('is_daily_data'),
             'summary_type': request.GET.get('summary_type'),
             'months': request.GET.get('months'),
             'interval': request.GET.get('interval'),
@@ -6675,29 +6676,26 @@ def get_agromet_summary_data(request):
     station = Station.objects.get(pk=requestedData['station_id'])
     is_hourly_summary = station.is_automatic or station.code == pgia_code
 
-    if requestedData['summary_type'] == 'Seasonal':
-        if requestedData['validate_data']:
-            template_name = 'seasonal_hourly_valid.sql' if is_hourly_summary else 'seasonal_daily_valid.sql'
-        else:
-            template_name = 'seasonal_hourly_raw.sql' if is_hourly_summary else 'seasonal_daily_raw.sql'       
-    elif requestedData['summary_type'] == 'Monthly':
-        if requestedData['interval'] == '7 days':
-            if requestedData['validate_data']:
-                template_name = 'monthly_7d_hourly_valid.sql' if is_hourly_summary else 'monthly_7d_daily_valid.sql'
-            else:
-                template_name = 'monthly_7d_hourly_raw.sql' if is_hourly_summary else 'monthly_7d_daily_raw.sql'
-
-        elif requestedData['interval'] == '10 days':
-            if requestedData['validate_data']:
-               template_name = 'monthly_10d_hourly_valid.sql' if is_hourly_summary else 'monthly_10d_daily_valid.sql'
-            else:
-               template_name = 'monthly_10d_hourly_raw.sql' if is_hourly_summary else 'monthly_10d_daily_raw.sql'            
-        elif requestedData['interval'] == '1 month':
-            if requestedData['validate_data']:
-                template_name = 'monthly_1m_hourly_valid.sql' if is_hourly_summary else 'monthly_1m_daily_valid.sql'
-            else:
-                template_name = 'monthly_1m_hourly_raw.sql' if is_hourly_summary else 'monthly_1m_daily_raw.sql'
-            
+    if requestedData['is_daily_data'] == 'true':
+        if requestedData['summary_type'] == 'Seasonal':
+            template_name = 'seasonal_daily_valid.sql' if requestedData['validate_data'] else 'seasonal_daily_raw.sql'
+        elif requestedData['summary_type'] == 'Monthly':
+            if requestedData['interval'] == '7 days':
+                template_name = 'monthly_7d_daily_valid.sql' if requestedData['validate_data'] else 'monthly_7d_daily_raw.sql'
+            elif requestedData['interval'] == '10 days':
+                template_name = 'monthly_10d_daily_valid.sql' if requestedData['validate_data'] else 'monthly_10d_daily_raw.sql'            
+            elif requestedData['interval'] == '1 month':
+                template_name = 'monthly_1m_daily_valid.sql' if requestedData['validate_data'] else 'monthly_1m_daily_raw.sql'            
+    else:
+        if requestedData['summary_type'] == 'Seasonal':
+            template_name = 'seasonal_hourly_valid.sql' if requestedData['validate_data'] else 'seasonal_hourly_raw.sql'
+        elif requestedData['summary_type'] == 'Monthly':
+            if requestedData['interval'] == '7 days':
+                template_name = 'monthly_7d_hourly_valid.sql' if requestedData['validate_data'] else 'monthly_7d_hourly_raw.sql'
+            elif requestedData['interval'] == '10 days':
+                template_name = 'monthly_10d_hourly_valid.sql' if requestedData['validate_data'] else 'monthly_10d_hourly_raw.sql'            
+            elif requestedData['interval'] == '1 month':
+                template_name = 'monthly_1m_hourly_valid.sql' if requestedData['validate_data'] else 'monthly_1m_hourly_raw.sql'
 
     template = env.get_template(template_name)
     query = template.render(context)
@@ -7703,9 +7701,11 @@ class AquacropModelRunView(views.APIView):
         ], axis=1)
 
         output_df = output_df[output_df['Date'] <= model_params['simEndDate']]
-        
+        output_df.loc[:, 'Date'] = output_df['Date'].dt.strftime('%Y-%m-%d')
+
         output_df = output_df.loc[:, ~output_df.columns.duplicated()]
         output_df = output_df.round(2)
+
 
         # Drop last simulation day as AquacropOSPy does not output last day metrics
         output_df = output_df.iloc[:-1]
@@ -7751,11 +7751,11 @@ class AquacropModelRunView(views.APIView):
             forecast_df = output_df[output_df['Date'] > model_params['endDatetimeHistory']]
             forecast_df = forecast_df.iloc[:-1] # Aquacrop does not output last day metrics
 
-            # history_df['Date'] = history_df['Date'].dt.date
-            # forecast_df['Date'] = forecast_df['Date'].dt.date
+            # history_df.loc[:, 'Date'] = history_df['Date'].dt.date
+            # forecast_df.loc[:, 'Date'] = forecast_df['Date'].dt.date
 
-            history_df.loc[:, 'Date'] = history_df['Date'].dt.date
-            forecast_df.loc[:, 'Date'] = forecast_df['Date'].dt.date
+            history_df.loc[:, 'Date'] = history_df['Date'].dt.strftime('%Y-%m-%d')
+            forecast_df.loc[:, 'Date'] = forecast_df['Date'].dt.strftime('%Y-%m-%d')            
 
             data = forecast_df.to_dict('list')
 
@@ -7839,7 +7839,7 @@ class AquacropModelRunView(views.APIView):
         return historical_data, output
 
     def _simulation_strategy_3(self, json_data, model_params, weather_df, schedule_df):
-        # Irrigate based on depletion threshold for the forecast period
+        # Irrigate based on water content threshold for the forecast period
 
         model = AquaCropModel(
             sim_start_time=model_params['simStartDate'],
@@ -7905,7 +7905,6 @@ class AquacropModelRunView(views.APIView):
         historical_data, output = self._prepare_output(model, model_params, additional_df, is_historical_simulation=True)
         
         return historical_data, output
-
     
     def _get_simulation_datetimes(self, planting_datetime, crop):
         # Calculate initial harvest date using the planting year
@@ -7954,11 +7953,14 @@ class AquacropModelRunView(views.APIView):
 
         supabase: Client = create_client(supabase_url, supabase_key)
 
+
+        print(json_data['simulationScenarioId'])
         response = supabase.table('crops')\
             .select('*')\
             .eq('id', json_data['simulationScenarioId'])\
             .execute()
 
+        print(response)
         if len(response.data) > 0:
             simulation_scenario = response.data[0]
             # simulation_scenario['crop'] = 'Tomato'
