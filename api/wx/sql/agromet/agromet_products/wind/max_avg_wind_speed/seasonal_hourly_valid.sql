@@ -45,64 +45,64 @@ WITH month_days AS (
     GROUP BY year
 )
 -- Daily Data from Houly Summary
-,hourly_data AS (
-    SELECT
-        station_id 
-        ,vr.symbol AS variable
-        ,DATE(datetime AT TIME ZONE '{{timezone}}') AS day
-        ,EXTRACT(HOUR FROM datetime AT TIME ZONE '{{timezone}}') AS hour
-        ,min_value
-        ,max_value
-        ,avg_value
-        ,sum_value
-    FROM hourly_summary hs
-    JOIN wx_variable vr ON vr.id = hs.variable_id
-    WHERE station_id = {{station_id}}
-      AND vr.symbol = 'WNDSPD'
-      AND datetime AT TIME ZONE '{{timezone}}' >= '{{ start_date }}'
-      AND datetime AT TIME ZONE '{{timezone}}' < '{{ end_date }}'
-)
-,daily_data AS (
-    SELECT
-        station_id
-        ,day
-        ,day_of_month
-        ,month
-        ,year
-        ,max_wndpsd
-        ,avg_wndpsd
-    FROM (
-        SELECT
-            station_id
-            ,day
-            ,EXTRACT(DAY FROM day) AS day_of_month
-            ,EXTRACT(MONTH FROM day) AS month
-            ,EXTRACT(YEAR FROM day) AS year        
-            ,COUNT(DISTINCT hour) AS total_hours
-            ,MAX(max_value) AS max_wndpsd
-            ,AVG(avg_value) AS avg_wndpsd
-        FROM hourly_data
-        GROUP BY station_id, day    
-    ) ddr
-    WHERE 100*(total_hours::numeric/24) > (100-{{max_hour_pct}})
-)
--- Daily Data from Daily Summary
--- ,daily_data AS (
+-- ,hourly_data AS (
 --     SELECT
 --         station_id 
---         ,day
---         ,EXTRACT(DAY FROM day) AS day_of_month
---         ,EXTRACT(MONTH FROM day) AS month
---         ,EXTRACT(YEAR FROM day) AS year
---         ,max_value AS max_wndpsd
---         ,avg_value AS avg_wndpsd
---     FROM daily_summary ds
---     JOIN wx_variable vr ON vr.id = ds.variable_id
+--         ,vr.symbol AS variable
+--         ,DATE(datetime AT TIME ZONE '{{timezone}}') AS day
+--         ,EXTRACT(HOUR FROM datetime AT TIME ZONE '{{timezone}}') AS hour
+--         ,min_value
+--         ,max_value
+--         ,avg_value
+--         ,sum_value
+--     FROM hourly_summary hs
+--     JOIN wx_variable vr ON vr.id = hs.variable_id
 --     WHERE station_id = {{station_id}}
 --       AND vr.symbol = 'WNDSPD'
---       AND day >= '{{ start_date }}'
---       AND day < '{{ end_date }}'
+--       AND datetime AT TIME ZONE '{{timezone}}' >= '{{ start_date }}'
+--       AND datetime AT TIME ZONE '{{timezone}}' < '{{ end_date }}'
 -- )
+-- ,daily_data AS (
+--     SELECT
+--         station_id
+--         ,day
+--         ,day_of_month
+--         ,month
+--         ,year
+--         ,max_wndpsd
+--         ,avg_wndpsd
+--     FROM (
+--         SELECT
+--             station_id
+--             ,day
+--             ,EXTRACT(DAY FROM day) AS day_of_month
+--             ,EXTRACT(MONTH FROM day) AS month
+--             ,EXTRACT(YEAR FROM day) AS year        
+--             ,COUNT(DISTINCT hour) AS total_hours
+--             ,MAX(max_value) AS max_wndpsd
+--             ,AVG(avg_value) AS avg_wndpsd
+--         FROM hourly_data
+--         GROUP BY station_id, day    
+--     ) ddr
+--     WHERE 100*(total_hours::numeric/24) > (100-{{max_hour_pct}})
+-- )
+-- Daily Data from Daily Summary
+,daily_data AS (
+    SELECT
+        station_id 
+        ,day
+        ,EXTRACT(DAY FROM day) AS day_of_month
+        ,EXTRACT(MONTH FROM day) AS month
+        ,EXTRACT(YEAR FROM day) AS year
+        ,max_value AS max_wndpsd
+        ,avg_value AS avg_wndpsd
+    FROM daily_summary ds
+    JOIN wx_variable vr ON vr.id = ds.variable_id
+    WHERE station_id = {{station_id}}
+      AND vr.symbol = 'WNDSPD'
+      AND day >= '{{ start_date }}'
+      AND day < '{{ end_date }}'
+)
 ,extended_data AS(
     SELECT
         station_id

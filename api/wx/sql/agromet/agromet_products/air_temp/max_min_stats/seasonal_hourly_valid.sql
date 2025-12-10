@@ -45,67 +45,67 @@ WITH month_days AS (
     GROUP BY year
 )
 -- Hourly Data from Hourly Summary
-,hourly_data AS (
-    SELECT
-        station_id 
-        ,vr.symbol AS variable
-        ,DATE(datetime AT TIME ZONE '{{timezone}}') AS day
-        ,EXTRACT(HOUR FROM datetime AT TIME ZONE '{{timezone}}') AS hour
-        ,min_value
-        ,max_value
-        ,avg_value
-        ,sum_value
-    FROM hourly_summary hs
-    JOIN wx_variable vr ON vr.id = hs.variable_id
-    WHERE station_id = {{station_id}}
-      AND vr.symbol IN ('TEMP', 'TEMPMAX', 'TEMPMIN')
-      AND datetime AT TIME ZONE '{{timezone}}' >= '{{ start_date }}'
-      AND datetime AT TIME ZONE '{{timezone}}' < '{{ end_date }}'
-)
-,daily_data AS (
-    SELECT
-        station_id
-        ,variable
-        ,day
-        ,day_of_month
-        ,month
-        ,year
-        ,tmin
-        ,tmax
-    FROM (
-        SELECT
-            station_id
-            ,variable
-            ,day
-            ,EXTRACT(DAY FROM day) AS day_of_month
-            ,EXTRACT(MONTH FROM day) AS month
-            ,EXTRACT(YEAR FROM day) AS year        
-            ,COUNT(DISTINCT hour) AS total_hours
-            ,MIN(min_value) AS tmin
-            ,MAX(max_value) AS tmax
-        FROM hourly_data
-        GROUP BY station_id, variable, day    
-    ) ddr
-    WHERE 100*(total_hours::numeric/24) > (100-{{max_hour_pct}})
-)
--- Daily Data from Daily Summary
--- ,daily_data AS (
+-- ,hourly_data AS (
 --     SELECT
 --         station_id 
 --         ,vr.symbol AS variable
---         ,day
---         ,EXTRACT(DAY FROM day) AS day_of_month
---         ,EXTRACT(MONTH FROM day) AS month
---         ,EXTRACT(YEAR FROM day) AS year
+--         ,DATE(datetime AT TIME ZONE '{{timezone}}') AS day
+--         ,EXTRACT(HOUR FROM datetime AT TIME ZONE '{{timezone}}') AS hour
 --         ,min_value
 --         ,max_value
---     FROM daily_summary ds
---     JOIN wx_variable vr ON vr.id = ds.variable_id
+--         ,avg_value
+--         ,sum_value
+--     FROM hourly_summary hs
+--     JOIN wx_variable vr ON vr.id = hs.variable_id
 --     WHERE station_id = {{station_id}}
---       AND vr.symbol IN ('TEMP', 'TEMPMIN', 'TEMPMAX')
---       AND day >= '{{ start_date }}'
---       AND day < '{{ end_date }}'
+--       AND vr.symbol IN ('TEMP', 'TEMPMAX', 'TEMPMIN')
+--       AND datetime AT TIME ZONE '{{timezone}}' >= '{{ start_date }}'
+--       AND datetime AT TIME ZONE '{{timezone}}' < '{{ end_date }}'
 -- )
+-- ,daily_data AS (
+--     SELECT
+--         station_id
+--         ,variable
+--         ,day
+--         ,day_of_month
+--         ,month
+--         ,year
+--         ,tmin
+--         ,tmax
+--     FROM (
+--         SELECT
+--             station_id
+--             ,variable
+--             ,day
+--             ,EXTRACT(DAY FROM day) AS day_of_month
+--             ,EXTRACT(MONTH FROM day) AS month
+--             ,EXTRACT(YEAR FROM day) AS year        
+--             ,COUNT(DISTINCT hour) AS total_hours
+--             ,MIN(min_value) AS tmin
+--             ,MAX(max_value) AS tmax
+--         FROM hourly_data
+--         GROUP BY station_id, variable, day    
+--     ) ddr
+--     WHERE 100*(total_hours::numeric/24) > (100-{{max_hour_pct}})
+-- )
+-- Daily Data from Daily Summary
+,daily_data AS (
+    SELECT
+        station_id 
+        ,vr.symbol AS variable
+        ,day
+        ,EXTRACT(DAY FROM day) AS day_of_month
+        ,EXTRACT(MONTH FROM day) AS month
+        ,EXTRACT(YEAR FROM day) AS year
+        ,min_value
+        ,max_value
+    FROM daily_summary ds
+    JOIN wx_variable vr ON vr.id = ds.variable_id
+    WHERE station_id = {{station_id}}
+      AND vr.symbol IN ('TEMP', 'TEMPMIN', 'TEMPMAX')
+      AND day >= '{{ start_date }}'
+      AND day < '{{ end_date }}'
+)
 ,extended_data AS(
     SELECT
         station_id

@@ -1,61 +1,61 @@
 -- Daily data from Hourly Summary
-WITH hourly_data AS (
-    SELECT
-        station_id 
-        ,vr.symbol AS variable
-        ,DATE(datetime AT TIME ZONE '{{timezone}}') AS day
-        ,EXTRACT(HOUR FROM datetime AT TIME ZONE '{{timezone}}') AS hour
-        ,min_value
-        ,max_value
-        ,avg_value
-        ,sum_value
-    FROM hourly_summary hs
-    JOIN wx_variable vr ON vr.id = hs.variable_id
-    WHERE station_id = {{station_id}}
-      AND vr.symbol IN ('VWC1FT', 'VWC4FT', 'PRECIP')    
-)
-,daily_data AS (
-    SELECT 
-        station_id
-        ,variable
-        ,day
-        ,day_of_month
-        ,min_value
-        ,max_value
-        ,avg_value
-        ,sum_value
-    FROM (
-        SELECT
-            station_id
-            ,variable
-            ,day
-            ,EXTRACT(DAY FROM day) AS day_of_month
-            ,COUNT(DISTINCT hour) AS total_hours
-            ,MIN(min_value) AS min_value
-            ,MAX(max_value) AS max_value
-            ,AVG(avg_value) AS avg_value
-            ,SUM(sum_value) AS sum_value
-        FROM hourly_data
-        GROUP BY station_id, variable, day
-    ) ddr
-    WHERE 100*(total_hours::numeric/24) > (100-{{max_hour_pct}})
-)
--- Daily data from Daily Summary
--- WITH daily_data AS (
+-- WITH hourly_data AS (
 --     SELECT
 --         station_id 
 --         ,vr.symbol AS variable
---         ,day
---         ,EXTRACT(DAY FROM day) AS day_of_month
+--         ,DATE(datetime AT TIME ZONE '{{timezone}}') AS day
+--         ,EXTRACT(HOUR FROM datetime AT TIME ZONE '{{timezone}}') AS hour
 --         ,min_value
 --         ,max_value
 --         ,avg_value
---         ,sum_value        
---     FROM daily_summary ds
---     JOIN wx_variable vr ON vr.id = ds.variable_id
+--         ,sum_value
+--     FROM hourly_summary hs
+--     JOIN wx_variable vr ON vr.id = hs.variable_id
 --     WHERE station_id = {{station_id}}
---       AND vr.symbol IN ('VWC1FT', 'VWC4FT', 'PRECIP')
+--       AND vr.symbol IN ('VWC1FT', 'VWC4FT', 'PRECIP')    
 -- )
+-- ,daily_data AS (
+--     SELECT 
+--         station_id
+--         ,variable
+--         ,day
+--         ,day_of_month
+--         ,min_value
+--         ,max_value
+--         ,avg_value
+--         ,sum_value
+--     FROM (
+--         SELECT
+--             station_id
+--             ,variable
+--             ,day
+--             ,EXTRACT(DAY FROM day) AS day_of_month
+--             ,COUNT(DISTINCT hour) AS total_hours
+--             ,MIN(min_value) AS min_value
+--             ,MAX(max_value) AS max_value
+--             ,AVG(avg_value) AS avg_value
+--             ,SUM(sum_value) AS sum_value
+--         FROM hourly_data
+--         GROUP BY station_id, variable, day
+--     ) ddr
+--     WHERE 100*(total_hours::numeric/24) > (100-{{max_hour_pct}})
+-- )
+-- Daily data from Daily Summary
+WITH daily_data AS (
+    SELECT
+        station_id 
+        ,vr.symbol AS variable
+        ,day
+        ,EXTRACT(DAY FROM day) AS day_of_month
+        ,min_value
+        ,max_value
+        ,avg_value
+        ,sum_value        
+    FROM daily_summary ds
+    JOIN wx_variable vr ON vr.id = ds.variable_id
+    WHERE station_id = {{station_id}}
+      AND vr.symbol IN ('VWC1FT', 'VWC4FT', 'PRECIP')
+)
 ,daily_lagged_data AS (
     SELECT
         *

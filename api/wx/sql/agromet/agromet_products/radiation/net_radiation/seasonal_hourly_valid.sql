@@ -45,94 +45,94 @@ WITH month_days AS (
     GROUP BY year
 )
 -- Daily Data from Hourly Summary
-,hourly_data AS (
-    SELECT
-        station_id 
-        ,vr.symbol AS variable
-        ,DATE(datetime AT TIME ZONE '{{timezone}}') AS day
-        ,EXTRACT(HOUR FROM datetime AT TIME ZONE '{{timezone}}') AS hour
-        ,min_value
-        ,max_value
-        ,avg_value
-        ,sum_value
-    FROM hourly_summary hs
-    JOIN wx_variable vr ON vr.id = hs.variable_id
-    WHERE station_id = {{station_id}}
-      AND vr.symbol IN ('TEMP', 'RH', 'SOLARRAD')
-      AND datetime AT TIME ZONE '{{timezone}}' >= '{{ start_date }}'
-      AND datetime AT TIME ZONE '{{timezone}}' < '{{ end_date }}'
-)
-,daily_data AS (
-    SELECT
-        station_id
-        ,day
-        ,day_of_month
-        ,day_of_year
-        ,month
-        ,year
-        ,st.latitude::float AS latitude
-        ,st.elevation::float AS elevation
-        ,tmin
-        ,tmax
-        ,rh
-        ,solar_rad
-    FROM (
-        SELECT
-            station_id
-            ,day
-            ,EXTRACT(DAY FROM day) AS day_of_month
-            ,EXTRACT(DOY FROM day)::integer AS day_of_year
-            ,EXTRACT(MONTH FROM day) AS month
-            ,EXTRACT(YEAR FROM day) AS year
-            ,COUNT(DISTINCT hour) AS total_hours
-            ,MIN(tmin) AS tmin
-            ,MAX(tmax) AS tmax
-            ,AVG(rh) AS rh
-            ,SUM(solar_rad) AS solar_rad
-        FROM (
-            SELECT
-                station_id
-                ,day
-                ,hour
-                ,MIN(CASE variable WHEN 'TEMP' THEN min_value ELSE NULL END)::float AS tmin
-                ,MIN(CASE variable WHEN 'TEMP' THEN max_value ELSE NULL END)::float AS tmax
-                ,MIN(CASE variable WHEN 'RH' THEN avg_value ELSE NULL END)::float AS rh
-                ,MIN(CASE variable WHEN 'SOLARRAD' THEN sum_value ELSE NULL END)::float AS solar_rad
-            FROM hourly_data
-            GROUP BY station_id, day, hour
-        ) hav -- Hourly Aggregated variables
-        WHERE tmin IS NOT NULL
-          AND tmax IS NOT NULL
-          AND rh IS NOT NULL
-          AND solar_rad IS NOT NULL
-        GROUP BY station_id, day    
-    ) ddr -- Daily Data Raw
-    JOIN wx_station st ON st.id = ddr.station_id
-    WHERE 100*(total_hours::numeric/24) > (100-{{max_hour_pct}})
-)
--- Daily Data from Daily Summary
+-- ,hourly_data AS (
+--     SELECT
+--         station_id 
+--         ,vr.symbol AS variable
+--         ,DATE(datetime AT TIME ZONE '{{timezone}}') AS day
+--         ,EXTRACT(HOUR FROM datetime AT TIME ZONE '{{timezone}}') AS hour
+--         ,min_value
+--         ,max_value
+--         ,avg_value
+--         ,sum_value
+--     FROM hourly_summary hs
+--     JOIN wx_variable vr ON vr.id = hs.variable_id
+--     WHERE station_id = {{station_id}}
+--       AND vr.symbol IN ('TEMP', 'RH', 'SOLARRAD')
+--       AND datetime AT TIME ZONE '{{timezone}}' >= '{{ start_date }}'
+--       AND datetime AT TIME ZONE '{{timezone}}' < '{{ end_date }}'
+-- )
 -- ,daily_data AS (
 --     SELECT
 --         station_id
 --         ,day
---         ,EXTRACT(DAY FROM day) AS day_of_month
---         ,EXTRACT(DOY FROM day)::integer AS day_of_year
---         ,EXTRACT(MONTH FROM day) AS month
---         ,EXTRACT(YEAR FROM day) AS year
+--         ,day_of_month
+--         ,day_of_year
+--         ,month
+--         ,year
 --         ,st.latitude::float AS latitude
 --         ,st.elevation::float AS elevation
---         ,MAX(CASE WHEN vr.symbol = 'TEMP' THEN max_value ELSE NULL END)::float AS tmax
---         ,MIN(CASE WHEN vr.symbol = 'TEMP' THEN min_value ELSE NULL END)::float AS tmin
---         ,AVG(CASE WHEN vr.symbol = 'RH' THEN avg_value ELSE NULL END)::float AS rh
---         ,SUM(CASE WHEN vr.symbol = 'SOLARRAD' THEN sum_value ELSE NULL END)::float AS solar_rad
---     FROM daily_summary ds
---     JOIN wx_variable vr ON vr.id = ds.variable_id
---     JOIN wx_station st ON st.id = ds.station_id
---     WHERE station_id = {{station_id}}
---       AND vr.symbol IN ('TEMP','SOLARRAD', 'RH')
---       AND '{{ start_date }}' <= day AND day < '{{ end_date }}'
---     GROUP BY station_id, day, latitude, elevation
+--         ,tmin
+--         ,tmax
+--         ,rh
+--         ,solar_rad
+--     FROM (
+--         SELECT
+--             station_id
+--             ,day
+--             ,EXTRACT(DAY FROM day) AS day_of_month
+--             ,EXTRACT(DOY FROM day)::integer AS day_of_year
+--             ,EXTRACT(MONTH FROM day) AS month
+--             ,EXTRACT(YEAR FROM day) AS year
+--             ,COUNT(DISTINCT hour) AS total_hours
+--             ,MIN(tmin) AS tmin
+--             ,MAX(tmax) AS tmax
+--             ,AVG(rh) AS rh
+--             ,SUM(solar_rad) AS solar_rad
+--         FROM (
+--             SELECT
+--                 station_id
+--                 ,day
+--                 ,hour
+--                 ,MIN(CASE variable WHEN 'TEMP' THEN min_value ELSE NULL END)::float AS tmin
+--                 ,MIN(CASE variable WHEN 'TEMP' THEN max_value ELSE NULL END)::float AS tmax
+--                 ,MIN(CASE variable WHEN 'RH' THEN avg_value ELSE NULL END)::float AS rh
+--                 ,MIN(CASE variable WHEN 'SOLARRAD' THEN sum_value ELSE NULL END)::float AS solar_rad
+--             FROM hourly_data
+--             GROUP BY station_id, day, hour
+--         ) hav -- Hourly Aggregated variables
+--         WHERE tmin IS NOT NULL
+--           AND tmax IS NOT NULL
+--           AND rh IS NOT NULL
+--           AND solar_rad IS NOT NULL
+--         GROUP BY station_id, day    
+--     ) ddr -- Daily Data Raw
+--     JOIN wx_station st ON st.id = ddr.station_id
+--     WHERE 100*(total_hours::numeric/24) > (100-{{max_hour_pct}})
 -- )
+-- Daily Data from Daily Summary
+,daily_data AS (
+    SELECT
+        station_id
+        ,day
+        ,EXTRACT(DAY FROM day) AS day_of_month
+        ,EXTRACT(DOY FROM day)::integer AS day_of_year
+        ,EXTRACT(MONTH FROM day) AS month
+        ,EXTRACT(YEAR FROM day) AS year
+        ,st.latitude::float AS latitude
+        ,st.elevation::float AS elevation
+        ,MAX(CASE WHEN vr.symbol = 'TEMP' THEN max_value ELSE NULL END)::float AS tmax
+        ,MIN(CASE WHEN vr.symbol = 'TEMP' THEN min_value ELSE NULL END)::float AS tmin
+        ,AVG(CASE WHEN vr.symbol = 'RH' THEN avg_value ELSE NULL END)::float AS rh
+        ,SUM(CASE WHEN vr.symbol = 'SOLARRAD' THEN sum_value ELSE NULL END)::float AS solar_rad
+    FROM daily_summary ds
+    JOIN wx_variable vr ON vr.id = ds.variable_id
+    JOIN wx_station st ON st.id = ds.station_id
+    WHERE station_id = {{station_id}}
+      AND vr.symbol IN ('TEMP','SOLARRAD', 'RH')
+      AND '{{ start_date }}' <= day AND day < '{{ end_date }}'
+    GROUP BY station_id, day, latitude, elevation
+)
 ,net_rad_calc AS (
     SELECT 
         station_id
