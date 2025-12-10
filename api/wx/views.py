@@ -6950,7 +6950,11 @@ def get_agromet_products_sql_context(requestedData: dict, env: Environment) -> d
                 context['threshold'] = result[0] if (result and result[0] is not None) else 0
     elif product == 'Wind rose':
         aggregation = requestedData['aggregation']
-        context['aggregation_months'] = aggregation_months_dict[aggregation]
+        if aggregation:
+            context['aggregation_months'] = aggregation_months_dict[aggregation]
+        else:
+            print('!!!!!!!months', requestedData['months'])
+            context['months'] = requestedData['months']
     elif product == 'Evapotranspiration':
         latitude = station.latitude
         aggregation = requestedData['aggregation']
@@ -6973,7 +6977,8 @@ def get_agromet_products_sql_context(requestedData: dict, env: Environment) -> d
             'Number of hours with wind speed below specified value': {'threshold': 'numeric_param_1'}
         },
         'Relative Humidity': {
-            'Sequence of days above specified humidity': {'threshold': 'numeric_param_1'}
+            'Sequence of days above specified humidity': {'threshold': 'numeric_param_1'},
+            'Sequence of hours above specified humidity': {'threshold': 'numeric_param_1'}
         },
         'Soil Temperature': {
             'First and Last dates above specified specified temperature': {'threshold': 'numeric_param_1'}
@@ -7018,7 +7023,8 @@ def get_agromet_products_sql_env(requestedData: dict):
             'Sunshine hours': 'radiation/sunshine_hours',
         },
         'Relative Humidity': {
-            'Sequence of days above specified humidity': 'relative_humidity/seq_threshold_days_rain',
+            'Sequence of days above specified humidity': 'relative_humidity/seq_threshold_days',
+            'Sequence of hours above specified humidity': 'relative_humidity/seq_threshold_hours',
         },
         'Evaporation and Evapotranspiration': {
             'Accumulative Evaporation': 'evaporation/sum_evapo',
@@ -7071,6 +7077,8 @@ def get_agromet_products_data(request):
             'max_day_pct': request.GET.get('max_day_pct'),
             'max_day_gap': request.GET.get('max_day_gap'),
         }
+
+        print(requestedData)
     except ValueError as e:
         logger.error(repr(e))
         return HttpResponse(status=status.HTTP_400_BAD_REQUEST)
@@ -7097,13 +7105,22 @@ def get_agromet_products_data(request):
 
     is_hourly_station = station.is_automatic or station.code==pgia_code
 
-    if is_hourly_station:
-        template_name = 'seasonal_hourly_valid.sql'
+    if requestedData['summary_type']=='Monthly':
+        if is_hourly_station:
+            template_name = 'monthly_hourly_valid.sql'
+        else:
+            template_name = 'monthly_daily_valid.sql'        
     else:
-        template_name = 'seasonal_daily_valid.sql'
+        if is_hourly_station:
+            template_name = 'seasonal_hourly_valid.sql'
+        else:
+            template_name = 'seasonal_daily_valid.sql'
+
 
     template = env.get_template(template_name)
     query = template.render(context)
+
+    logger.debug("Agromet Products Query: %s", query)
 
     config = settings.SURFACE_CONNECTION_STRING
     with psycopg2.connect(config) as conn:

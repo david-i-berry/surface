@@ -92,7 +92,7 @@
 							:label="parameterLabels.numericParam2"
 						/>
 					</v-col>
-					<v-col cols="4" v-if="parameterLabels.aggregation">
+					<v-col cols="4" v-if="parameterLabels.aggregation && filters.is_seasonal">
 						<v-autocomplete
 							:label="parameterLabels.aggregation"
 							:items="dataAggegationList"
@@ -101,7 +101,23 @@
 							persistent-hint
 							:rules="[rules.required]"
 						/>									
-					</v-col>						
+					</v-col>
+					<v-col cols="4" v-if="parameterLabels.aggregation && !filters.is_seasonal">
+						<v-autocomplete
+							label="Select Months"
+							:items="months"
+							item-value='id'
+							item-text="name"
+							v-model="requestData.months"
+							hint="*Required"
+							persistent-hint
+							multiple
+							clearable
+							chips
+							deletable-chips
+							:rules="[rules.required, rules.nonEmpty]"
+						/>
+					</v-col>										
 				</v-row>
 				<v-row>
 					<v-col cols="2">
@@ -126,30 +142,15 @@
 
 						/>
 					</v-col>
-					{% comment %} <v-col cols="3" class="d-flex justify-center">
+					<v-col cols="3" class="d-flex justify-center">
 						<v-switch
+							v-if="requestData.product && monthlyProducts.includes(requestData.product)"
 							v-model="filters.is_seasonal"
 							:label='filters.is_seasonal?"Seasonal Summary":"Monthly Summary"'
 							inset
-							disabled
 					  	/> 						  
-					</v-col> {% endcomment %}
-					{% comment %} <v-col cols="3" v-if="!filters.is_seasonal">
-						<v-autocomplete
-							label="Select Months"
-							:items="months"
-							item-value='id'
-							item-text="name"
-							v-model="requestData.months"
-							hint="*Required"
-							persistent-hint
-							multiple
-							clearable
-							chips
-							deletable-chips
-							:rules="[rules.required, rules.nonEmpty]"
-						/>
-					</v-col>					
+					</v-col>
+					{% comment %} 					
 					<v-col cols="2" v-if="!filters.is_seasonal">
 						<v-autocomplete
 							label="Select Interval"
@@ -453,6 +454,13 @@
 							label: 'Threshold humidity',
 						},
 					},
+					'Sequence of hours above specified humidity': {
+						'info': 'Longest sequence of hours that relative humidity exceeded a specified threshold.',
+						'numeric_param_1': {
+							value: 80,
+							label: 'Threshold humidity',
+						},
+					},					
 				},
 				'Evaporation and Evapotranspiration': {
 					'Accumulative Evaporation': {
@@ -510,6 +518,14 @@
 			start_year_menu: false,
 			end_year_menu: false,
 			intervals: ['7 days', '10 days', '1 month'],
+			monthlyProducts: [
+				'Maximum and minimum statistics',
+				'Heat wave',
+				'Sequence of days above specified humidity',
+				'Number of days with specified rainfall',
+				'Flood and excess rainfall',
+				'Wind rose',
+			],
 			months: [
 				{id: 1, name: 'Jan'},
 				{id: 2, name: 'Feb'},
@@ -737,6 +753,12 @@
 						baseKeys = ['station']
 						baseHeaders = [];
 					}
+					else if (this.monthlyProducts.includes(product)) {
+						baseKeys = ['station', 'year']
+						baseHeaders = [
+							{ text: 'Year', align: 'end', value: 'year', sortable: false}
+						];
+					}
 					else {
 						baseKeys = ['station', 'year', 'month']
 						baseHeaders = [
@@ -825,14 +847,15 @@
 					start_year: this.requestedData.startYear,
 					end_year: this.requestedData.endYear,
 					summary_type: this.requestedData.summaryType,
-					months: this.requestedData.months,
+					months: this.requestedData.months.join(','),
 					interval: this.requestedData.interval,
 					validate_data: this.requestedData.validateData,
 					max_hour_pct: this.requestedData.maxHourPct,
 					max_day_pct: this.requestedData.maxDayPct,
 					max_day_gap: this.requestedData.maxDayGap
 				};
-
+				
+				console.log('Requesting data with params:', params);
         		axios.get(url, { params })
 				.then(response => {
 					this.requestedData.responseData = response.data.tableData;
