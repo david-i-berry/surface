@@ -43,7 +43,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN day_of_month BETWEEN 1 AND 10 THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN day_of_month BETWEEN 1 AND 10 THEN value END)::numeric
                 ELSE AVG(CASE WHEN day_of_month BETWEEN 1 AND 10 THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS agg_1
         ,COUNT(DISTINCT CASE WHEN (((day_of_month BETWEEN 1 AND 10) AND (day IS NOT NULL))) THEN day END) AS "agg_1_count"
         ,ROUND(
@@ -52,7 +52,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN day_of_month BETWEEN 11 AND 20 THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN day_of_month BETWEEN 11 AND 20 THEN value END)::numeric
                 ELSE AVG(CASE WHEN day_of_month BETWEEN 11 AND 20 THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS agg_2
         ,COUNT(DISTINCT CASE WHEN (((day_of_month BETWEEN 11 AND 20) AND (day IS NOT NULL))) THEN day END) AS "agg_2_count"
         ,ROUND(
@@ -61,7 +61,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN day_of_month >= 21 THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN day_of_month >= 21 THEN value END)::numeric
                 ELSE AVG(CASE WHEN day_of_month >= 21 THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS agg_3
         ,COUNT(DISTINCT CASE WHEN (((day_of_month >= 21) AND (day IS NOT NULL))) THEN day END) AS "agg_3_count"
     FROM daily_data dd

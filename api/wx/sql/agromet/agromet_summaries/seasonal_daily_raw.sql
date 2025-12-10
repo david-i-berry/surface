@@ -97,7 +97,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN month IN (1, 2, 3) THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN month IN (1, 2, 3) THEN value END)::numeric
                 ELSE AVG(CASE WHEN month IN (1, 2, 3) THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS "JFM"
         ,COUNT(DISTINCT CASE WHEN ((month IN (1, 2, 3)) AND (day IS NOT NULL)) THEN day END) AS "JFM_count"
         ,ROUND(
@@ -106,7 +106,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN month IN (2, 3, 4) THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN month IN (2, 3, 4) THEN value END)::numeric
                 ELSE AVG(CASE WHEN month IN (2, 3, 4) THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS "FMA"
         ,COUNT(DISTINCT CASE WHEN ((month IN (2, 3, 4)) AND (day IS NOT NULL)) THEN day END) AS "FMA_count"
         ,ROUND(
@@ -115,7 +115,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN month IN (3, 4, 5) THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN month IN (3, 4, 5) THEN value END)::numeric
                 ELSE AVG(CASE WHEN month IN (3, 4, 5) THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS "MAM"
         ,COUNT(DISTINCT CASE WHEN ((month IN (3, 4, 5)) AND (day IS NOT NULL)) THEN day END) AS "MAM_count"
         ,ROUND(
@@ -124,7 +124,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN month IN (4, 5, 6) THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN month IN (4, 5, 6) THEN value END)::numeric
                 ELSE AVG(CASE WHEN month IN (4, 5, 6) THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS "AMJ"
         ,COUNT(DISTINCT CASE WHEN ((month IN (4, 5, 6)) AND (day IS NOT NULL)) THEN day END) AS "AMJ_count"
         ,ROUND(
@@ -133,7 +133,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN month IN (5, 6, 7) THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN month IN (5, 6, 7) THEN value END)::numeric
                 ELSE AVG(CASE WHEN month IN (5, 6, 7) THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS "MJJ"
         ,COUNT(DISTINCT CASE WHEN ((month IN (5, 6, 7)) AND (day IS NOT NULL)) THEN day END) AS "MJJ_count"
         ,ROUND(
@@ -142,7 +142,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN month IN (6, 7, 8) THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN month IN (6, 7, 8) THEN value END)::numeric
                 ELSE AVG(CASE WHEN month IN (6, 7, 8) THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS "JJA"
         ,COUNT(DISTINCT CASE WHEN ((month IN (6, 7, 8)) AND (day IS NOT NULL)) THEN day END) AS "JJA_count"
         ,ROUND(
@@ -151,7 +151,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN month IN (7, 8, 9) THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN month IN (7, 8, 9) THEN value END)::numeric
                 ELSE AVG(CASE WHEN month IN (7, 8, 9) THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS "JAS"
         ,COUNT(DISTINCT CASE WHEN ((month IN (7, 8, 9)) AND (day IS NOT NULL)) THEN day END) AS "JAS_count"
         ,ROUND(
@@ -160,7 +160,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN month IN (8, 9, 10) THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN month IN (8, 9, 10) THEN value END)::numeric
                 ELSE AVG(CASE WHEN month IN (8, 9, 10) THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS "ASO"
         ,COUNT(DISTINCT CASE WHEN ((month IN (8, 9, 10)) AND (day IS NOT NULL)) THEN day END) AS "ASO_count"
         ,ROUND(
@@ -169,7 +169,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN month IN (9, 10, 11) THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN month IN (9, 10, 11) THEN value END)::numeric
                 ELSE AVG(CASE WHEN month IN (9, 10, 11) THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS "SON"
         ,COUNT(DISTINCT CASE WHEN ((month IN (9, 10, 11)) AND (day IS NOT NULL)) THEN day END) AS "SON_count"
         ,ROUND(
@@ -178,7 +178,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN month IN (10, 11, 12) THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN month IN (10, 11, 12) THEN value END)::numeric
                 ELSE AVG(CASE WHEN month IN (10, 11, 12) THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS "OND"
         ,COUNT(DISTINCT CASE WHEN ((month IN (10, 11, 12)) AND (day IS NOT NULL)) THEN day END) AS "OND_count"
         ,ROUND(
@@ -187,7 +187,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN month IN (11, 12, 13) THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN month IN (11, 12, 13) THEN value END)::numeric
                 ELSE AVG(CASE WHEN month IN (11, 12, 13) THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS "NDJ"
         ,COUNT(DISTINCT CASE WHEN ((month IN (11, 12, 13)) AND (day IS NOT NULL)) THEN day END) AS "NDJ_count"
         ,ROUND(
@@ -196,7 +196,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN month IN (0, 1, 2, 3, 4, 5) THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN month IN (0, 1, 2, 3, 4, 5) THEN value END)::numeric
                 ELSE AVG(CASE WHEN month IN (0, 1, 2, 3, 4, 5) THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS "DRY"
         ,COUNT(DISTINCT CASE WHEN ((month IN (0, 1, 2, 3, 4, 5)) AND (day IS NOT NULL)) THEN day END) AS "DRY_count"
         ,ROUND(
@@ -205,7 +205,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN month IN (6, 7, 8, 9, 10, 11) THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN month IN (6, 7, 8, 9, 10, 11) THEN value END)::numeric
                 ELSE AVG(CASE WHEN month IN (6, 7, 8, 9, 10, 11) THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS "WET"
         ,COUNT(DISTINCT CASE WHEN ((month IN (6, 7, 8, 9, 10, 11)) AND (day IS NOT NULL)) THEN day END) AS "WET_count"
         ,ROUND(
@@ -214,7 +214,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN month IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12) THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN month IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12) THEN value END)::numeric
                 ELSE AVG(CASE WHEN month IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12) THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS "ANNUAL"
         ,COUNT(DISTINCT CASE WHEN ((month IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)) AND (day IS NOT NULL)) THEN day END) AS "ANNUAL_count"
         ,ROUND(
@@ -223,7 +223,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN month IN (0, 1, 2, 3) THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN month IN (0, 1, 2, 3) THEN value END)::numeric
                 ELSE AVG(CASE WHEN month IN (0, 1, 2, 3) THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS "DJFM"
         ,COUNT(DISTINCT CASE WHEN ((month IN (0, 1, 2, 3)) AND (day IS NOT NULL)) THEN day END) AS "DJFM_count"
     FROM extended_data ed
@@ -236,35 +236,35 @@ SELECT
     ,variable_id
     ,ad.year
     ,"JFM"
-    ,ROUND(((100*"JFM_count")::numeric/"JFM_total"::numeric),2) AS "JFM (%)"
+    ,ROUND(((100*"JFM_count")::numeric/"JFM_total"::numeric),1) AS "JFM (%)"
     ,"FMA"
-    ,ROUND(((100*"FMA_count")::numeric/"FMA_total"::numeric),2) AS "FMA (%)"
+    ,ROUND(((100*"FMA_count")::numeric/"FMA_total"::numeric),1) AS "FMA (%)"
     ,"MAM"
-    ,ROUND(((100*"MAM_count")::numeric/"MAM_total"::numeric),2) AS "MAM (%)"
+    ,ROUND(((100*"MAM_count")::numeric/"MAM_total"::numeric),1) AS "MAM (%)"
     ,"AMJ"
-    ,ROUND(((100*"AMJ_count")::numeric/"AMJ_total"::numeric),2) AS "AMJ (%)"
+    ,ROUND(((100*"AMJ_count")::numeric/"AMJ_total"::numeric),1) AS "AMJ (%)"
     ,"MJJ"
-    ,ROUND(((100*"MJJ_count")::numeric/"MJJ_total"::numeric),2) AS "MJJ (%)"
+    ,ROUND(((100*"MJJ_count")::numeric/"MJJ_total"::numeric),1) AS "MJJ (%)"
     ,"JJA"
-    ,ROUND(((100*"JJA_count")::numeric/"JJA_total"::numeric),2) AS "JJA (%)"
+    ,ROUND(((100*"JJA_count")::numeric/"JJA_total"::numeric),1) AS "JJA (%)"
     ,"JAS"
-    ,ROUND(((100*"JAS_count")::numeric/"JAS_total"::numeric),2) AS "JAS (%)"
+    ,ROUND(((100*"JAS_count")::numeric/"JAS_total"::numeric),1) AS "JAS (%)"
     ,"ASO"
-    ,ROUND(((100*"ASO_count")::numeric/"ASO_total"::numeric),2) AS "ASO (%)"
+    ,ROUND(((100*"ASO_count")::numeric/"ASO_total"::numeric),1) AS "ASO (%)"
     ,"SON"
-    ,ROUND(((100*"SON_count")::numeric/"SON_total"::numeric),2) AS "SON (%)"
+    ,ROUND(((100*"SON_count")::numeric/"SON_total"::numeric),1) AS "SON (%)"
     ,"OND"
-    ,ROUND(((100*"OND_count")::numeric/"OND_total"::numeric),2) AS "OND (%)"
+    ,ROUND(((100*"OND_count")::numeric/"OND_total"::numeric),1) AS "OND (%)"
     ,"NDJ"
-    ,ROUND(((100*"NDJ_count")::numeric/"NDJ_total"::numeric),2) AS "NDJ (%)"
+    ,ROUND(((100*"NDJ_count")::numeric/"NDJ_total"::numeric),1) AS "NDJ (%)"
     ,"DRY"
-    ,ROUND(((100*"DRY_count")::numeric/"DRY_total"::numeric),2) AS "DRY (%)"
+    ,ROUND(((100*"DRY_count")::numeric/"DRY_total"::numeric),1) AS "DRY (%)"
     ,"WET"
-    ,ROUND(((100*"WET_count")::numeric/"WET_total"::numeric),2) AS "WET (%)"
+    ,ROUND(((100*"WET_count")::numeric/"WET_total"::numeric),1) AS "WET (%)"
     ,"ANNUAL"
-    ,ROUND(((100*"ANNUAL_count")::numeric/"ANNUAL_total"::numeric),2) AS "ANNUAL (%)"
+    ,ROUND(((100*"ANNUAL_count")::numeric/"ANNUAL_total"::numeric),1) AS "ANNUAL (%)"
     ,"DJFM"
-    ,ROUND(((100*"DJFM_count")::numeric/"DJFM_total"::numeric),2) AS "DJFM (%)"
+    ,ROUND(((100*"DJFM_count")::numeric/"DJFM_total"::numeric),1) AS "DJFM (%)"
 FROM aggreated_data ad
 LEFT JOIN aggreation_total_days atd ON atd.year=ad.year
 ORDER BY ad.year

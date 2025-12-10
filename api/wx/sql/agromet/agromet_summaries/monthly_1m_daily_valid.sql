@@ -50,7 +50,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(value)::numeric
                 WHEN 'ACCUM' THEN SUM(value)::numeric
                 ELSE AVG(value)::numeric
-            END, 2
+            END, 1
         ) AS value
         ,COUNT(DISTINCT CASE WHEN (day IS NOT NULL) THEN day END) AS "count"
         ,MAX(CASE WHEN (day_of_month >= ({{max_day_gap}}+1)) THEN day_diff ELSE NULL END) AS "max_day_diff"
@@ -65,7 +65,7 @@ WITH month_days AS (
         ,ad.year
         ,ad.month
         ,CASE WHEN ("max_day_diff" <= ({{max_day_gap}}+1)) THEN "value" ELSE NULL END AS "Aggregation"
-        ,ROUND(((100*(CASE WHEN ("max_day_diff" <= ({{max_day_gap}}+1)) THEN "count" ELSE 0 END))::numeric/days_in_month::numeric),2) AS "Aggregation (% of days)"
+        ,ROUND(((100*(CASE WHEN ("max_day_diff" <= ({{max_day_gap}}+1)) THEN "count" ELSE 0 END))::numeric/days_in_month::numeric),1) AS "Aggregation (% of days)"
     FROM aggreated_data ad
     LEFT JOIN month_days atd ON (atd.year=ad.year AND atd.month=ad.month) 
 )

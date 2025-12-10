@@ -43,7 +43,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(value)::numeric
                 WHEN 'ACCUM' THEN SUM(value)::numeric
                 ELSE AVG(value)::numeric
-            END, 2
+            END, 1
         ) AS value
         ,COUNT(DISTINCT CASE WHEN (day IS NOT NULL) THEN day END) AS "count"
     FROM daily_data dd
@@ -56,7 +56,7 @@ SELECT
     ,atd.year
     ,atd.month
     ,"value" AS "Aggregation"
-    ,ROUND(((100*"count")::numeric/days_in_month::numeric),2) AS "Aggregation (% of days)"
+    ,ROUND(((100*"count")::numeric/days_in_month::numeric),1) AS "Aggregation (% of days)"
 FROM aggreated_data ad
 LEFT JOIN month_days atd ON (atd.year=ad.year AND atd.month=ad.month) 
 ORDER BY year, month

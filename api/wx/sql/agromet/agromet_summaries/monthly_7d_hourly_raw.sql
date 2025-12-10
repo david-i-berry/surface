@@ -43,7 +43,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN day_of_month BETWEEN 1 AND 7 THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN day_of_month BETWEEN 1 AND 7 THEN value END)::numeric
                 ELSE AVG(CASE WHEN day_of_month BETWEEN 1 AND 7 THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS agg_1
         ,COUNT(DISTINCT CASE WHEN (((day_of_month BETWEEN 1 AND 7) AND (day IS NOT NULL))) THEN day END) AS "agg_1_count"
         ,ROUND(
@@ -52,7 +52,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN day_of_month BETWEEN 8 AND 14 THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN day_of_month BETWEEN 8 AND 14 THEN value END)::numeric
                 ELSE AVG(CASE WHEN day_of_month BETWEEN 8 AND 14 THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS agg_2
         ,COUNT(DISTINCT CASE WHEN (((day_of_month BETWEEN 8 AND 14) AND (day IS NOT NULL))) THEN day END) AS "agg_2_count"
         ,ROUND(
@@ -61,7 +61,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN day_of_month BETWEEN 15 AND 21 THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN day_of_month BETWEEN 15 AND 21 THEN value END)::numeric
                 ELSE AVG(CASE WHEN day_of_month BETWEEN 15 AND 21 THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS agg_3
         ,COUNT(DISTINCT CASE WHEN ((day_of_month BETWEEN 15 AND 21) AND (day IS NOT NULL)) THEN day END) AS "agg_3_count"
         ,ROUND(
@@ -70,7 +70,7 @@ WITH month_days AS (
                 WHEN 'MAX' THEN MAX(CASE WHEN day_of_month >= 22 THEN value END)::numeric
                 WHEN 'ACCUM' THEN SUM(CASE WHEN day_of_month >= 22 THEN value END)::numeric
                 ELSE AVG(CASE WHEN day_of_month >= 22 THEN value END)::numeric
-            END, 2
+            END, 1
         ) AS agg_4
         ,COUNT(DISTINCT CASE WHEN (((day_of_month >= 22) AND (day IS NOT NULL))) THEN day END) AS "agg_4_count"
     FROM daily_data dd
@@ -83,13 +83,13 @@ SELECT
     ,atd.year
     ,atd.month
     ,"agg_1" AS "Days 1-7"
-    ,ROUND(((100*"agg_1_count")::numeric/7),2) AS "Days 1-7 (% of days)"
+    ,ROUND(((100*"agg_1_count")::numeric/7),1) AS "Days 1-7 (% of days)"
     ,"agg_2" AS "Days 8-14"
-    ,ROUND(((100*"agg_2_count")::numeric/7),2) AS "Days 8-14 (% of days)"
+    ,ROUND(((100*"agg_2_count")::numeric/7),1) AS "Days 8-14 (% of days)"
     ,"agg_3" AS "Days 15-21"
-    ,ROUND(((100*"agg_3_count")::numeric/7),2) AS "Days 15-21 (% of days)"
+    ,ROUND(((100*"agg_3_count")::numeric/7),1) AS "Days 15-21 (% of days)"
     ,"agg_4" AS "Days 22-"
-    ,ROUND(((100*"agg_4_count")::numeric/(days_in_month-21)::numeric),2) AS "Days 22- (% of days)"
+    ,ROUND(((100*"agg_4_count")::numeric/(days_in_month-21)::numeric),1) AS "Days 22- (% of days)"
 FROM aggreated_data ad
 LEFT JOIN month_days atd ON (atd.year=ad.year AND atd.month=ad.month) 
 ORDER BY year, month
