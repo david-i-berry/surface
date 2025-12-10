@@ -132,67 +132,67 @@ WITH RECURSIVE month_days AS (
         ,UNNEST(ARRAY_AGG(is_dry ORDER BY day)) AS is_dry
         ,UNNEST(ARRAY_AGG(is_wet ORDER BY day)) AS is_wet
         ,UNNEST(ARRAY_AGG(is_annual ORDER BY day)) AS is_annual
-        ,UNNEST(ARRAY_AGG(is_djfm         ORDER BY day)) AS is_djfm        
+        ,UNNEST(ARRAY_AGG(is_djfm ORDER BY day)) AS is_djfm        
         ,UNNEST(ARRAY_AGG(day_gap ORDER BY day)) AS day_gap
         ,UNNEST(consecutive_flag_calc(
-            ARRAY_AGG(is_hot_day ORDER BY day) FILTER(WHERE is_jfm),
-            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_jfm)
+            ARRAY_AGG(is_hot_day ORDER BY day),
+            ARRAY_AGG(day_gap > 0 OR NOT is_jfm ORDER BY day)
         )) AS "JFM_hot_seq"
         ,UNNEST(consecutive_flag_calc(
-            ARRAY_AGG(is_hot_day ORDER BY day) FILTER(WHERE is_fma),
-            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_fma)
+            ARRAY_AGG(is_hot_day ORDER BY day),
+            ARRAY_AGG(day_gap > 0 OR NOT is_fma ORDER BY day)
         )) AS "FMA_hot_seq"
         ,UNNEST(consecutive_flag_calc(
-            ARRAY_AGG(is_hot_day ORDER BY day) FILTER(WHERE is_mam),
-            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_mam)
+            ARRAY_AGG(is_hot_day ORDER BY day),
+            ARRAY_AGG(day_gap > 0 OR NOT is_mam ORDER BY day)
         )) AS "MAM_hot_seq"
         ,UNNEST(consecutive_flag_calc(
-            ARRAY_AGG(is_hot_day ORDER BY day) FILTER(WHERE is_amj),
-            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_amj)
+            ARRAY_AGG(is_hot_day ORDER BY day),
+            ARRAY_AGG(day_gap > 0 OR NOT is_amj ORDER BY day)
         )) AS "AMJ_hot_seq"
         ,UNNEST(consecutive_flag_calc(
-            ARRAY_AGG(is_hot_day ORDER BY day) FILTER(WHERE is_mjj),
-            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_mjj)
+            ARRAY_AGG(is_hot_day ORDER BY day),
+            ARRAY_AGG(day_gap > 0 OR NOT is_mjj ORDER BY day)
         )) AS "MJJ_hot_seq"
         ,UNNEST(consecutive_flag_calc(
-            ARRAY_AGG(is_hot_day ORDER BY day) FILTER(WHERE is_jja),
-            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_jja)
+            ARRAY_AGG(is_hot_day ORDER BY day),
+            ARRAY_AGG(day_gap > 0 OR NOT is_jja ORDER BY day)
         )) AS "JJA_hot_seq"
         ,UNNEST(consecutive_flag_calc(
-            ARRAY_AGG(is_hot_day ORDER BY day) FILTER(WHERE is_jas),
-            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_jas)
+            ARRAY_AGG(is_hot_day ORDER BY day),
+            ARRAY_AGG(day_gap > 0 OR NOT is_jas ORDER BY day)
         )) AS "JAS_hot_seq"
         ,UNNEST(consecutive_flag_calc(
-            ARRAY_AGG(is_hot_day ORDER BY day) FILTER(WHERE is_aso),
-            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_aso)
+            ARRAY_AGG(is_hot_day ORDER BY day),
+            ARRAY_AGG(day_gap > 0 OR NOT is_aso ORDER BY day)
         )) AS "ASO_hot_seq"
         ,UNNEST(consecutive_flag_calc(
-            ARRAY_AGG(is_hot_day ORDER BY day) FILTER(WHERE is_son),
-            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_son)
+            ARRAY_AGG(is_hot_day ORDER BY day),
+            ARRAY_AGG(day_gap > 0 OR NOT is_son ORDER BY day)
         )) AS "SON_hot_seq"
         ,UNNEST(consecutive_flag_calc(
-            ARRAY_AGG(is_hot_day ORDER BY day) FILTER(WHERE is_ond),
-            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_ond)
+            ARRAY_AGG(is_hot_day ORDER BY day),
+            ARRAY_AGG(day_gap > 0 OR NOT is_ond ORDER BY day)
         )) AS "OND_hot_seq"
         ,UNNEST(consecutive_flag_calc(
-            ARRAY_AGG(is_hot_day ORDER BY day) FILTER(WHERE is_ndj),
-            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_ndj)
+            ARRAY_AGG(is_hot_day ORDER BY day),
+            ARRAY_AGG(day_gap > 0 OR NOT is_ndj ORDER BY day)
         )) AS "NDJ_hot_seq"
         ,UNNEST(consecutive_flag_calc(
-            ARRAY_AGG(is_hot_day ORDER BY day) FILTER(WHERE is_dry),
-            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_dry)
+            ARRAY_AGG(is_hot_day ORDER BY day),
+            ARRAY_AGG(day_gap > 0 OR NOT is_dry ORDER BY day)
         )) AS "DRY_hot_seq"
         ,UNNEST(consecutive_flag_calc(
-            ARRAY_AGG(is_hot_day ORDER BY day) FILTER(WHERE is_wet),
-            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_wet)
+            ARRAY_AGG(is_hot_day ORDER BY day),
+            ARRAY_AGG(day_gap > 0 OR NOT is_wet ORDER BY day)
         )) AS "WET_hot_seq"
         ,UNNEST(consecutive_flag_calc(
-            ARRAY_AGG(is_hot_day ORDER BY day) FILTER(WHERE is_annual),
-            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_annual)
+            ARRAY_AGG(is_hot_day ORDER BY day),
+            ARRAY_AGG(day_gap > 0 OR NOT is_annual ORDER BY day)
         )) AS "ANNUAL_hot_seq"
         ,UNNEST(consecutive_flag_calc(
-            ARRAY_AGG(is_hot_day ORDER BY day) FILTER(WHERE is_djfm),
-            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_djfm)
+            ARRAY_AGG(is_hot_day ORDER BY day),
+            ARRAY_AGG(day_gap > 0 OR NOT is_djfm ORDER BY day)
         )) AS "DJFM_hot_seq"
     FROM daily_lagged_data
     GROUP BY station_id, year
