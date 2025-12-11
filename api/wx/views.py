@@ -7733,10 +7733,12 @@ class AquacropModelRunView(views.APIView):
             # simulation_scenario['planting_date'] = '2010-01-01'
             # simulation_scenario['planting_date'] = planting_date_test.strftime("%Y-%m-%d")
 
-        if json_data['cropOrigin']=='custom':
-            crop_origin = 'custom'
-        else:
-            crop_origin = 'default'
+        crop_origin = 'default'
+        if 'cropOrigin' in json_data.keys():
+            if json_data['cropOrigin']=='custom':
+                crop_origin = 'custom'
+            else:
+                crop_origin = 'default'
 
         planting_datetime = datetime.datetime.strptime(simulation_scenario['planting_date'], "%Y-%m-%d")
         planting_date = simulation_scenario['planting_date'].replace('-','/')[5:]       
