@@ -27,6 +27,8 @@ WITH daily_data AS (
         ,day_of_month
         ,month
         ,year
+        ,tmin
+        ,tmax        
         ,ms_hargreaves_samani_evapotranspiration(alpha, beta, tmin, tmax, latitude, day_of_year) AS hargreaves_samani
     FROM daily_data
     WHERE tmin IS NOT NULL
@@ -44,6 +46,8 @@ WITH daily_data AS (
             WHEN month=12 THEN year+1
             WHEN month=1 THEN year-1
         END as year
+        ,tmin
+        ,tmax
         ,hargreaves_samani
     FROM evapotranspiration_calc
     WHERE month in (1,12)
@@ -56,6 +60,8 @@ SELECT
     ,year
     ,month AS "Month"
     ,day_of_month AS "Day"
+    ,ROUND(tmin::numeric, 2) AS tmin
+    ,ROUND(tmax::numeric, 2) AS tmax    
     ,ROUND(hargreaves_samani::numeric, 1) AS "Evapotranspiration (mm)"
 FROM extended_data ed
 JOIN wx_station st ON st.id=ed.station_id

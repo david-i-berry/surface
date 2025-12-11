@@ -96,6 +96,7 @@ WITH month_days AS (
         ,min_value AS tmin
         ,max_value AS tmax
     FROM daily_summary
+    JOIN wx_variable vr ON vr.id = daily_summary.variable_id
     WHERE station_id = {{station_id}}
       AND vr.symbol = 'TEMP'
       AND day >= '{{ start_date }}'

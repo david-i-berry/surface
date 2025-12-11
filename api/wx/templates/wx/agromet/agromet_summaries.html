@@ -136,7 +136,7 @@
 							</v-col>
 						 </v-row>
 					</v-col>
-					<v-col cols="3" v-if="requestData.validateData">
+					<v-col cols="3" v-if="requestData.validateData && !requestData.isDailyData">
 						<v-text-field
 							v-model="requestData.maxHourPct"
 							:rules="[rules.required, rules.numeric, rules.percentage]"

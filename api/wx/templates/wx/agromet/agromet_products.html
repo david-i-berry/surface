@@ -177,7 +177,7 @@
 							</v-col>
 						</v-row>
 					</v-col>
-					<v-col cols="3" v-if="requestData.validateData && isHourlyStation">
+					<v-col cols="3" v-if="requestData.validateData && hourlyOnlyProducts.includes(requestData.product)">
 						<v-text-field
 							v-model="requestData.maxHourPct"
 							:rules="[rules.required, rules.numeric, rules.percentage]"
@@ -508,6 +508,7 @@
 			hourlyOnlyProducts: [
 				'Diurnal variation of wind speed',
 				'Diurnal variation of evaporation',
+				'Sequence of hours above specified humidity',
 				'Number of hours with wind speed below specified value',
 			],			
 			parameterLabels: {
@@ -522,6 +523,7 @@
 				'Maximum and minimum statistics',
 				'Heat wave',
 				'Sequence of days above specified humidity',
+				'Sequence of hours above specified humidity',
 				'Number of days with specified rainfall',
 				'Flood and excess rainfall',
 				'Wind rose',
@@ -576,9 +578,12 @@
 			},
 			'requestData.element' (newElement, oldElement){
 				this.requestData.product = null
+				this.filters.is_seasonal = true
 			},
 			'requestData.product' (newProduct, oldProduct){
 				const { element, product, ...rest } = this.requestData;
+				this.filters.is_seasonal = true
+				
 				if (this.requestData.product) {
 					this.requestData.numericParam1 = this.elements[element][product].numeric_param_1?.value || null
 					this.requestData.numericParam2 = this.elements[element][product].numeric_param_2?.value || null

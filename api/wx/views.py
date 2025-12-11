@@ -6896,6 +6896,11 @@ def get_agromet_products_df_min_max(df: pd.DataFrame) -> dict:
 import re
 
 def get_agromet_products_sql_context(requestedData: dict, env: Environment) -> dict:
+    pgia_code = '8858307' # Phillip Goldson Int'l Synop
+    station = Station.objects.get(pk=requestedData['station_id'])
+
+    is_hourly_station = station.is_automatic or station.code==pgia_code
+
     element = requestedData['element']
     product = requestedData['product']
 
@@ -6917,7 +6922,6 @@ def get_agromet_products_sql_context(requestedData: dict, env: Environment) -> d
         'DJFM': '0,1,2,3' 
     }
 
-   
     station = Station.objects.get(pk=requestedData['station_id'])
 
     timezone = pytz.timezone(settings.TIMEZONE_NAME)
@@ -6935,7 +6939,11 @@ def get_agromet_products_sql_context(requestedData: dict, env: Environment) -> d
     }
 
     if product == 'Heat wave':
-        prev_template = env.get_template('percentile.sql')
+        if is_hourly_station:
+            prev_template = env.get_template('percentile_automatic.sql')
+        else:
+            prev_template = env.get_template('percentile_manual.sql')
+
         prev_context = {
             'station_id': requestedData['station_id'],
             'percentile': requestedData['numeric_param_1']

@@ -12,7 +12,7 @@
 --     FROM hourly_summary hs
 --     JOIN wx_variable vr ON vr.id = hs.variable_id
 --     WHERE station_id = {{station_id}}
---       AND vr.symbol IN ('TEMP','SOLARRAD', 'RH', 'PRESSTN', 'WNDSPD')
+--       AND vr.symbol IN ('TEMP','SOLARRAD', 'RH', 'PRESSTN', 'WNDSPAVG')
 --       AND datetime AT TIME ZONE '{{timezone}}' >= '{{ start_date }}'
 --       AND datetime AT TIME ZONE '{{timezone}}' < '{{ end_date }}'
 -- )
@@ -57,7 +57,7 @@
 --                 ,MIN(CASE variable WHEN 'TEMP' THEN min_value ELSE NULL END)::float AS tmin
 --                 ,MIN(CASE variable WHEN 'TEMP' THEN max_value ELSE NULL END)::float AS tmax
 --                 ,MIN(CASE variable WHEN 'RH' THEN avg_value ELSE NULL END)::float AS rh
---                 ,MIN(CASE variable WHEN 'WNDSPD' THEN avg_value ELSE NULL END)::float AS wind_spd
+--                 ,MIN(CASE variable WHEN 'WNDSPAVG' THEN avg_value ELSE NULL END)::float AS wind_spd
 --                 ,MIN(CASE variable WHEN 'PRESSTN' THEN avg_value ELSE NULL END)::float AS atm_press
 --                 ,MIN(CASE variable WHEN 'SOLARRAD' THEN sum_value ELSE NULL END)::float AS solar_rad
 --             FROM hourly_data
@@ -90,14 +90,14 @@ WITH daily_data AS (
         ,MIN(CASE WHEN vr.symbol = 'TEMP' THEN min_value ELSE NULL END)::float AS tmin
         ,MAX(CASE WHEN vr.symbol = 'TEMP' THEN max_value ELSE NULL END)::float AS tmax
         ,AVG(CASE WHEN vr.symbol = 'RH' THEN avg_value ELSE NULL END)::float AS rh
-        ,AVG(CASE WHEN vr.symbol = 'WNDSPD' THEN avg_value ELSE NULL END)::float AS wind_spd
+        ,AVG(CASE WHEN vr.symbol = 'WNDSPAVG' THEN avg_value ELSE NULL END)::float AS wind_spd
         ,AVG(CASE WHEN vr.symbol = 'PRESSTN' THEN avg_value ELSE NULL END)::float AS atm_press
         ,SUM(CASE WHEN vr.symbol = 'SOLARRAD' THEN sum_value ELSE NULL END)::float AS solar_rad
     FROM daily_summary ds
     JOIN wx_variable vr ON vr.id = ds.variable_id
     JOIN wx_station st ON st.id = ds.station_id
     WHERE station_id = {{station_id}}
-      AND vr.symbol IN ('TEMP','SOLARRAD', 'RH', 'PRESSTN', 'WNDSPD')
+      AND vr.symbol IN ('TEMP','SOLARRAD', 'RH', 'PRESSTN', 'WNDSPAVG')
       AND '{{ start_date }}' <= day AND day < '{{ end_date }}'
     GROUP BY station_id, day, latitude, elevation
 )
@@ -110,6 +110,8 @@ WITH daily_data AS (
         ,as_hargreaves_samani_evapotranspiration(alpha, beta, tmin, tmax, latitude, day_of_year) AS hargreaves_samani
         ,as_penman_monteith_evapotranspiration(tmin, tmax, atm_press, wind_spd, solar_rad, rh, latitude, elevation, day_of_year) AS penman_monteith
         ,elevation
+        ,tmin
+        ,tmax
         ,atm_press
         ,wind_spd 
         ,solar_rad
@@ -131,6 +133,8 @@ WITH daily_data AS (
         ,hargreaves_samani
         ,penman_monteith
         ,elevation
+        ,tmin
+        ,tmax        
         ,atm_press
         ,wind_spd
         ,solar_rad
@@ -147,6 +151,8 @@ SELECT
     ,month
     ,day_of_month
     ,ROUND(st.elevation::numeric, 2) AS elevation
+    ,ROUND(tmin::numeric, 2) AS tmin
+    ,ROUND(tmax::numeric, 2) AS tmax
     ,ROUND(atm_press::numeric, 2) AS atm_press
     ,ROUND(wind_spd::numeric, 2) AS wind_spd
     ,ROUND(solar_rad::numeric, 2) AS solar_rad
