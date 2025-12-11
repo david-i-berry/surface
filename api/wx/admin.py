@@ -377,7 +377,7 @@ class StationProfileEquipmentTypeAdmin(admin.ModelAdmin):
 class CropAdmin(admin.ModelAdmin):
     list_display = ("name",)
 
-@admin.register(models.Soil)
-class SoilAdmin(admin.ModelAdmin):
-    list_display = ("soil_type",)
+# @admin.register(models.Soil)
+# class SoilAdmin(admin.ModelAdmin):
+#     list_display = ("soil_type",)
     

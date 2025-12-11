@@ -1482,16 +1482,34 @@ class Crop(BaseModel):
         verbose_name='Emergence'
     )
 
+    emergence_cd = models.IntegerField(
+        default=8,
+        help_text='Calendar days from sowing to emergence/transplant recovery',
+        verbose_name='Emergence'
+    )    
+
     max_rooting = models.IntegerField(
         default=1420,
         help_text='Growing degree/Calendar days from sowing to maximum rooting',
         verbose_name='MaxRooting'
     )
 
+    max_rooting_cd = models.IntegerField(
+        default=60,
+        help_text='Calendar days from sowing to maximum rooting',
+        verbose_name='MaxRootingCD'
+    )    
+
     senescence = models.IntegerField(
         default=1420,
         help_text='Growing degree/Calendar days from sowing to senescence',
         verbose_name='Senescence'
+    )
+
+    senescence_cd = models.IntegerField(
+        default=105,
+        help_text='Calendar days from sowing to senescence',
+        verbose_name='SenescenceCD'
     )
 
     maturity = models.IntegerField(
@@ -1500,11 +1518,23 @@ class Crop(BaseModel):
         verbose_name='Maturity'
     )
 
+    maturity_cd = models.IntegerField(
+        default=140,
+        help_text='Calendar days from sowing to maturity',
+        verbose_name='MaturityCD'
+    )    
+
     hi_start = models.IntegerField(
         default=850,
         help_text='Growing degree/Calendar days from sowing to start of yield formation',
         verbose_name='HIstart'
     )
+
+    hi_start_cd = models.IntegerField(
+        default=70,
+        help_text='Calendar days from sowing to start of yield formation',
+        verbose_name='HIstartCD'
+    )    
 
     flowering = models.IntegerField(
         default=190,
@@ -1512,11 +1542,29 @@ class Crop(BaseModel):
         verbose_name='Flowering'
     )
 
+    flowering_cd = models.IntegerField(
+        default=105,
+        help_text='Duration of flowering in calendar days (-999 for non-fruit/grain crops)',
+        verbose_name='FloweringCD'
+    )    
+
     yld_form = models.IntegerField(
         default=775,
         help_text='Duration of yield formation in growing degree/calendar days',
         verbose_name='YldForm'
     )
+
+    yld_form_cd = models.IntegerField(
+        default=60,
+        help_text='Duration of yield formation in calendar days',
+        verbose_name='YldFormCD'
+    )    
+
+    yld_wc = models.IntegerField(
+        default=60,
+        verbose_name='YldWC'
+    )    
+
 
     gdd_method = models.IntegerField(
         choices=AquaCropGDDMethods.choices,
@@ -1642,11 +1690,23 @@ class Crop(BaseModel):
         verbose_name='CDC'
     )
 
+    cdc_cd = models.FloatField(
+        default=0.08,
+        help_text='Canopy decline coefficient (fraction per calendar day)',
+        verbose_name='CDC_CD'
+    )    
+
     cgc = models.FloatField(
         default=0.0125,
         help_text='Canopy growth coefficient (fraction per GDD)',
         verbose_name='CGC'
     )
+
+    cgc_cd = models.FloatField(
+        default=0.0120,
+        help_text='Canopy growth coefficient (fraction per calendar day)',
+        verbose_name='CGC_CD'
+    )    
 
     kcb = models.FloatField(
         default=1.05,

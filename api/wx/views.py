@@ -7740,6 +7740,8 @@ class AquacropModelRunView(views.APIView):
             else:
                 crop_origin = 'default'
 
+        crop_origin = 'custom'
+
         planting_datetime = datetime.datetime.strptime(simulation_scenario['planting_date'], "%Y-%m-%d")
         planting_date = simulation_scenario['planting_date'].replace('-','/')[5:]       
 
@@ -7823,6 +7825,7 @@ class AquacropModelRunView(views.APIView):
         return indicators
 
     def _set_custom_crop(self, c_name, planting_date):
+        c_name = 'HotPepper'
         django_crop = Crop.objects.get(name=c_name)
 
         # We need to initializeusing a crop because aquacrop has issues defining custom crops from scratch.
@@ -7834,13 +7837,20 @@ class AquacropModelRunView(views.APIView):
         custom_crop.CalendarType=django_crop.calendar_type
         custom_crop.SwitchGDD=1 if django_crop.switch_gdd else 0
         custom_crop.Emergence=django_crop.emergence
+        custom_crop.EmergenceCD=django_crop.emergence_cd
         custom_crop.MaxRooting=django_crop.max_rooting
+        custom_crop.MaxRootingCD=django_crop.max_rooting_cd
         custom_crop.Senescence=django_crop.senescence
-        # custom_crop.Maturity=django_crop.maturity
-        custom_crop.MaturityCD=django_crop.maturity
+        custom_crop.SenescenceCD=django_crop.senescence_cd
+        custom_crop.Maturity=django_crop.maturity
+        custom_crop.MaturityCD=django_crop.maturity_cd
         custom_crop.HIstart=django_crop.hi_start
+        custom_crop.HIstartCD=django_crop.hi_start_cd
         custom_crop.Flowering=django_crop.flowering
+        custom_crop.FloweringCD=django_crop.flowering_cd
         custom_crop.YldForm=django_crop.yld_form
+        custom_crop.YldFormCD=django_crop.yld_form_cd
+        custom_crop.YldWC=django_crop.yld_wc
         custom_crop.GDDMethod=django_crop.gdd_method
         custom_crop.Tbase=django_crop.t_base
         custom_crop.Tupp=django_crop.t_upp
@@ -7862,7 +7872,9 @@ class AquacropModelRunView(views.APIView):
         custom_crop.PlantPop=django_crop.plant_pop
         custom_crop.CCx=django_crop.ccx
         custom_crop.CDC=django_crop.cdc
+        custom_crop.CDC_CD=django_crop.cdc_cd
         custom_crop.CGC=django_crop.cgc
+        custom_crop.CGC_CD=django_crop.cgc_cd
         custom_crop.Kcb=django_crop.kcb
         custom_crop.fage=django_crop.fage
         custom_crop.WP=django_crop.wp
