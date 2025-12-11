@@ -477,19 +477,43 @@
           <v-list-item-title class="pl-4">Overlays</v-list-item-title>
           
           <v-list-item>
-            <v-switch @change="showWatershed = !showWatershed" label="Watershed"></v-switch>
+            <v-switch
+              inset
+              :loading="loadWatershed"
+              v-model="showWatershed"
+              @change="toggleWatershedOverlay()"
+              label="Watershed"
+            ></v-switch>
           </v-list-item>
           <v-list-item>
-            <v-switch @change="showGroundwater = !showGroundwater" label="Groundwater"></v-switch>
+            <v-switch
+              inset
+              :loading="loadGroundwater"
+              v-model="showGroundwater"
+              @change="toggleGroundwaterOverlay()"
+              label="Groundwater"
+            ></v-switch>
           </v-list-item>
           <v-list-item>
-            <v-switch @change="showBasemap = !showBasemap" label="Districts"></v-switch>
+            <v-switch
+              inset
+              :loading="loadBasemap"
+              v-model="showBasemap"
+              @change="toggleDistrictsOverlay()"
+              label="Districts"
+            ></v-switch>
           </v-list-item>
           <!-- <v-list-item>
-            <v-switch @change="showRiver = !showRiver" label="Rivers"></v-switch>
+            <v-switch @change="toggleRiverOverlay()" label="Rivers"></v-switch>
           </v-list-item> -->
           <v-list-item>
-            <v-switch @change="showNationalWaters = !showNationalWaters" label="National waters"></v-switch>
+            <v-switch
+              inset
+              :loading="loadNationalWaters"
+              v-model="showNationalWaters"
+              @change="toggleNationalWatersOverlay()"
+              label="National waters"
+            ></v-switch>
           </v-list-item>
           
           <v-divider></v-divider>
@@ -524,6 +548,23 @@
         <v-icon class="material-icons" color="black">settings</v-icon>
       </v-btn>
     </div>
+
+    <!-- alerts -->
+    <v-alert
+      v-model="alertVisible"
+      :type="alertType"
+      dismissible
+      transition="scale-transition"
+      style="
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+      "
+    >
+      [[ alertMessage ]]
+    </v-alert>
 
   </v-app>
 </div>
@@ -623,6 +664,26 @@
       showBasemap: false,
       showRiver: false,
       showNationalWaters: false,
+
+      loadWatershed: false,
+      loadGroundwater: false,
+      loadBasemap: false,
+      loadRiver: false,
+      loadNationalWaters: false,
+
+      getGeoJson: {
+        watershed: () => {return axios.get("{% static 'Watersheds_4326.geojson' %}")},
+        districts: () => {return axios.get("{% static 'Basemap.geojson' %}")},
+        nationalWaters: () => {return axios.get("{% static 'NationalWaters.geojson' %}")},
+        river: () => {return axios.get("{% static 'Rivers.geojson' %}")},
+        groundwater: () => {return axios.get("{% static 'GWP_Campur.geojson' %}")},
+      },
+
+      // Alert button
+      alertVisible: false,
+      alertMessage: "",
+      alertType: "warning",
+      alertTimeout: null,
 
       parameters_dialog: false,
       source: {text: "Raw data", value: "raw_data"},
@@ -872,25 +933,132 @@
       }
     },
     methods: {
-      getGeoJson() {
-        axios.get("{% static 'Basemap.geojson' %}").then(data => {
-          this.Basemap_geojson = data.data;
-        });
-        axios
-          .get("{% static 'Watersheds_4326.geojson' %}")
-          .then(data => {
+      toggleWatershedOverlay() {
+        if (!this.Watersheds_geojson) {
+          // display loading icon
+          this.loadWatershed = true;
+
+          // get the shapefile via axios request
+          this.getGeoJson.watershed().then(data => {
             this.Watersheds_geojson = data.data;
+
+          }).catch(error => {
+            // if an error occurs alert the user
+            if (error.response.status == '404') {
+              this.showAlert("Watershed Shapefile Not Found");
+            } else {
+              this.showAlert(`Error Occured Accessing Watershed Shapefile - ${error.response.status}`);
+            }
+
+            // reset the button
+            this.showWatershed = false;
+          }).finally(() => {
+            // reset the button
+            this.loadWatershed = false;
           });
-        axios.get("{% static 'GWP_Campur.geojson' %}").then(data => {
-          this.Groundwater_geojson = data.data;
-        });
-        axios.get("{% static 'Rivers.geojson' %}").then(data => {
-          this.River_geojson = data.data;
-        });
-        axios.get("{% static 'NationalWaters.geojson' %}").then(data => {
-          this.NationalWaters_geojson = data.data;
-        });
+        }
       },
+      
+      toggleDistrictsOverlay() {
+        if (!this.Basemap_geojson) {
+          // display loading icon
+          this.loadBasemap = true;
+
+          this.getGeoJson.districts().then(data => {
+            this.Basemap_geojson = data.data;
+
+          }).catch(error => {
+            // if an error occurs alert the user
+            if (error.response.status == '404') {
+              this.showAlert("District Shapefile Not Found");
+            } else {
+              this.showAlert(`Error Occured Accessing District Shapefile - ${error.response.status}`);
+            }
+
+            // reset the button
+            this.showBasemap = false;
+          }).finally(() => {
+            // reset the button
+            this.loadBasemap = false;
+          });
+
+        }
+      },
+      
+      toggleGroundwaterOverlay() {
+        if (!this.Groundwater_geojson) {
+          // display loading icon
+          this.loadGroundwater = true;
+
+          this.getGeoJson.groundwater().then(data => {
+            this.Groundwater_geojson = data.data;
+          }).catch(error => {
+            // if an error occurs alert the user
+            if (error.response.status == '404') {
+              this.showAlert("Groundwater Shapefile Not Found");
+            } else {
+              this.showAlert(`Error Occured Accessing Groundwater Shapefile - ${error.response.status}`);
+            }
+
+            // reset the button
+            this.showGroundwater = false;
+          }).finally(() => {
+            // reset the button
+            this.loadGroundwater = false;
+          });
+        }
+      },
+      
+      // toggleRiverOverlay() {
+      //   if (!this.River_geojson) {
+      //     this.getGeoJson.river().then(data => {
+      //       this.River_geojson = data.data;
+      //     });
+      //   }
+      //   this.showRiver = !this.showRiver;
+      // },
+      
+      toggleNationalWatersOverlay() {
+        if (!this.NationalWaters_geojson) {
+          // display loading icon
+          this.loadNationalWaters = true;
+
+          this.getGeoJson.nationalWaters().then(data => {
+            this.NationalWaters_geojson = data.data;
+          }).catch(error => {
+            // if an error occurs alert the user
+            if (error.response.status == '404') {
+              this.showAlert("National Waters Shapefile Not Found");
+            } else {
+              this.showAlert(`Error Occured Accessing National Waters Shapefile - ${error.response.status}`);
+            }
+
+            // reset the button
+            this.showNationalWaters = false;
+          }).finally(() => {
+            // reset the button
+            this.loadNationalWaters = false;
+          });
+        }
+      },
+
+      // Alert popup control
+      showAlert(message, type = "warning") {
+        this.alertMessage = message;
+        this.alertType = type;
+        this.alertVisible = true;
+
+        // Clear any existing timeout if alert is triggered again
+        if (this.alertTimeout) {
+          clearTimeout(this.alertTimeout);
+        }
+
+        // Auto close after 2 seconds
+        this.alertTimeout = setTimeout(() => {
+          this.alertVisible = false;
+        }, 2000);
+      },
+
       setBasemap() {
         this.url = this.selectedBasemap.url;
       },
@@ -1131,7 +1299,6 @@
     },
     mounted() {
       this.getVariables();
-      this.getGeoJson();
     },
     computed: {
       availableMarkers(){

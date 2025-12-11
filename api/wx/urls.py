@@ -81,6 +81,11 @@ urlpatterns = [
     path('wx/data/export/combine_files/', views.combineDataExportFiles, name='combine-files'),
     path('get_yearly_average/', views.get_yearly_average),
     path('wx/reports/yearly_average/', views.YearlyAverageReport.as_view(), name='yearly-average'),
+
+    path('wx/settings/', views.ConfigurationSettingsView.as_view(), name='configuration-settings'),
+    path('wx/settings/spatial/files/', views.UploadOrDeleteSpatialFilesView.as_view(), name='upload-document'),
+    path('wx/settings/spatial/files/download/<str:key>/', views.DownloadSpatialFilesView.as_view(), name='download-document'),
+
     path('wx/spatial_analysis/', views.SpatialAnalysisView.as_view(), name='spatial-analysis'),
     path('wx/spatial_analysis/image', views.GetInterpolationImage, name='spatial-analysis-image'),
     path('wx/spatial_analysis/data', views.GetInterpolationData, name='spatial-analysis-data'),

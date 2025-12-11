@@ -215,6 +215,8 @@
         </v-expansion-panel>
       </v-expansion-panels>
     </v-navigation-drawer>
+
+    <!-- map -->
     <div style="height: 100vh; width: 100%">
       <l-map
         ref="myMap"
@@ -477,6 +479,7 @@
 
     </div>
 
+    <!-- overlays box -->
     <div
       class="overlays-filter"
       v-bind:class="{ 'options-menu-opened': drawer === true }"
@@ -498,18 +501,27 @@
 
           <v-list-item>
             <v-switch
+              inset
+              :loading="loadWatershed"
+              v-model="showWatershed"
               @change="toggleWatershedOverlay()"
               label="Watershed"
             ></v-switch>
           </v-list-item>
           <v-list-item>
             <v-switch
+              inset
+              :loading="loadGroundwater"
+              v-model="showGroundwater"
               @change="toggleGroundwaterOverlay()"
               label="Groundwater"
             ></v-switch>
           </v-list-item>
           <v-list-item>
             <v-switch
+              inset
+              :loading="loadBasemap"
+              v-model="showBasemap"
               @change="toggleDistrictsOverlay()"
               label="Districts"
             ></v-switch>
@@ -519,6 +531,9 @@
           </v-list-item> -->
           <v-list-item>
             <v-switch
+              inset
+              :loading="loadNationalWaters"
+              v-model="showNationalWaters"
               @change="toggleNationalWatersOverlay()"
               label="National waters"
             ></v-switch>
@@ -549,6 +564,7 @@
       </v-menu>
     </div>
 
+    <!-- search functionality -->
     <div
       class="options-menu"
       v-bind:class="{ 'options-menu-opened': drawer === true }"
@@ -557,7 +573,25 @@
         <v-icon class="material-icons" color="black">search</v-icon>
       </v-btn>
     </div>
+
+    <!-- alerts -->
+    <v-alert
+      v-model="alertVisible"
+      :type="alertType"
+      dismissible
+      transition="scale-transition"
+      style="
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+      "
+    >
+      [[ alertMessage ]]
+    </v-alert>
   </v-app>
+
 </div>
 
 {% endblock %} {% block localjavascript %}
@@ -651,6 +685,12 @@
       zoomPosition: "topleft",
       menuDatePicker: false,
 
+      // Alert 
+      alertVisible: false,
+      alertMessage: "",
+      alertType: "warning",
+      alertTimeout: null,
+
       // LAYERS
 
       Watersheds_geojson: null,
@@ -664,6 +704,12 @@
       showBasemap: false,
       showRiver: false,
       showNationalWaters: false,
+
+      loadWatershed: false,
+      loadGroundwater: false,
+      loadBasemap: false,
+      loadRiver: false,
+      loadNationalWaters: false,
 
       selectedLayers: null,
 
@@ -747,6 +793,8 @@
       STATION_MAP_FILTER_REGION:  "{{ STATION_MAP_FILTER_REGION|safe }}",
       STATION_MAP_FILTER_PROFILE:  "{{ STATION_MAP_FILTER_PROFILE|safe }}",
       STATION_MAP_FILTER_COMMUNICATION:  "{{ STATION_MAP_FILTER_COMMUNICATION|safe }}",
+
+      watershedEnabled: false,
     },
     computed: {
       filteredMarkers() {
@@ -786,12 +834,12 @@
       Sandbox() {
         return this.sandbox;
       },
-      // Watershed() {
-      //   if (this.showWatershed === true) {
-      //     return true;
-      //   }
-      //   return false;
-      // },
+      Watershed() {
+        if (this.showWatershed === true) {
+          return true;
+        }
+        return false;
+      },
       Groundwater() {
         if (this.showGroundwater === true) {
           return true;
@@ -965,6 +1013,23 @@
         })
       },
       
+      // Alert popup control
+      showAlert(message, type = "warning") {
+        this.alertMessage = message;
+        this.alertType = type;
+        this.alertVisible = true;
+
+        // Clear any existing timeout if alert is triggered again
+        if (this.alertTimeout) {
+          clearTimeout(this.alertTimeout);
+        }
+
+        // Auto close after 2 seconds
+        this.alertTimeout = setTimeout(() => {
+          this.alertVisible = false;
+        }, 2000);
+      },
+
       // Function to format non-integer numeric values to one decimal place
       valueFormatting(value) {
         // Check if the value is a number and not an integer
@@ -1020,49 +1085,111 @@
       
       toggleWatershedOverlay() {
         if (!this.Watersheds_geojson) {
+          // display loading icon
+          this.loadWatershed = true;
+
+          // get the shapefile via axios request
           this.getGeoJson.watershed().then(data => {
             this.Watersheds_geojson = data.data;
+
+          }).catch(error => {
+            // if an error occurs alert the user
+            if (error.response.status == '404') {
+              this.showAlert("Watershed Shapefile Not Found");
+            } else {
+              this.showAlert(`Error Occured Accessing Watershed Shapefile - ${error.response.status}`);
+            }
+
+            // reset the button
+            this.showWatershed = false;
+          }).finally(() => {
+            // reset the button
+            this.loadWatershed = false;
           });
-
         }
-
-        this.showWatershed = !this.showWatershed;
       },
       
       toggleDistrictsOverlay() {
         if (!this.Basemap_geojson) {
+          // display loading icon
+          this.loadBasemap = true;
+
           this.getGeoJson.districts().then(data => {
             this.Basemap_geojson = data.data;
+
+          }).catch(error => {
+            // if an error occurs alert the user
+            if (error.response.status == '404') {
+              this.showAlert("District Shapefile Not Found");
+            } else {
+              this.showAlert(`Error Occured Accessing District Shapefile - ${error.response.status}`);
+            }
+
+            // reset the button
+            this.showBasemap = false;
+          }).finally(() => {
+            // reset the button
+            this.loadBasemap = false;
           });
+
         }
-        this.showBasemap = !this.showBasemap;
       },
       
       toggleGroundwaterOverlay() {
         if (!this.Groundwater_geojson) {
+          // display loading icon
+          this.loadGroundwater = true;
+
           this.getGeoJson.groundwater().then(data => {
             this.Groundwater_geojson = data.data;
+          }).catch(error => {
+            // if an error occurs alert the user
+            if (error.response.status == '404') {
+              this.showAlert("Groundwater Shapefile Not Found");
+            } else {
+              this.showAlert(`Error Occured Accessing Groundwater Shapefile - ${error.response.status}`);
+            }
+
+            // reset the button
+            this.showGroundwater = false;
+          }).finally(() => {
+            // reset the button
+            this.loadGroundwater = false;
           });
         }
-        this.showGroundwater = !this.showGroundwater;
       },
       
-      toggleRiverOverlay() {
-        if (!this.River_geojson) {
-          this.getGeoJson.river().then(data => {
-            this.River_geojson = data.data;
-          });
-        }
-        this.showRiver = !this.showRiver;
-      },
+      // toggleRiverOverlay() {
+      //   if (!this.River_geojson) {
+      //     this.getGeoJson.river().then(data => {
+      //       this.River_geojson = data.data;
+      //     });
+      //   }
+      //   this.showRiver = !this.showRiver;
+      // },
       
       toggleNationalWatersOverlay() {
         if (!this.NationalWaters_geojson) {
+          // display loading icon
+          this.loadNationalWaters = true;
+
           this.getGeoJson.nationalWaters().then(data => {
             this.NationalWaters_geojson = data.data;
+          }).catch(error => {
+            // if an error occurs alert the user
+            if (error.response.status == '404') {
+              this.showAlert("National Waters Shapefile Not Found");
+            } else {
+              this.showAlert(`Error Occured Accessing National Waters Shapefile - ${error.response.status}`);
+            }
+
+            // reset the button
+            this.showNationalWaters = false;
+          }).finally(() => {
+            // reset the button
+            this.loadNationalWaters = false;
           });
         }
-        this.showNationalWaters = !this.showNationalWaters;
       },
       
       changeTimeToggle() {

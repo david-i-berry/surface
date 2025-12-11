@@ -10,6 +10,7 @@ services:
     image: nmsbdocker/surface-nginx:v1.0.0
     container_name: surface-nginx
     volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/nginx.conf
       - ./api/static:/home/app/web/staticfiles
       - ./data:/home/app/web/data
     env_file:

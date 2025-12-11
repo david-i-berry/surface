@@ -877,9 +877,15 @@
             <!-- administrative area -->
             {% if request.user.is_staff or request.user.is_superuser %}
             <li class="">
-
               <!-- tab name -->
-              <a class="collapsible-item" href="{% url 'admin:index' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()"><i class="material-icons">people</i><span class="custom-navbar-text-fade-out">ADMINISTRATIVE AREA</span></a>
+              <a class="collapsible-item" href="{% url 'admin:index' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()"><i class="material-icons">business_center</i><span class="custom-navbar-text-fade-out">ADMINISTRATIVE AREA</span></a>
+            </li>
+            {% endif %}
+
+            {% if request.user.is_staff or request.user.is_superuser %}
+            <!-- Configuration Settings -->
+            <li class="collapsible-item">
+              <a href="{% url 'configuration-settings' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()"><i class="material-icons">settings</i><span class="to-uppercase custom-navbar-text-fade-out">Settings</span></a>
             </li>
             {% endif %}
 
@@ -891,6 +897,7 @@
 
         </div>
 
+        
         <!-- The version label -->
         <div id="version-label">
           <li class="collapsible-item app-version">

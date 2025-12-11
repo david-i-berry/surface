@@ -35,10 +35,12 @@ from django.core.cache import cache
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import connection
-from django.http import HttpResponse, JsonResponse, FileResponse, HttpResponseNotAllowed
+from django.http import HttpResponse, JsonResponse, FileResponse, HttpResponseNotAllowed, HttpResponseBadRequest, Http404
+from django.utils.http import http_date
 from django.template import loader
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
+from django.views import View
 from django.views.generic.base import TemplateView
 from django.views.generic.detail import DetailView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
@@ -72,6 +74,7 @@ from wx.utils import get_altitude, get_watershed, get_district, get_interpolatio
 from .utils import get_raw_data, get_station_raw_data
 from wx.models import MaintenanceReport, VisitType, Technician
 from django.views.decorators.http import require_http_methods
+from django.utils.decorators import method_decorator
 from base64 import b64encode
 
 from wx.models import QualityFlag
@@ -9795,3 +9798,197 @@ def synop_capture_update_empty_col(request):
         conn.commit()
 
     return Response([], status=status.HTTP_200_OK)
+
+
+# Mapping keys -> file names in the static folder (whitelist)
+SPATIAL_SHAPE_FILES = {
+    "shape": "shape.png",
+    "watersheds": "Watersheds_4326.geojson",
+    "national": "NationalWaters.geojson",
+    "gwp": "GWP_Campur.geojson",
+    "basemap": "Basemap.geojson",
+}
+
+# Allowed extensions for each target file (basic safety)
+ALLOWED_EXTENSIONS = {".png", ".geojson"}
+
+def get_static_assets_dir():
+    """
+    Determine the static folder to use for reading/writing files.
+    Priority:
+      1. settings.STATIC_ROOT (when set, eg. production after collectstatic)
+      2. first entry of settings.STATICFILES_DIRS (if any)
+      3. <BASE_DIR>/static (sane project-level default)
+    """
+    if getattr(settings, "STATIC_ROOT", None):
+        return settings.STATIC_ROOT
+    
+    sfd = getattr(settings, "STATICFILES_DIRS", None)
+
+    if sfd:
+        # pick first entry if it's a string
+        if isinstance(sfd, (list, tuple)) and sfd:
+            return sfd[0]
+        if isinstance(sfd, str):
+            return sfd
+    # fallback to project static folder
+    return os.path.join(settings.BASE_DIR, "static")
+
+
+def stat_file_info(path):
+    """Return dict with existence and mtime string for template use"""
+    if os.path.exists(path) and os.path.isfile(path):
+        ts = os.path.getmtime(path)
+        dt = datetime_constructor.fromtimestamp(ts, timezone.utc) + timedelta(minutes=settings.TIMEZONE_OFFSET)
+        formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S")
+
+        mtime = formatted_time
+        return {"exists": True, "mtime": mtime}
+    return {"exists": False, "mtime": None}
+
+
+@method_decorator(require_http_methods(["GET"]), name="dispatch")
+class ConfigurationSettingsView(LoginRequiredMixin, TemplateView):
+    """
+    Renders the documents management page and injects initial JSON state describing
+    which whitelisted files exist in the chosen static directory.
+    Template expected: 'documents/manage_documents.html'
+    """
+    template_name = "wx/configuration_settings.html"
+
+    # # This is the only “permission” string you need to supply:
+    # permission_required = "Configuration Settings - Full Access"
+
+    # # If you want a custom 403 page instead of redirecting to login again, explicitly set:
+    # raise_exception = True
+
+    def get_context_data(self, **kwargs):
+        static_dir = get_static_assets_dir()
+        options = []
+        labels = {
+            "shape": "Shape (image)",
+            "watersheds": "Watersheds",
+            "national": "National Waters",
+            "gwp": "GWP - Campur",
+            "basemap": "Basemap",
+        }
+
+        for key, filename in SPATIAL_SHAPE_FILES.items():
+            file_path = os.path.join(static_dir, filename)
+            info = stat_file_info(file_path)
+            # build a relative download URL that the Vue client can use
+            download_url = f"/documents/spatial/files/download/{key}/"
+            options.append(
+                {
+                    "key": key,
+                    "label": labels.get(key, filename),
+                    "description": filename,
+                    "hasFile": info["exists"],
+                    "filename": filename if info["exists"] else None,
+                    "uploadDate": info["mtime"],
+                    "downloadUrl": download_url,
+                }
+            )
+
+        ctx = super().get_context_data(**kwargs)
+        ctx["options_json"] = json.dumps(options)
+        return ctx
+
+
+@method_decorator(require_http_methods(["POST"]), name="dispatch")
+class UploadOrDeleteSpatialFilesView(View):
+    """
+    Handles POST requests for uploading or deleting a whitelisted static file.
+    Expected POST fields:
+      - action: 'upload' or 'delete'
+      - key: one of FILES keys
+      - file: (for upload) the uploaded file in request.FILES['file']
+    """
+
+    # # This is the only “permission” string you need to supply:
+    # permission_required = "Configuration Settings - Full Access"
+
+    # # If you want a custom 403 page instead of redirecting to login again, explicitly set:
+    # raise_exception = True
+
+    def post(self, request, *args, **kwargs):
+        action = request.POST.get("action")
+        key = request.POST.get("key")
+        if action not in ("upload", "delete") or key not in SPATIAL_SHAPE_FILES:
+            return HttpResponseBadRequest("Invalid action or key")
+
+        static_dir = get_static_assets_dir()
+        target_filename = SPATIAL_SHAPE_FILES[key]
+        target_path = os.path.join(static_dir, target_filename)
+
+        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+
+        if action == "upload":
+            uploaded = request.FILES.get("file")
+            if not uploaded:
+                return JsonResponse({"success": False, "message": "No file provided."}, status=400)
+
+            # Basic safety: ensure the target filename's extension is allowed
+            _, ext = os.path.splitext(target_filename)
+            if ext.lower() not in ALLOWED_EXTENSIONS:
+                return JsonResponse({"success": False, "message": "Disallowed file extension."}, status=400)
+
+            try:
+                # Remove previous file if exists
+                if os.path.exists(target_path):
+                    try:
+                        os.remove(target_path)
+                    except Exception:
+                        # ignore removal errors and continue to overwrite
+                        pass
+
+                # Save new file content
+                with open(target_path, "wb") as dest:
+                    for chunk in uploaded.chunks():
+                        dest.write(chunk)
+
+                ts = os.path.getmtime(target_path)
+                dt = datetime_constructor.fromtimestamp(ts, timezone.utc) + timedelta(minutes=settings.TIMEZONE_OFFSET)
+                formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S")
+
+                mtime = formatted_time
+
+                return JsonResponse({"success": True, "filename": target_filename, "uploadDate": mtime})
+            except Exception as exc:
+                return JsonResponse({"success": False, "message": str(exc)}, status=500)
+
+        # action == delete
+        try:
+            if os.path.exists(target_path) and os.path.isfile(target_path):
+                os.remove(target_path)
+            return JsonResponse({"success": True})
+        except Exception as exc:
+            return JsonResponse({"success": False, "message": str(exc)}, status=500)
+
+
+@method_decorator(require_http_methods(["GET"]), name="dispatch")
+class DownloadSpatialFilesView(View):
+    """
+    Streams a whitelisted static file back to the client for download.
+    URL expected to pass 'key' as a path parameter.
+    """
+
+    # # This is the only “permission” string you need to supply:
+    # permission_required = "Configuration Settings - Full Access"
+
+    # # If you want a custom 403 page instead of redirecting to login again, explicitly set:
+    # raise_exception = True
+
+    def get(self, request, key, *args, **kwargs):
+        if key not in SPATIAL_SHAPE_FILES:
+            raise Http404("Invalid key")
+
+        static_dir = get_static_assets_dir()
+        filename = SPATIAL_SHAPE_FILES[key]
+        path = os.path.join(static_dir, filename)
+        if not os.path.exists(path) or not os.path.isfile(path):
+            raise Http404("File not found")
+
+        response = FileResponse(open(path, "rb"), as_attachment=True, filename=filename)
+        response["Last-Modified"] = http_date(os.path.getmtime(path))
+        return response
