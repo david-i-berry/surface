@@ -265,3 +265,11 @@ class StationMetadataSerializer(serializers.ModelSerializer):
         'observer', 
         'organization',
         )
+
+
+class CropSerializer(serializers.ModelSerializer):
+    # unit_name = serializers.CharField(source='unit.name', read_only=True)
+    # unit_symbol = serializers.CharField(source='unit.symbol', read_only=True)
+    class Meta:
+        model = models.Crop
+        fields = ('name', 'crop_type', 'maturity')

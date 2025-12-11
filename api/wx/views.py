@@ -82,6 +82,9 @@ import tempfile
 
 from aquacrop import AquaCropModel, InitialWaterContent, FieldMngt, GroundWater, IrrigationManagement
 from aquacrop.utils import prepare_weather, get_filepath
+from supabase import create_client, Client
+import requests
+import re
 
 logger = logging.getLogger('surface.urls')
 
@@ -198,7 +201,7 @@ def DownloadDataFile(request):
     if os.path.exists(file_path):
         with open(file_path, 'rb') as fh:
             response = HttpResponse(fh.read(), content_type="text/csv")
-            response['Content-Disposition'] = 'inline; filename=' + os.path.basename(file_path)
+            response['Content-Disposition'] = 'inline filename=' + os.path.basename(file_path)
             return response
     return JsonResponse({}, status=status.HTTP_404_NOT_FOUND)
 
@@ -241,7 +244,7 @@ def GetInterpolationData(request):
             cursor.execute("""
                 SELECT sampling_operation_id
                 FROM wx_variable
-                WHERE id=%(variable_id)s;
+                WHERE id=%(variable_id)s
                 """,
                            params={'variable_id': variable_id}
                            )
@@ -283,7 +286,7 @@ def GetInterpolationData(request):
         cursor.execute("""
             SELECT a.station_id,b.name,b.code,b.latitude,b.longitude,a.""" + value_query + """ as measured
             FROM """ + source_query + """ a INNER JOIN wx_station b ON a.station_id=b.id
-            WHERE """ + where_query + ";",
+            WHERE """ + where_query + "",
                        params=params
                        )
         climate_data = {}
@@ -331,7 +334,7 @@ def GetInterpolationImage(request):
     stations_df = pd.read_sql_query("""
         SELECT id,name,alias_name,code,latitude,longitude
         FROM wx_station
-        WHERE longitude!=0;
+        WHERE longitude!=0
         """,
                                     con=connection
                                     )
@@ -362,7 +365,7 @@ def GetInterpolationImage(request):
             cursor.execute("""
                 SELECT sampling_operation_id
                 FROM wx_variable
-                WHERE id=%(variable_id)s;
+                WHERE id=%(variable_id)s
                 """,
                            params={'variable_id': variable_id}
                            )
@@ -403,7 +406,7 @@ def GetInterpolationImage(request):
     climate_data = pd.read_sql_query(
         "SELECT station_id,variable_id," + dt_query + "," + value_query + """
         FROM """ + source_query + """
-        WHERE """ + where_query + ";",
+        WHERE """ + where_query + "",
         params=params,
         con=connection
     )
@@ -483,7 +486,7 @@ def GetColorMapBar(request):
         cursor.execute("""
             SELECT a.name,b.symbol
             FROM wx_variable a INNER JOIN wx_unit b ON a.unit_id=b.id
-            WHERE a.id=%(variable_id)s;
+            WHERE a.id=%(variable_id)s
             """,
                        params={'variable_id': variable_id}
                        )
@@ -3143,7 +3146,7 @@ def query_stationsmonintoring_chart(station_id, variable_id, data_type, datetime
             FROM
                 date_range
                 LEFT JOIN hs ON date_range.date = hs.date
-            ORDER BY date_range.date;
+            ORDER BY date_range.date
         """
 
         with connection.cursor() as cursor:
@@ -3227,7 +3230,7 @@ def query_stationsmonintoring_chart(station_id, variable_id, data_type, datetime
             FROM date_range
                 LEFT JOIN hs ON date_range.date = hs.date
             GROUP BY 1
-            ORDER BY 1;
+            ORDER BY 1
         """
 
         with connection.cursor() as cursor:
@@ -3359,7 +3362,7 @@ def query_stationsmonitoring_station(data_type, time_type, date_picked, station_
                 LEFT JOIN wx_unit u ON v.unit_id = u.id
             WHERE
                 sv.station_id = %s
-            ORDER BY 1;
+            ORDER BY 1
         """
 
         with connection.cursor() as cursor:
@@ -3483,7 +3486,7 @@ def query_stationsmonitoring_map(data_type, time_type, date_picked):
                     LEFT JOIN wx_stationvariable AS sv ON s.id = sv.station_id
                     LEFT JOIN hs ON sv.station_id = hs.station_id AND sv.variable_id = hs.variable_id
                 WHERE s.is_active
-                GROUP BY 1, 2, 3, 4, 5;
+                GROUP BY 1, 2, 3, 4, 5
             """
         elif data_type=='Quality Control':
             query = """
@@ -3565,7 +3568,7 @@ def query_stationsmonitoring_map(data_type, time_type, date_picked):
                     LEFT JOIN wx_stationvariable AS sv ON s.id = sv.station_id
                     LEFT JOIN hs ON sv.station_id = hs.station_id AND sv.variable_id = hs.variable_id
                 WHERE s.begin_date <= %s AND (s.end_date IS NULL OR s.end_date >= %s)
-                GROUP BY 1, 2, 3, 4, 5;
+                GROUP BY 1, 2, 3, 4, 5
             """
         elif data_type=='Quality Control':
             query = """
@@ -5520,7 +5523,7 @@ def get_range_threshold(request):
 
         formated_thresholds = format_range_thresholds(global_thresholds, reference_thresholds, custom_thresholds, variable.name)
 
-        data['variable_data'][variable.name] = formated_thresholds;
+        data['variable_data'][variable.name] = formated_thresholds
 
     response = {'data': data}
     return JsonResponse(response, status=status.HTTP_200_OK)
@@ -5705,7 +5708,7 @@ def get_step_threshold(request):
 
         formated_thresholds = format_step_thresholds(global_thresholds, reference_thresholds, custom_thresholds, variable.name)
 
-        data['variable_data'][variable.name] = formated_thresholds;
+        data['variable_data'][variable.name] = formated_thresholds
 
     response = {'data': data}
     return JsonResponse(response, status=status.HTTP_200_OK)
@@ -5879,7 +5882,7 @@ def get_persist_threshold(request):
 
         formated_thresholds = format_persist_thresholds(global_thresholds, reference_thresholds, custom_thresholds, variable.name)
 
-        data['variable_data'][variable.name] = formated_thresholds;
+        data['variable_data'][variable.name] = formated_thresholds
 
     response = {'data': data}
     return JsonResponse(response, status=status.HTTP_200_OK)    
@@ -6353,7 +6356,7 @@ def get_station_variable_day_data_inventory(request):
                ,case when data.qc_amount = 0 then 0 
                      else TRUNC((data.qc_passed_amount / data.qc_amount::numeric) * 100, 2) end as qc_passed_percentage
          FROM (SELECT custom_day FROM unnest( ARRAY[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] ) AS custom_day) AS available_days
-         LEFT JOIN data ON data.day = available_days.custom_day;
+         LEFT JOIN data ON data.day = available_days.custom_day
          
     """
 
@@ -6893,7 +6896,6 @@ def get_agromet_products_df_min_max(df: pd.DataFrame) -> dict:
     
     return minMaxDict
 
-import re
 
 def get_agromet_products_sql_context(requestedData: dict, env: Environment) -> dict:
     pgia_code = '8858307' # Phillip Goldson Int'l Synop
@@ -7209,287 +7211,12 @@ class AgroMetProductsView(LoginRequiredMixin, TemplateView):
         return self.render_to_response(context)
 
 
-class AgroMetIrrigationView(LoginRequiredMixin, TemplateView):
-    template_name = "wx/agromet/agromet_irrigation.html"
-
-    def get(self, request, *args, **kwargs):
-        context = self.get_context_data(**kwargs)
-
-        context['station_list'] = list(Station.objects.filter(is_active=True).values('id', 'name', 'code', 'is_automatic', 'latitude', 'longitude'))
-        
-        context['default_crop_list'] = [
-            {'name': 'Barley'}, {'name': 'BarleyGDD'}, {'name': 'Cotton'}, {'name': 'CottonGDD'},
-            {'name': 'Default'}, {'name': 'DryBean'}, {'name': 'DryBeanGDD'}, {'name': 'Maize'},
-            {'name': 'MaizeGDD'}, {'name': 'PaddyRice'}, {'name': 'PaddyRiceGDD'}, {'name': 'Potato'},
-            {'name': 'PotatoGDD'}, {'name': 'PotatoLocalGDD'}, {'name': 'Quinoa'}, {'name': 'Sorghum'},
-            {'name': 'SorghumGDD'}, {'name': 'Soybean'}, {'name': 'SoybeanGDD'}, {'name': 'SugarBeet'},
-            {'name': 'SugarBeetGDD'}, {'name': 'SugarBeetGDD_UK'}, {'name': 'SugarCane'},
-            {'name': 'Sunflower'}, {'name': 'SunflowerGDD'}, {'name': 'Tomato'}, {'name': 'TomatoGDD'},
-            {'name': 'Wheat'}, {'name': 'WheatGDD'}, {'name': 'WheatGDD_1dec'}, {'name': 'HydWheatGDD'},
-            {'name': 'WheatLongGDD'}, {'name': 'localpaddy'}, {'name': 'MaizeChampionGDD'},
-            {'name': 'Tef'}, {'name': 'AlfalfaGDD'}, {'name': 'Cassava'}
-        ]
-        context['custom_crop_list'] = list(Crop.objects.all().values('id', 'name',))
-        context['custom_soil_list'] = list(Soil.objects.all().values('id', 'soil_type',))
-        context['default_soil_list'] = [
-            {'soil_type': 'Clay'}, {'soil_type': 'ClayLoam'}, {'soil_type': 'Default'},
-            {'soil_type': 'Loam'}, {'soil_type': 'LoamySand'}, {'soil_type': 'Sand'},
-            {'soil_type': 'SandyClay'}, {'soil_type': 'SandyClayLoam'}, {'soil_type': 'SandyLoam'},
-            {'soil_type': 'Silt'}, {'soil_type': 'SiltClayLoam'}, {'soil_type': 'SiltLoam'},
-            {'soil_type': 'SiltClay'}, {'soil_type': 'Paddy'}, {'soil_type': 'ac_TunisLocal'}
-        ]
-
-        return self.render_to_response(context)
+class CropViewSet(viewsets.ModelViewSet):
+    permission_classes = (IsAuthenticated,)
+    queryset = Crop.objects.all()
     
+    serializer_class = serializers.CropSerializer
 
-# Fix 
-def get_aquacrop_custom_crop(custom_crop_name: str, planting_date):
-    django_crop = Crop.objects.get(name=custom_crop_name)
-    print(django_crop.__dict__)
-    
-    aquacrop_crop = AquacropCrop(
-        'custom',
-        CropType=django_crop.crop_type,
-        PlantMethod=django_crop.plant_method,
-        CalendarType=django_crop.calendar_type,
-        SwitchGDD=1 if django_crop.switch_gdd else 0,
-        Emergence=django_crop.emergence,
-        MaxRooting=django_crop.max_rooting,
-        Senescence=django_crop.senescence,
-        Maturity=django_crop.maturity,
-        HIstart=django_crop.hi_start,
-        Flowering=django_crop.flowering,
-        YldForm=django_crop.yld_form,
-        GDDMethod=django_crop.gdd_method,
-        Tbase=django_crop.t_base,
-        Tupp=django_crop.t_upp,
-        PolHeatStress=1 if django_crop.pol_heat_stress else 0,
-        Tmax_up=django_crop.t_max_up,
-        Tmax_lo=django_crop.t_max_lo,
-        PolColdStress=1 if django_crop.pol_cold_stress else 0,
-        Tmin_up=django_crop.t_min_up,
-        Tmin_lo=django_crop.t_min_lo,
-        TrColdStress=1 if django_crop.tr_cold_stress else 0,
-        GDD_up=django_crop.gdd_up,
-        GDD_lo=django_crop.gdd_lo,
-        Zmin=django_crop.z_min,
-        Zmax=django_crop.z_max,
-        fshape_r=django_crop.fshape_r,
-        SxTopQ=django_crop.sx_top_q,
-        SxBotQ=django_crop.sx_bot_q,
-        SeedSize=django_crop.seed_size,
-        PlantPop=django_crop.plant_pop,
-        CCx=django_crop.ccx,
-        CDC=django_crop.cdc,
-        CGC=django_crop.cgc,
-        Kcb=django_crop.kcb,
-        fage=django_crop.fage,
-        WP=django_crop.wp,
-        WPy=django_crop.wpy,
-        fsink=django_crop.fsink,
-        HI0=django_crop.hi0,
-        dHI_pre=django_crop.dhi_pre,
-        a_HI=django_crop.a_hi,
-        b_HI=django_crop.b_hi,
-        dHI0=django_crop.dhi0,
-        Determinant=1 if django_crop.determinant else 0,
-        exc=django_crop.exc,
-        p_up1 = django_crop.p_up1,
-        p_up2 = django_crop.p_up2,
-        p_up3 = django_crop.p_up3,
-        p_up4 = django_crop.p_up4,
-        p_lo1 = django_crop.p_lo1,
-        p_lo2 = django_crop.p_lo2,
-        p_lo3 = django_crop.p_lo3,
-        p_lo4 = django_crop.p_lo4,
-        fshape_w1 = django_crop.fshape_w1,
-        fshape_w2 = django_crop.fshape_w2,
-        fshape_w3 = django_crop.fshape_w3,
-        fshape_w4 = django_crop.fshape_w4,
-        fshape_b=django_crop.fshape_b,
-        PctZmin=django_crop.pct_z_min,
-        fshape_ex=django_crop.fshape_ex,
-        ETadj=1 if django_crop.et_adj else 0,
-        Aer=django_crop.aer,
-        LagAer=django_crop.lag_aer,
-        beta=django_crop.beta,
-        a_Tr=django_crop.a_tr,
-        GermThr=django_crop.germ_thr,
-        CCmin=django_crop.cc_min,
-        MaxFlowPct=django_crop.max_flow_pct,
-        HIini=django_crop.hi_ini,
-        bsted=django_crop.bsted,
-        bface=django_crop.bface,
-        # Dates
-        planting_date=planting_date
-    )
-
-    print('returning crop')
-    return aquacrop_crop
-
-def get_aquacrop_custom_soil(custom_soil_type: str):
-    django_soil = Soil.objects.get(soil_type=custom_soil_type)
-
-    # Fix pandas.errors.IntCastingNaNError: Cannot convert non-finite values (NA or inf) to integer
-    aquacrop_soil = AquacropSoil(
-        'custom',
-        dz=[django_soil.dz1,
-            django_soil.dz2,
-            django_soil.dz3,
-            django_soil.dz4,
-            django_soil.dz5,
-            django_soil.dz6,
-            django_soil.dz7,
-            django_soil.dz8,
-            django_soil.dz9,
-            django_soil.dz10,
-            django_soil.dz11,
-            django_soil.dz12
-        ],
-        # calc_shp=1 if django_soil.calc_shp else 0, # Do not have in current soil __init__
-        adj_rew=1 if django_soil.adj_rew else 0,
-        rew=django_soil.rew,
-        calc_cn=1 if django_soil.calc_cn else 0,
-        cn=django_soil.cn,
-        z_res=django_soil.z_res,
-        evap_z_surf=django_soil.evap_z_surf,
-        evap_z_min=django_soil.evap_z_min,
-        evap_z_max=django_soil.evap_z_max,
-        kex=django_soil.kex,
-        f_evap=django_soil.fevap,
-        f_wrel_exp=django_soil.f_wrel_exp,
-        fwcc=django_soil.fwcc,
-        z_cn=django_soil.z_cn,
-        z_germ=django_soil.z_germ,
-        adj_cn=1 if django_soil.adj_cn else 0,
-        fshape_cr=django_soil.fshape_cr,
-        z_top=django_soil.z_top
-    )
-
-    print('aquacrop_soil:', aquacrop_soil)
-
-    return aquacrop_soil
-
-
-def create_aquacrop_model(requestedData, weather_data):
-    planting_date = requestedData['planting_date'].replace('-','/')[4:]
-
-    if requestedData['is_custom_soil']=='true':
-        soil = get_aquacrop_custom_soil(requestedData['soil_type'])
-    else:
-        soil = AquacropSoil(soil_type=requestedData['soil_type'])
-
-
-
-    if requestedData['is_custom_crop']=='true':
-        crop = get_aquacrop_custom_crop(
-            requestedData['crop_name'],
-            planting_date
-        )
-    else:
-        # Crop Type
-        crop = AquacropCrop(
-            requestedData['crop_name'],
-            planting_date=planting_date
-        )
-
-    print(crop)
-
-    # Irrigation
-    irr_mngt = IrrigationManagement(irrigation_method=2,irrinterval=7) # specify irrigation management
-
-    # Initialized at Field Capacity
-    InitWC = InitialWaterContent(value=['FC'])
-
-    sim_start_time = requestedData['sim_start_date'].replace('-','/')
-    sim_end_time = requestedData['sim_end_date'].replace('-','/')
-
-    # combine into aquacrop model and specify start and end simulation date
-    model = AquaCropModel(
-        sim_start_time=sim_start_time,
-        sim_end_time=sim_end_time,
-        weather_df=weather_data,
-        soil=soil,
-        crop=crop,
-        irrigation_management=irr_mngt,
-        initial_water_content=InitWC
-    )
-    
-    return model
-
-
-@api_view(["GET"])
-def get_agromet_irrigation_data(request):
-    try:
-        requestedData = {
-            'station_id': request.GET.get('station_id', None),
-            'is_custom_crop': request.GET.get('is_custom_crop', None),
-            'is_custom_soil': request.GET.get('is_custom_soil', None),
-            'crop_name': request.GET.get('crop_name', None),
-            'soil_type': request.GET.get('soil_type', None),
-            'initial_wc': request.GET.get('initial_wc', None),
-            'irrigation_method': request.GET.get('irrigation_method', None),
-            'planting_date': request.GET.get('planting_date', None),
-            'harvesting_date': request.GET.get('harvesting_date', None),
-            'sim_start_date': request.GET.get('sim_start_date', None),
-            'sim_end_date': request.GET.get('sim_end_date', None),
-        }
-    except ValueError as e:
-        logger.error(repr(e))
-        return HttpResponse(status=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        logger.error(repr(e))
-        return HttpResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    env_path= '/surface/wx/sql/agromet/agromet_irrigation'
-    env = Environment(loader=FileSystemLoader(env_path))
-
-    context = {
-        'station_id': requestedData['station_id'],
-        'sim_start_date': requestedData['sim_start_date'],
-        'sim_end_date': requestedData['sim_end_date'],
-    }
-
-    template_name = 'water_balance.sql'
-    template = env.get_template(template_name)
-    query = template.render(context)    
-
-    config = settings.SURFACE_CONNECTION_STRING
-    with psycopg2.connect(config) as conn:
-        df = pd.read_sql(query, conn)
-
-    if df.empty:
-        response = []
-        return JsonResponse(response, status=status.HTTP_200_OK, safe=False)
-
-    # # Create the temporary file and write the data
-    # with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False, encoding='utf-8') as temp_file:
-    #     # Write the DataFrame to the file object with tab separation
-    #     df.to_csv(temp_file, sep='\t', index=False)
-    #     temp_filepath = temp_file.name
-
-    # print(f"Temporary file created at: {temp_filepath}")
-
-
-    weather_data = df
-
-    aquacrop_model = create_aquacrop_model(requestedData, weather_data)
-    aquacrop_model.run_model(till_termination=True)
-
-    final_stats_df = aquacrop_model._outputs.final_stats
-
-    weather_data = weather_data.fillna('').to_dict(orient='records')
-    final_stats_dict = final_stats_df.fillna('NaN').to_dict(orient='records')
-    
-    response = {
-        'weather_data': weather_data,
-        'final_stats': final_stats_dict
-    }
-
-    return JsonResponse(response, status=status.HTTP_200_OK, safe=False)   
-
-from supabase import create_client, Client
-import requests
 
 class AquacropModelRunView(views.APIView):
     permission_classes = (IsAuthenticated,)
@@ -7647,7 +7374,6 @@ class AquacropModelRunView(views.APIView):
         ]
 
         return forecast_df
-
 
     def _get_irrigation_history(self, json_data):
         # To do: Replace with real data from Supabase
@@ -7978,14 +7704,11 @@ class AquacropModelRunView(views.APIView):
 
         supabase: Client = create_client(supabase_url, supabase_key)
 
-
-        print(json_data['simulationScenarioId'])
         response = supabase.table('crops')\
             .select('*')\
             .eq('id', json_data['simulationScenarioId'])\
             .execute()
 
-        print(response)
         if len(response.data) > 0:
             simulation_scenario = response.data[0]
             # simulation_scenario['crop'] = 'Tomato'
@@ -8009,24 +7732,21 @@ class AquacropModelRunView(views.APIView):
             # simulation_scenario['soil_type'] = 'LoamySand'
             # simulation_scenario['planting_date'] = '2010-01-01'
             # simulation_scenario['planting_date'] = planting_date_test.strftime("%Y-%m-%d")
-        
 
-
-        crop_origin = 'default'
-        soil_origin = 'default'
+        if json_data['cropOrigin']=='custom':
+            crop_origin = 'custom'
+        else:
+            crop_origin = 'default'
 
         planting_datetime = datetime.datetime.strptime(simulation_scenario['planting_date'], "%Y-%m-%d")
-        planting_date = simulation_scenario['planting_date'].replace('-','/')[5:]
+        planting_date = simulation_scenario['planting_date'].replace('-','/')[5:]       
 
         if crop_origin == 'default':
             crop = AquacropCrop(c_name=simulation_scenario['crop'], planting_date=planting_date)
         else:
-            crop = AquacropCrop(c_name=simulation_scenario['crop'], planting_date=planting_date)
+            crop = self._set_custom_crop(c_name=simulation_scenario['crop'], planting_date=planting_date)
 
-        if soil_origin == 'default':
-            soil = AquacropSoil(soil_type=simulation_scenario['soil_type'])
-        else:
-            soil = AquacropSoil(soil_type=simulation_scenario['soil_type'])
+        soil = AquacropSoil(soil_type=simulation_scenario['soil_type'])
 
         sim_datetimes = self._get_simulation_datetimes(planting_datetime, crop)
 
@@ -8099,6 +7819,91 @@ class AquacropModelRunView(views.APIView):
 
 
         return indicators
+
+    def _set_custom_crop(self, c_name, planting_date):
+        django_crop = Crop.objects.get(name=c_name)
+
+        # We need to initializeusing a crop because aquacrop has issues defining custom crops from scratch.
+        custom_crop = AquacropCrop(c_name='Tomato', planting_date=planting_date)
+
+        # Set custom parameters
+        custom_crop.CropType=django_crop.crop_type
+        custom_crop.PlantMethod=django_crop.plant_method
+        custom_crop.CalendarType=django_crop.calendar_type
+        custom_crop.SwitchGDD=1 if django_crop.switch_gdd else 0
+        custom_crop.Emergence=django_crop.emergence
+        custom_crop.MaxRooting=django_crop.max_rooting
+        custom_crop.Senescence=django_crop.senescence
+        # custom_crop.Maturity=django_crop.maturity
+        custom_crop.MaturityCD=django_crop.maturity
+        custom_crop.HIstart=django_crop.hi_start
+        custom_crop.Flowering=django_crop.flowering
+        custom_crop.YldForm=django_crop.yld_form
+        custom_crop.GDDMethod=django_crop.gdd_method
+        custom_crop.Tbase=django_crop.t_base
+        custom_crop.Tupp=django_crop.t_upp
+        custom_crop.PolHeatStress=1 if django_crop.pol_heat_stress else 0
+        custom_crop.Tmax_up=django_crop.t_max_up
+        custom_crop.Tmax_lo=django_crop.t_max_lo
+        custom_crop.PolColdStress=1 if django_crop.pol_cold_stress else 0
+        custom_crop.Tmin_up=django_crop.t_min_up
+        custom_crop.Tmin_lo=django_crop.t_min_lo
+        custom_crop.TrColdStress=1 if django_crop.tr_cold_stress else 0
+        custom_crop.GDD_up=django_crop.gdd_up
+        custom_crop.GDD_lo=django_crop.gdd_lo
+        custom_crop.Zmin=django_crop.z_min
+        custom_crop.Zmax=django_crop.z_max
+        custom_crop.fshape_r=django_crop.fshape_r
+        custom_crop.SxTopQ=django_crop.sx_top_q
+        custom_crop.SxBotQ=django_crop.sx_bot_q
+        custom_crop.SeedSize=django_crop.seed_size
+        custom_crop.PlantPop=django_crop.plant_pop
+        custom_crop.CCx=django_crop.ccx
+        custom_crop.CDC=django_crop.cdc
+        custom_crop.CGC=django_crop.cgc
+        custom_crop.Kcb=django_crop.kcb
+        custom_crop.fage=django_crop.fage
+        custom_crop.WP=django_crop.wp
+        custom_crop.WPy=django_crop.wpy
+        custom_crop.fsink=django_crop.fsink
+        custom_crop.HI0=django_crop.hi0
+        custom_crop.dHI_pre=django_crop.dhi_pre
+        custom_crop.a_HI=django_crop.a_hi
+        custom_crop.b_HI=django_crop.b_hi
+        custom_crop.dHI0=django_crop.dhi0
+        custom_crop.Determinant=1 if django_crop.determinant else 0
+        custom_crop.exc=django_crop.exc
+        custom_crop.p_up1 = django_crop.p_up1
+        custom_crop.p_up2 = django_crop.p_up2
+        custom_crop.p_up3 = django_crop.p_up3
+        custom_crop.p_up4 = django_crop.p_up4
+        custom_crop.p_lo1 = django_crop.p_lo1
+        custom_crop.p_lo2 = django_crop.p_lo2
+        custom_crop.p_lo3 = django_crop.p_lo3
+        custom_crop.p_lo4 = django_crop.p_lo4
+        custom_crop.fshape_w1 = django_crop.fshape_w1
+        custom_crop.fshape_w2 = django_crop.fshape_w2
+        custom_crop.fshape_w3 = django_crop.fshape_w3
+        custom_crop.fshape_w4 = django_crop.fshape_w4
+        custom_crop.fshape_b=django_crop.fshape_b
+        custom_crop.PctZmin=django_crop.pct_z_min
+        custom_crop.fshape_ex=django_crop.fshape_ex
+        custom_crop.ETadj=1 if django_crop.et_adj else 0
+        custom_crop.Aer=django_crop.aer
+        custom_crop.LagAer=django_crop.lag_aer
+        custom_crop.beta=django_crop.beta
+        custom_crop.a_Tr=django_crop.a_tr
+        custom_crop.GermThr=django_crop.germ_thr
+        custom_crop.CCmin=django_crop.cc_min
+        custom_crop.MaxFlowPct=django_crop.max_flow_pct
+        custom_crop.HIini=django_crop.hi_ini
+        custom_crop.bsted=django_crop.bsted
+        custom_crop.bface=django_crop.bface
+        # Dates
+        custom_crop.planting_date=planting_date
+
+        return custom_crop
+
 
 class AquacropAvailableDataView(views.APIView):
     permission_classes = (IsAuthenticated,)
