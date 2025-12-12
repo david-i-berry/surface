@@ -6963,7 +6963,6 @@ def get_agromet_products_sql_context(requestedData: dict, env: Environment) -> d
         if aggregation:
             context['aggregation_months'] = aggregation_months_dict[aggregation]
         else:
-            print('!!!!!!!months', requestedData['months'])
             context['months'] = requestedData['months']
     elif product == 'Evapotranspiration':
         latitude = station.latitude
@@ -7088,7 +7087,6 @@ def get_agromet_products_data(request):
             'max_day_gap': request.GET.get('max_day_gap'),
         }
 
-        print(requestedData)
     except ValueError as e:
         logger.error(repr(e))
         return HttpResponse(status=status.HTTP_400_BAD_REQUEST)
@@ -7226,8 +7224,6 @@ class AquacropModelRunView(views.APIView):
     def post(self, request):
         try:
             json_data = json.loads(request.body)
-
-            print(json_data)
 
             model_params = self._get_model_params(json_data)
             schedule_df = self._get_irrigation_history(json_data)
@@ -7740,8 +7736,6 @@ class AquacropModelRunView(views.APIView):
             else:
                 crop_origin = 'default'
 
-        crop_origin = 'custom'
-
         planting_datetime = datetime.datetime.strptime(simulation_scenario['planting_date'], "%Y-%m-%d")
         planting_date = simulation_scenario['planting_date'].replace('-','/')[5:]       
 
@@ -7825,7 +7819,6 @@ class AquacropModelRunView(views.APIView):
         return indicators
 
     def _set_custom_crop(self, c_name, planting_date):
-        c_name = 'HotPepper'
         django_crop = Crop.objects.get(name=c_name)
 
         # We need to initializeusing a crop because aquacrop has issues defining custom crops from scratch.
@@ -7926,8 +7919,6 @@ class AquacropAvailableDataView(views.APIView):
         try:
             json_data = json.loads(request.body)
 
-            print(json_data)
-            
             # To do: get simulation scenario from supabase
             # Dummy data for testing
             supabase_url = os.getenv('SUPABASE_URL')
@@ -7963,8 +7954,6 @@ class AquacropAvailableDataView(views.APIView):
                 # simulation_scenario['soil_type'] = 'LoamySand'
                 # simulation_scenario['planting_date'] = '2010-01-01'                   
         
-            print(simulation_scenario)
-
             planting_datetime = datetime.datetime.strptime(simulation_scenario['planting_date'], "%Y-%m-%d")
             planting_date = simulation_scenario['planting_date'].replace('-','/')[5:]
 
