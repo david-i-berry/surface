@@ -27,6 +27,7 @@ services:
   postgres:
     container_name: surface-database
     image: timescale/timescaledb-postgis:2.3.0-pg13
+    shm_size: 4g
     restart: unless-stopped
     env_file:
       - api/production.env
