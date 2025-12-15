@@ -10,7 +10,6 @@ services:
     image: nmsbdocker/surface-nginx:v1.0.0
     container_name: surface-nginx
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/nginx.conf
       - ./api/static:/home/app/web/staticfiles
       - ./data:/home/app/web/data
     env_file:
@@ -67,7 +66,7 @@ services:
       - surface-net
 
   api:
-    image: nmsbdocker/surface-base:v1.0.0-beta
+    image: nmsbdocker/surface-base:v1.0.0
     container_name: surface-api
     command: ./startup.sh
     env_file:
@@ -93,7 +92,7 @@ services:
       - surface-net
 
   celery_worker:
-    image: nmsbdocker/surface-base:v1.0.0-beta
+    image: nmsbdocker/surface-base:v1.0.0
     container_name: surface-celery-worker
     command: /home/surface/.local/bin/celery -A tempestas_api worker -l info
     env_file:
@@ -117,7 +116,7 @@ services:
       - surface-net
 
   celery_beat:
-    image: nmsbdocker/surface-base:v1.0.0-beta
+    image: nmsbdocker/surface-base:v1.0.0
     container_name: surface-celery-beat
     restart: unless-stopped
     command: /home/surface/.local/bin/celery -A tempestas_api beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler

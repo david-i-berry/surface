@@ -1,4 +1,4 @@
-FROM python:3.9-bullseye
+FROM python:3.11-bookworm
 LABEL authors="Roberto Santos, Tadashi Igarashi"
 
 ENV PYTHONUNBUFFERED=1
@@ -29,4 +29,4 @@ RUN pip install -U pip setuptools wheel
 COPY requirements.txt /requirements.txt
 RUN pip install -r /requirements.txt --no-warn-script-location
 
-CMD ./startup.sh
+CMD ["./startup.sh"]
