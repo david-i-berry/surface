@@ -92,12 +92,10 @@ from wx.models import QcRangeThreshold, QcStepThreshold, QcPersistThreshold
 from simple_history.utils import update_change_reason
 from django.db.models.functions import Cast
 from django.db.models import IntegerField
-<<<<<<< HEAD
 from django.utils.timezone import localtime
 
 
 from wx.models import WMOCodeValue
-=======
 from jinja2 import Environment, FileSystemLoader
 
 from aquacrop import Crop as AquacropCrop
@@ -110,7 +108,6 @@ from aquacrop.utils import prepare_weather, get_filepath
 from supabase import create_client, Client
 import requests
 import re
->>>>>>> dev_test
 
 logger = logging.getLogger('surface.urls')
 
@@ -270,18 +267,11 @@ def DownloadDataFile(request):
     else:
         file_path = os.path.join('/data', 'exported_data', str(file_id) + '.csv')
     if os.path.exists(file_path):
-<<<<<<< HEAD
         # with open(file_path, 'rb') as fh:
         #     response = HttpResponse(fh.read(), content_type="text/csv")
         #     response['Content-Disposition'] = 'inline; filename=' + os.path.basename(file_path)
         #     return response
         return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=os.path.basename(file_path))
-=======
-        with open(file_path, 'rb') as fh:
-            response = HttpResponse(fh.read(), content_type="text/csv")
-            response['Content-Disposition'] = 'inline filename=' + os.path.basename(file_path)
-            return response
->>>>>>> dev_test
     return JsonResponse({}, status=status.HTTP_404_NOT_FOUND)
 
 
@@ -7661,40 +7651,11 @@ def get_station_variable_day_data_inventory(request):
             status=400
         )
 
-<<<<<<< HEAD
     # cast to int
     year = int(year)
     month = int(month)
     station_id = int(station_id)
     variable_id = int(variable_id)
-=======
-    query = """
-         WITH data AS (
-             SELECT EXTRACT('DAY' FROM station_data.datetime) AS day
-                   ,EXTRACT('DOW' FROM station_data.datetime) AS dow
-                   ,TRUNC(station_data.record_count_percentage::numeric, 2) as percentage
-                   ,station_data.record_count
-                   ,station_data.ideal_record_count
-                   ,(select COUNT(1) from raw_data rd where rd.station_id = station_data.station_id and rd.variable_id = station_data.variable_id and rd.datetime between station_data.datetime  and station_data.datetime + '1 DAY'::interval and coalesce(rd.manual_flag, rd.quality_flag) in (1, 4)) qc_passed_amount
-                   ,(select COUNT(1) from raw_data rd where rd.station_id = station_data.station_id and rd.variable_id = station_data.variable_id and rd.datetime between station_data.datetime  and station_data.datetime + '1 DAY'::interval) qc_amount
-            FROM wx_stationdataminimuminterval AS station_data
-            WHERE EXTRACT('YEAR' from station_data.datetime) = %(year)s
-              AND EXTRACT('MONTH' from station_data.datetime) = %(month)s 
-              AND station_data.station_id = %(station_id)s
-              AND station_data.variable_id = %(variable_id)s
-            ORDER BY station_data.datetime)
-         SELECT available_days.custom_day
-               ,data.dow
-               ,COALESCE(data.percentage, 0) AS percentage
-               ,COALESCE(data.record_count, 0) AS record_count
-               ,COALESCE(data.ideal_record_count, 0) AS ideal_record_count
-               ,case when data.qc_amount = 0 then 0 
-                     else TRUNC((data.qc_passed_amount / data.qc_amount::numeric) * 100, 2) end as qc_passed_percentage
-         FROM (SELECT custom_day FROM unnest( ARRAY[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] ) AS custom_day) AS available_days
-         LEFT JOIN data ON data.day = available_days.custom_day
-         
-    """
->>>>>>> dev_test
 
     try:
         # kick off async task
@@ -8667,7 +8628,6 @@ def synop_delete(request):
 
         conn.commit()
 
-<<<<<<< HEAD
     return Response([], status=status.HTTP_200_OK)
 
 
@@ -10044,7 +10004,6 @@ class DownloadSpatialFilesView(View):
         response = FileResponse(open(path, "rb"), as_attachment=True, filename=filename)
         response["Last-Modified"] = http_date(os.path.getmtime(path))
         return response
-=======
     return Response(result, status=status.HTTP_200_OK)
 
 
@@ -11591,4 +11550,3 @@ class AquacropAvailableDataView(views.APIView):
 
         return start_datetime_history, end_datetime_history
 
->>>>>>> dev_test
