@@ -361,3 +361,10 @@ class Wis2PublishOffsetSerializerRead(serializers.ModelSerializer):
     class Meta:
         model = models.Wis2PublishOffset
         fields = ('id', 'code', 'description')
+
+class CropSerializer(serializers.ModelSerializer):
+    # unit_name = serializers.CharField(source='unit.name', read_only=True)
+    # unit_symbol = serializers.CharField(source='unit.symbol', read_only=True)
+    class Meta:
+        model = models.Crop
+        fields = ('name', 'crop_type', 'maturity')

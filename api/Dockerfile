@@ -1,8 +1,8 @@
 FROM python:3.9-bullseye
 LABEL authors="Roberto Santos, Tadashi Igarashi"
 
-ENV PYTHONUNBUFFERED 1
-ENV DJANGO_SETTINGS_MODULE tempestas_api.settings
+ENV PYTHONUNBUFFERED=1
+ENV DJANGO_SETTINGS_MODULE=tempestas_api.settings
 
 RUN apt-get update --fix-missing
 RUN apt-get install -y g++ libgdal-dev libpq-dev libgeos-dev libproj-dev vim wait-for-it

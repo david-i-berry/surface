@@ -68,7 +68,7 @@ from wx.forms import StationForm
 from wx.models import AdministrativeRegion, StationFile, Decoder, QualityFlag, DataFile, DataFileStation, \
     DataFileVariable, StationImage, WMOStationType, WMORegion, WMOProgram, StationCommunication, CombineDataFile, ManualStationDataFile
 from wx.models import Country, Unit, Station, Variable, DataSource, StationVariable, StationDataFileStatus,\
-    StationProfile, Document, Watershed, Interval, CountryISOCode, Wis2BoxPublish, Wis2PublishOffset, LocalWisCredentials, RegionalWisCredentials,  Wis2BoxPublishLogs
+    StationProfile, Document, Watershed, Interval, CountryISOCode, Wis2BoxPublish, Wis2PublishOffset, LocalWisCredentials, RegionalWisCredentials,  Wis2BoxPublishLogs, Crop, Soil
 from wx.utils import get_altitude, get_watershed, get_district, get_interpolation_image, parse_float_value, \
     parse_int_value
 from .utils import get_raw_data, get_station_raw_data
@@ -92,10 +92,25 @@ from wx.models import QcRangeThreshold, QcStepThreshold, QcPersistThreshold
 from simple_history.utils import update_change_reason
 from django.db.models.functions import Cast
 from django.db.models import IntegerField
+<<<<<<< HEAD
 from django.utils.timezone import localtime
 
 
 from wx.models import WMOCodeValue
+=======
+from jinja2 import Environment, FileSystemLoader
+
+from aquacrop import Crop as AquacropCrop
+from aquacrop import Soil as AquacropSoil
+
+import tempfile
+
+from aquacrop import AquaCropModel, InitialWaterContent, FieldMngt, GroundWater, IrrigationManagement
+from aquacrop.utils import prepare_weather, get_filepath
+from supabase import create_client, Client
+import requests
+import re
+>>>>>>> dev_test
 
 logger = logging.getLogger('surface.urls')
 
@@ -255,11 +270,18 @@ def DownloadDataFile(request):
     else:
         file_path = os.path.join('/data', 'exported_data', str(file_id) + '.csv')
     if os.path.exists(file_path):
+<<<<<<< HEAD
         # with open(file_path, 'rb') as fh:
         #     response = HttpResponse(fh.read(), content_type="text/csv")
         #     response['Content-Disposition'] = 'inline; filename=' + os.path.basename(file_path)
         #     return response
         return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=os.path.basename(file_path))
+=======
+        with open(file_path, 'rb') as fh:
+            response = HttpResponse(fh.read(), content_type="text/csv")
+            response['Content-Disposition'] = 'inline filename=' + os.path.basename(file_path)
+            return response
+>>>>>>> dev_test
     return JsonResponse({}, status=status.HTTP_404_NOT_FOUND)
 
 
@@ -486,7 +508,7 @@ def GetInterpolationData(request):
             cursor.execute("""
                 SELECT sampling_operation_id
                 FROM wx_variable
-                WHERE id=%(variable_id)s;
+                WHERE id=%(variable_id)s
                 """,
                            params={'variable_id': variable_id}
                            )
@@ -528,7 +550,7 @@ def GetInterpolationData(request):
         cursor.execute("""
             SELECT a.station_id,b.name,b.code,b.latitude,b.longitude,a.""" + value_query + """ as measured
             FROM """ + source_query + """ a INNER JOIN wx_station b ON a.station_id=b.id
-            WHERE """ + where_query + ";",
+            WHERE """ + where_query + "",
                        params=params
                        )
         climate_data = {}
@@ -576,7 +598,7 @@ def GetInterpolationImage(request):
     stations_df = pd.read_sql_query("""
         SELECT id,name,alias_name,code,latitude,longitude
         FROM wx_station
-        WHERE longitude!=0;
+        WHERE longitude!=0
         """,
                                     con=connection
                                     )
@@ -610,7 +632,7 @@ def GetInterpolationImage(request):
             cursor.execute("""
                 SELECT sampling_operation_id
                 FROM wx_variable
-                WHERE id=%(variable_id)s;
+                WHERE id=%(variable_id)s
                 """,
                            params={'variable_id': variable_id}
                            )
@@ -651,7 +673,7 @@ def GetInterpolationImage(request):
     climate_data = pd.read_sql_query(
         "SELECT station_id,variable_id," + dt_query + "," + value_query + """
         FROM """ + source_query + """
-        WHERE """ + where_query + ";",
+        WHERE """ + where_query + "",
         params=params,
         con=connection
     )
@@ -739,7 +761,7 @@ def GetColorMapBar(request):
         cursor.execute("""
             SELECT a.name,b.symbol
             FROM wx_variable a INNER JOIN wx_unit b ON a.unit_id=b.id
-            WHERE a.id=%(variable_id)s;
+            WHERE a.id=%(variable_id)s
             """,
                        params={'variable_id': variable_id}
                        )
@@ -4030,7 +4052,7 @@ def query_stationsmonintoring_chart(station_id, variable_id, data_type, datetime
             FROM
                 date_range
                 LEFT JOIN hs ON date_range.date = hs.date
-            ORDER BY date_range.date;
+            ORDER BY date_range.date
         """
 
         with connection.cursor() as cursor:
@@ -4114,7 +4136,7 @@ def query_stationsmonintoring_chart(station_id, variable_id, data_type, datetime
             FROM date_range
                 LEFT JOIN hs ON date_range.date = hs.date
             GROUP BY 1
-            ORDER BY 1;
+            ORDER BY 1
         """
 
         with connection.cursor() as cursor:
@@ -4246,7 +4268,7 @@ def query_stationsmonitoring_station(data_type, time_type, date_picked, station_
                 LEFT JOIN wx_unit u ON v.unit_id = u.id
             WHERE
                 sv.station_id = %s
-            ORDER BY 1;
+            ORDER BY 1
         """
 
         with connection.cursor() as cursor:
@@ -4477,7 +4499,7 @@ def query_stationsmonitoring_map(data_type, time_type, date_picked):
                     LEFT JOIN wx_stationvariable AS sv ON s.id = sv.station_id
                     LEFT JOIN hs ON sv.station_id = hs.station_id AND sv.variable_id = hs.variable_id
                 WHERE s.is_active
-                GROUP BY 1, 2, 3, 4, 5;
+                GROUP BY 1, 2, 3, 4, 5
             """
         elif data_type=='Quality Control':
             query = """
@@ -4660,7 +4682,7 @@ def query_stationsmonitoring_map(data_type, time_type, date_picked):
                     LEFT JOIN wx_stationvariable AS sv ON s.id = sv.station_id
                     LEFT JOIN hs ON sv.station_id = hs.station_id AND sv.variable_id = hs.variable_id
                 WHERE s.begin_date <= %s AND (s.end_date IS NULL OR s.end_date >= %s)
-                GROUP BY 1, 2, 3, 4, 5;
+                GROUP BY 1, 2, 3, 4, 5
             """
         elif data_type=='Quality Control':
             query = """
@@ -6757,7 +6779,7 @@ def get_range_threshold(request):
 
         formated_thresholds = format_range_thresholds(global_thresholds, reference_thresholds, custom_thresholds, variable.name)
 
-        data['variable_data'][variable.name] = formated_thresholds;
+        data['variable_data'][variable.name] = formated_thresholds
 
     response = {'data': data}
     return JsonResponse(response, status=status.HTTP_200_OK)
@@ -6969,7 +6991,7 @@ def get_step_threshold(request):
 
         formated_thresholds = format_step_thresholds(global_thresholds, reference_thresholds, custom_thresholds, variable.name)
 
-        data['variable_data'][variable.name] = formated_thresholds;
+        data['variable_data'][variable.name] = formated_thresholds
 
     response = {'data': data}
     return JsonResponse(response, status=status.HTTP_200_OK)
@@ -7170,7 +7192,7 @@ def get_persist_threshold(request):
 
         formated_thresholds = format_persist_thresholds(global_thresholds, reference_thresholds, custom_thresholds, variable.name)
 
-        data['variable_data'][variable.name] = formated_thresholds;
+        data['variable_data'][variable.name] = formated_thresholds
 
     response = {'data': data}
     return JsonResponse(response, status=status.HTTP_200_OK)    
@@ -7639,11 +7661,40 @@ def get_station_variable_day_data_inventory(request):
             status=400
         )
 
+<<<<<<< HEAD
     # cast to int
     year = int(year)
     month = int(month)
     station_id = int(station_id)
     variable_id = int(variable_id)
+=======
+    query = """
+         WITH data AS (
+             SELECT EXTRACT('DAY' FROM station_data.datetime) AS day
+                   ,EXTRACT('DOW' FROM station_data.datetime) AS dow
+                   ,TRUNC(station_data.record_count_percentage::numeric, 2) as percentage
+                   ,station_data.record_count
+                   ,station_data.ideal_record_count
+                   ,(select COUNT(1) from raw_data rd where rd.station_id = station_data.station_id and rd.variable_id = station_data.variable_id and rd.datetime between station_data.datetime  and station_data.datetime + '1 DAY'::interval and coalesce(rd.manual_flag, rd.quality_flag) in (1, 4)) qc_passed_amount
+                   ,(select COUNT(1) from raw_data rd where rd.station_id = station_data.station_id and rd.variable_id = station_data.variable_id and rd.datetime between station_data.datetime  and station_data.datetime + '1 DAY'::interval) qc_amount
+            FROM wx_stationdataminimuminterval AS station_data
+            WHERE EXTRACT('YEAR' from station_data.datetime) = %(year)s
+              AND EXTRACT('MONTH' from station_data.datetime) = %(month)s 
+              AND station_data.station_id = %(station_id)s
+              AND station_data.variable_id = %(variable_id)s
+            ORDER BY station_data.datetime)
+         SELECT available_days.custom_day
+               ,data.dow
+               ,COALESCE(data.percentage, 0) AS percentage
+               ,COALESCE(data.record_count, 0) AS record_count
+               ,COALESCE(data.ideal_record_count, 0) AS ideal_record_count
+               ,case when data.qc_amount = 0 then 0 
+                     else TRUNC((data.qc_passed_amount / data.qc_amount::numeric) * 100, 2) end as qc_passed_percentage
+         FROM (SELECT custom_day FROM unnest( ARRAY[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] ) AS custom_day) AS available_days
+         LEFT JOIN data ON data.day = available_days.custom_day
+         
+    """
+>>>>>>> dev_test
 
     try:
         # kick off async task
@@ -8616,6 +8667,7 @@ def synop_delete(request):
 
         conn.commit()
 
+<<<<<<< HEAD
     return Response([], status=status.HTTP_200_OK)
 
 
@@ -9992,3 +10044,1551 @@ class DownloadSpatialFilesView(View):
         response = FileResponse(open(path, "rb"), as_attachment=True, filename=filename)
         response["Last-Modified"] = http_date(os.path.getmtime(path))
         return response
+=======
+    return Response(result, status=status.HTTP_200_OK)
+
+
+def calculate_agromet_summary_df_statistics(df: pd.DataFrame) -> list:
+    """
+    Calculates summary statistics (min, max, average, and standard deviation) for numeric columns
+    in the input DataFrame, grouped by 'station' and 'variable_id'. The results are appended to
+    the original DataFrame as new rows.
+
+    Args:
+        df (pd.DataFrame): Input DataFrame containing the following columns:
+                           - 'station': Identifier for the station.
+                           - 'variable_id': Identifier for the variable.
+                           - 'month': Month of the observation (optional).
+                           - 'year': Year of the observation.
+                           - Other columns: Numeric variables (e.g., temperature, humidity).
+
+    Returns:
+        list: A list of dictionaries, where each dictionary represents a row in the resulting DataFrame.
+              The rows include the original data as well as new rows for the calculated statistics.
+              Each dictionary has keys corresponding to the DataFrame columns, with additional rows
+              for 'MIN', 'MAX', 'AVG', and 'STD' values. The calculated statistics symbols are present in the 'year' column. 
+    """
+
+    index = ['station', 'variable_id', 'month', 'year']
+    agg_cols = [col for col in df.columns if (col not in index) and not col.endswith("(%% of days)")]
+    grouped = df.groupby(['station', 'variable_id'])
+    
+    def calculate_stats(group):
+        min_values = group[agg_cols].min()
+        max_values = group[agg_cols].max()
+        avg_values = group[agg_cols].mean().round(2)
+        std_values = group[agg_cols].std().round(2)
+
+        stats_dict = {}
+        for col in agg_cols:
+            stats_dict[col] = [min_values[col], max_values[col], avg_values[col], std_values[col]]
+        
+        # Add metadata for the new rows
+        stats_dict['station'] = group.name[0]  # Station name from the group key
+        stats_dict['variable_id'] = group.name[1]  # Variable ID from the group key
+        stats_dict['year'] = ['MIN', 'MAX', 'AVG', 'STD']  # Labels for the new rows
+        
+        new_rows = pd.DataFrame(stats_dict)
+        
+        # Append the new rows to the original group
+        return pd.concat([group, new_rows], ignore_index=True)
+    
+    # Apply the helper function to each group and combine the results
+    result_df = grouped.apply(calculate_stats).reset_index(drop=True)
+    result_df = result_df.fillna('')
+    data = result_df.to_dict(orient='records')
+
+    return data
+
+
+def get_agromet_summary_df_min_max(df: pd.DataFrame) -> dict:
+    """
+    Generates a summary dictionary containing the minimum and maximum values for each variable
+    at each station, along with the corresponding time periods (month/year or year).
+
+    Args:
+        df (pd.DataFrame): Input DataFrame containing the following columns:
+                            - 'station': Identifier for the station.
+                            - 'variable_id': Identifier for the variable.
+                            - 'month' (optional): Month of the observation.
+                            - 'year': Year of the observation.
+                            - Other columns: Numeric variables (e.g., temperature, humidity).
+
+    Returns:
+        dict: A nested dictionary with the following structure:
+              {
+                  "station_1": {
+                      "variable_id_1": {
+                          "variable_name_1": {
+                              "min": [{"month": X, "year": Y}, ...],  # Records for min value
+                              "max": [{"month": X, "year": Y}, ...]   # Records for max value
+                          },
+                          ...
+                      },
+                      ...
+                  },
+                  ...
+              }
+              If 'month' is not present in the input DataFrame, the "month" key is omitted.
+    """
+
+    index = ['month', 'year'] if 'month' in df.columns else ['year']
+    grouped = df.groupby(['station', 'variable_id'] + index)
+    agg_df = grouped.agg(['min', 'max']).reset_index()
+    # Flatten the MultiIndex columns
+    agg_df.columns = [f"{col[0]}_{col[1]}" if col[1] else col[0] for col in agg_df.columns]
+    
+    # Initialize the result dictionary
+    minMaxDict = {}
+    for (station, variable_id), group in agg_df.groupby(['station', 'variable_id']):
+        station = str(station)
+        variable_id = str(variable_id)
+        
+        if station not in minMaxDict:
+            minMaxDict[station] = {}
+        if variable_id not in minMaxDict[station]:
+            minMaxDict[station][variable_id] = {}
+        
+        # Iterate over each column (excluding index columns)
+        for col in df.columns:
+            if col not in ['station', 'variable_id'] + index:
+                col_min = group[f"{col}_min"].min()
+                col_max = group[f"{col}_max"].max()
+                
+                # Find records corresponding to min and max values
+                min_records = group[group[f"{col}_min"] == col_min][index].to_dict('records')
+                max_records = group[group[f"{col}_max"] == col_max][index].to_dict('records')
+                
+                # Convert numpy types to native Python types
+                def convert_types(records):
+                    for record in records:
+                        for key, value in record.items():
+                            if isinstance(value, (np.integer, np.floating)):
+                                record[key] = int(value) if isinstance(value, np.integer) else float(value)
+                    return records
+                
+                min_records = convert_types(min_records)
+                max_records = convert_types(max_records)
+                
+                minMaxDict[station][variable_id][str(col)] = {'min': min_records, 'max': max_records}
+    
+    return minMaxDict
+
+
+@api_view(['GET'])
+def get_agromet_summary_data(request):
+    try:
+        requestedData = {
+            'start_year': request.GET.get('start_year'), #
+            'end_year': request.GET.get('end_year'), #
+            'station_id': request.GET.get('station_id'), #
+            'variable_ids': request.GET.get('variable_ids'), #
+            'is_daily_data': request.GET.get('is_daily_data'),
+            'summary_type': request.GET.get('summary_type'),
+            'months': request.GET.get('months'),
+            'interval': request.GET.get('interval'),
+            'validate_data': request.GET.get('validate_data').lower() == 'true',
+            'max_hour_pct': request.GET.get('max_hour_pct'),
+            'max_day_pct': request.GET.get('max_day_pct'),
+            'max_day_gap': request.GET.get('max_day_gap'),
+        }
+    except ValueError as e:
+        logger.error(repr(e))
+        return HttpResponse(status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(repr(e))
+        return HttpResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    if requestedData['summary_type']=='Seasonal':
+        # To calculate the seasonal summary, values from January of the next year and December of the previous year are required.
+        requestedData['start_date'] = f"{int(requestedData['start_year'])-1}-12-01"
+        requestedData['end_date'] = f"{int(requestedData['end_year'])+1}-02-01"
+    elif requestedData['summary_type']=='Monthly':
+        requestedData['start_date'] = f"{int(requestedData['start_year'])}-01-01"
+        requestedData['end_date'] = f"{int(requestedData['end_year'])+1}-01-01"
+
+    timezone = pytz.timezone(settings.TIMEZONE_NAME)
+    context = {
+        'station_id': requestedData['station_id'],
+        'variable_ids': requestedData['variable_ids'],
+        'timezone': timezone,
+        'start_date': requestedData['start_date'],
+        'end_date': requestedData['end_date'],
+        'start_year': requestedData['start_year'],
+        'end_year': requestedData['end_year'],
+        'months': requestedData['months'],
+        'max_hour_pct': float(requestedData['max_hour_pct']),
+        'max_day_pct': float(requestedData['max_day_pct']),
+        'max_day_gap': float(requestedData['max_day_gap'])
+
+    }
+    env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_summaries'))
+
+    pgia_code = '8858307' # Phillip Goldson Int'l Synop
+    station = Station.objects.get(pk=requestedData['station_id'])
+    is_hourly_summary = station.is_automatic or station.code == pgia_code
+
+    if requestedData['is_daily_data'] == 'true':
+        if requestedData['summary_type'] == 'Seasonal':
+            template_name = 'seasonal_daily_valid.sql' if requestedData['validate_data'] else 'seasonal_daily_raw.sql'
+        elif requestedData['summary_type'] == 'Monthly':
+            if requestedData['interval'] == '7 days':
+                template_name = 'monthly_7d_daily_valid.sql' if requestedData['validate_data'] else 'monthly_7d_daily_raw.sql'
+            elif requestedData['interval'] == '10 days':
+                template_name = 'monthly_10d_daily_valid.sql' if requestedData['validate_data'] else 'monthly_10d_daily_raw.sql'            
+            elif requestedData['interval'] == '1 month':
+                template_name = 'monthly_1m_daily_valid.sql' if requestedData['validate_data'] else 'monthly_1m_daily_raw.sql'            
+    else:
+        if requestedData['summary_type'] == 'Seasonal':
+            template_name = 'seasonal_hourly_valid.sql' if requestedData['validate_data'] else 'seasonal_hourly_raw.sql'
+        elif requestedData['summary_type'] == 'Monthly':
+            if requestedData['interval'] == '7 days':
+                template_name = 'monthly_7d_hourly_valid.sql' if requestedData['validate_data'] else 'monthly_7d_hourly_raw.sql'
+            elif requestedData['interval'] == '10 days':
+                template_name = 'monthly_10d_hourly_valid.sql' if requestedData['validate_data'] else 'monthly_10d_hourly_raw.sql'            
+            elif requestedData['interval'] == '1 month':
+                template_name = 'monthly_1m_hourly_valid.sql' if requestedData['validate_data'] else 'monthly_1m_hourly_raw.sql'
+
+    template = env.get_template(template_name)
+    query = template.render(context)
+
+    config = settings.SURFACE_CONNECTION_STRING
+    with psycopg2.connect(config) as conn:
+        df = pd.read_sql(query, conn)
+
+    if df.empty:
+        response = []
+        return JsonResponse(response, status=status.HTTP_200_OK, safe=False)
+
+    response = {
+        'tableData': calculate_agromet_summary_df_statistics(df),
+        'minMaxData': get_agromet_summary_df_min_max(df)
+    }
+
+    return JsonResponse(response, status=status.HTTP_200_OK, safe=False)
+
+
+class AgroMetSummariesView(LoginRequiredMixin, TemplateView):
+    template_name = "wx/agromet/agromet_summaries.html"
+    agromet_variable_symbols = [
+        'TEMP',
+        'TEMPAVG',
+        'TEMPMAX',
+        'TEMPMIN',
+        'EVAPPAN',
+        'PRECIP',
+        'RH',
+        'RHAVG',
+        'RHMAX',
+        'RHMIN',
+        'TSOIL1',
+        'TSOIL4',
+        'SOLARRAD',
+        'WNDDIR',
+        'WNDSPD',
+        'WNDSPAVG',
+        'WNDSPMAX',
+        'WNDSPMIN'
+    ]  
+
+    agromet_variable_ids = Variable.objects.filter(symbol__in=agromet_variable_symbols).values_list('id', flat=True)
+              
+    def get(self, request, *args, **kwargs):
+        context = self.get_context_data(**kwargs)
+
+        context['username'] = f'{request.user.first_name} {request.user.last_name}' if request.user.first_name and request.user.last_name else request.user.username
+
+        context['station_id'] = request.GET.get('station_id', 'null')
+        context['variable_ids'] = request.GET.get('variable_ids', 'null')
+
+        station_variables = StationVariable.objects.filter(variable_id__in=self.agromet_variable_ids).values('id', 'station_id', 'variable_id')
+        station_ids = station_variables.values_list('station_id', flat=True).distinct()
+
+        context['oldest_year'] = 1900
+        context['stationvariable_list'] = list(station_variables)
+        context['variable_list'] = list(Variable.objects.filter(symbol__in=self.agromet_variable_symbols).values('id', 'name', 'symbol'))
+        context['station_list'] = list(Station.objects.filter(id__in=station_ids, is_active=True).values('id', 'name', 'code', 'is_automatic', 'latitude', 'longitude'))
+
+        return self.render_to_response(context)
+
+
+def calculate_agromet_products_df_statistics(df: pd.DataFrame) -> list:
+    """
+    Calculates summary statistics (min, max, average, and standard deviation) for numeric columns
+    in the input DataFrame, grouped by 'station' and 'variable_id'. The results are appended to
+    the original DataFrame as new rows.
+
+    Args:
+        df (pd.DataFrame): Input DataFrame containing the following columns:
+                           - 'station': Identifier for the station.
+                           - 'month': Month of the observation (optional).
+                           - 'year': Year of the observation.
+                           - Other columns: Numeric variables (e.g., temperature, humidity).
+
+    Returns:
+        list: A list of dictionaries, where each dictionary represents a row in the resulting DataFrame.
+              The rows include the original data as well as new rows for the calculated statistics.
+              Each dictionary has keys corresponding to the DataFrame columns, with additional rows
+              for 'MIN', 'MAX', 'AVG', and 'STD' values. The calculated statistics symbols are present in the 'year' column. 
+    """
+
+    index = ['station', 'product', 'month', 'year']
+    agg_cols = [col for col in df.columns if (col not in index) and not col.endswith("(% of days)")]
+    # df[agg_cols] = df[agg_cols].apply(pd.to_numeric, errors='coerce')
+    # print(agg_cols)
+    # agg_cols = df[agg_cols].select_dtypes(include=['number']).columns.tolist()
+    # print(agg_cols)
+
+    grouped = df.groupby(['station', 'product'])
+    
+    def calculate_stats(group):
+        # Convert columns to numeric once and calculate the statistics
+        numeric_group = group[agg_cols].apply(pd.to_numeric, errors='coerce')
+
+        min_values = numeric_group.min()
+        max_values = numeric_group.max()
+        avg_values = numeric_group.mean().round(2)
+        std_values = numeric_group.std().round(2)
+
+        stats_dict = {}
+        for col in agg_cols:
+            stats_dict[col] = [min_values[col], max_values[col], avg_values[col], std_values[col]]
+        
+        # Add metadata for the new rows
+        stats_dict['station'] = group.name[0]  # Station name from the group key
+        stats_dict['product'] = group.name[1]  # Variable symbol from the group key
+        stats_dict['year'] = ['MIN', 'MAX', 'AVG', 'STD']  # Labels for the new rows
+        
+        
+        new_rows = pd.DataFrame(stats_dict)
+        
+        # Append the new rows to the original group
+        return pd.concat([group, new_rows], ignore_index=True)
+    
+    # Apply the helper function to each group and combine the results
+    result_df = grouped.apply(calculate_stats).reset_index(drop=True)
+    result_df = result_df.fillna('')
+    data = result_df.to_dict(orient='records')
+
+    return data
+
+
+def get_agromet_products_df_min_max(df: pd.DataFrame) -> dict:
+    """
+    Generates a summary dictionary containing the minimum and maximum values for each variable
+    at each station, along with the corresponding time periods (month/year or year).
+
+    Args:
+        df (pd.DataFrame): Input DataFrame containing the following columns:
+                            - 'station': Identifier for the station.
+                            - 'month' (optional): Month of the observation.
+                            - 'year': Year of the observation.
+                            - Other columns: Numeric variables (e.g., temperature, humidity).
+
+    Returns:
+        dict: A nested dictionary with the following structure:
+              {
+                  "station_1": {
+                      "variable_id_1": {
+                          "variable_name_1": {
+                              "min": [{month: X, year: Y}, ...],  # Records for min value
+                              "max": [{month: X, year: Y}, ...]   # Records for max value
+                          },
+                          ...
+                      },
+                      ...
+                  },
+                  ...
+              }
+              If 'month' is not present in the input DataFrame, the "month" key is omitted.
+    """
+
+    index = ['month', 'year'] if 'month' in df.columns else ['year']
+    grouped = df.groupby(['station', 'product'] + index)
+    agg_df = grouped.agg(['min', 'max']).reset_index()
+    # Flatten the MultiIndex columns
+    agg_df.columns = [f"{col[0]}_{col[1]}" if col[1] else col[0] for col in agg_df.columns]
+    
+    # Initialize the result dictionary
+    minMaxDict = {}
+    for (station, product), group in agg_df.groupby(['station', 'product']):
+        station = str(station)
+        product = str(product)
+        
+        if station not in minMaxDict: 
+            minMaxDict[station] = {}
+        if product not in minMaxDict[station]: 
+            minMaxDict[station][product] = {}
+        
+        # Iterate over each column (excluding index columns)
+        for col in df.columns:
+            if col not in ['station', 'product'] + index:
+                col_min = group[f"{col}_min"].min()
+                col_max = group[f"{col}_max"].max()
+                
+                # Find records corresponding to min and max values
+                min_records = group[group[f"{col}_min"] == col_min][index].to_dict('records')
+                max_records = group[group[f"{col}_max"] == col_max][index].to_dict('records')
+                
+                # Convert numpy types to native Python types
+                def convert_types(records):
+                    for record in records:
+                        for key, value in record.items():
+                            if isinstance(value, (np.integer, np.floating)):
+                                record[key] = int(value) if isinstance(value, np.integer) else float(value)
+                    return records
+                
+                min_records = convert_types(min_records)
+                max_records = convert_types(max_records)
+                
+                minMaxDict[station][product][str(col)] = {'min': min_records, 'max': max_records}
+    
+    return minMaxDict
+
+
+def get_agromet_products_sql_context(requestedData: dict, env: Environment) -> dict:
+    pgia_code = '8858307' # Phillip Goldson Int'l Synop
+    station = Station.objects.get(pk=requestedData['station_id'])
+
+    is_hourly_station = station.is_automatic or station.code==pgia_code
+
+    element = requestedData['element']
+    product = requestedData['product']
+
+    aggregation_months_dict = {
+        'JFM': '1,2,3', 
+        'FMA': '2,3,4', 
+        'MAM': '3,4,5', 
+        'AMJ': '4,5,6', 
+        'MJJ': '5,6,7', 
+        'JJA': '6,7,8', 
+        'JAS': '7,8,9', 
+        'ASO': '8,9,10', 
+        'SON': '9,10,11', 
+        'OND': '10,11,12', 
+        'NDJ': '11,12,1', 
+        'DRY': '0,1,2,3,4,5', 
+        'WET': '6,7,8,9,10,11', 
+        'ANNUAL': '1,2,3,4,5,6,7,8,9,10,11,12', 
+        'DJFM': '0,1,2,3' 
+    }
+
+    station = Station.objects.get(pk=requestedData['station_id'])
+
+    timezone = pytz.timezone(settings.TIMEZONE_NAME)
+    context = {
+        'station_id': requestedData['station_id'],
+        'timezone': timezone,
+        'start_date': requestedData['start_date'],
+        'end_date': requestedData['end_date'],
+        'start_year': requestedData['start_year'],
+        'end_year': requestedData['end_year'],
+        'months': requestedData['months'],
+        'max_hour_pct': float(requestedData['max_hour_pct']),
+        'max_day_pct': float(requestedData['max_day_pct']),
+        'max_day_gap': float(requestedData['max_day_gap'])
+    }
+
+    if product == 'Heat wave':
+        if is_hourly_station:
+            prev_template = env.get_template('percentile_automatic.sql')
+        else:
+            prev_template = env.get_template('percentile_manual.sql')
+
+        prev_context = {
+            'station_id': requestedData['station_id'],
+            'percentile': requestedData['numeric_param_1']
+        }
+        prev_query = prev_template.render(prev_context)
+
+        config = settings.SURFACE_CONNECTION_STRING
+        with psycopg2.connect(config) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(prev_query)
+                result = cursor.fetchone()
+                context['threshold'] = result[0] if (result and result[0] is not None) else 0
+    elif product == 'Wind rose':
+        aggregation = requestedData['aggregation']
+        if aggregation:
+            context['aggregation_months'] = aggregation_months_dict[aggregation]
+        else:
+            context['months'] = requestedData['months']
+    elif product == 'Evapotranspiration':
+        latitude = station.latitude
+        aggregation = requestedData['aggregation']
+        context['aggregation_months'] = aggregation_months_dict[aggregation]        
+        context['latitude'] = latitude
+        context['alpha'] = 0.0023 # FAO56 default coeficient value
+        context['beta'] = 0.5 # FAO56 default coeficient value
+
+    context_mapping = {
+        'Air Temperature': {
+            'Growing Degree Days': {'base_temp': 'numeric_param_1'},
+            'Number of days above and below specified temperature': {'threshold': 'numeric_param_1'},
+            'Heat wave': {'heat_wave_window': 'numeric_param_2'},
+            'Growing season statistics': {'base_temp': 'numeric_param_1'}
+        },
+        'Rainfall': {
+            'Number of days with specified rainfall': {'threshold': 'numeric_param_1'}
+        },
+        'Wind': {   
+            'Number of hours with wind speed below specified value': {'threshold': 'numeric_param_1'}
+        },
+        'Relative Humidity': {
+            'Sequence of days above specified humidity': {'threshold': 'numeric_param_1'},
+            'Sequence of hours above specified humidity': {'threshold': 'numeric_param_1'}
+        },
+        'Soil Temperature': {
+            'First and Last dates above specified specified temperature': {'threshold': 'numeric_param_1'}
+        },  
+        'Soil Moisture': {
+            'Leaf area index': {'base_temp': 'numeric_param_1'}
+        }
+    }
+
+    if element in context_mapping.keys():
+        if product in context_mapping[element].keys():
+            append_context = context_mapping[element][product]
+            for key in append_context.keys():
+                context[key] = requestedData[append_context[key]]
+
+    return context
+
+
+def get_agromet_products_sql_env(requestedData: dict):
+    products_dir = {
+        'Air Temperature': {
+            'Growing Degree Days': 'air_temp/growing_degree_days',
+            'Maximum and minimum statistics': 'air_temp/max_min_stats',
+            'Number of days above and below specified temperature': 'air_temp/threshold_days_temp',
+            'Growing season statistics': 'air_temp/growing_season_stats',
+            'Heat wave': 'air_temp/heat_wave',
+        },
+        'Rainfall': {
+            'Number of days with specified rainfall': 'rainfall/threshold_days_rain',
+            'Drought indices': 'rainfall/drought_indices',
+            'Flood and excess rainfall': 'rainfall/flood_and_excess_rain',
+        },
+        'Wind': {
+            'Wind rose': 'wind/wind_rose',
+            'Maximum and average wind speed': 'wind/max_avg_wind_speed',
+            'Diurnal variation of wind speed': 'wind/diurnal_var_wind_speed',
+            'Number of hours with wind speed below specified value': 'wind/threshold_hours_wind_speed',
+        },
+        'Radiation and Sunshine': {
+            'Net radiation': 'radiation/net_radiation',
+            'Solar radiation': 'radiation/solar_radiation',
+            'Sunshine hours': 'radiation/sunshine_hours',
+        },
+        'Relative Humidity': {
+            'Sequence of days above specified humidity': 'relative_humidity/seq_threshold_days',
+            'Sequence of hours above specified humidity': 'relative_humidity/seq_threshold_hours',
+        },
+        'Evaporation and Evapotranspiration': {
+            'Accumulative Evaporation': 'evaporation/sum_evapo',
+            'Diurnal variation of evaporation': 'evaporation/diurnal_var_evapo',
+            'Evapotranspiration': 'evaporation/evapotranspiration',
+        },
+        'Soil Temperature': {
+            'Mean and standard deviation soil temperature': 'soil_temp/mean_stdv_soil_temp',
+            'First and Last dates above specified specified temperature': 'soil_temp/threshold_dates_soil_temp',
+        },
+        'Soil Moisture': {
+            'Soil Moisture at regular depths': 'soil_moisture/soil_moisture',
+            'Leaf area index': 'soil_moisture/leaf_area_index',
+        },
+    }
+
+    base_path = '/surface/wx/sql/agromet/agromet_products'
+    sub_path = products_dir[requestedData["element"]][requestedData["product"]]
+    env_path = os.path.join(base_path,sub_path)
+    return Environment(loader=FileSystemLoader(env_path))
+    
+
+@api_view(["GET"])
+def get_agromet_products_data(request):
+    ## Load Agromet Products Functions
+    with open('/surface/wx/sql/agromet/agromet_products/agromet_products_functions.sql', 'r') as f:
+        query = f.read()
+
+    config = settings.SURFACE_CONNECTION_STRING
+    with psycopg2.connect(config) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(query)
+            conn.commit()
+
+    try:
+        requestedData = {
+            'start_year': request.GET.get('start_year'),
+            'end_year': request.GET.get('end_year'),
+            'station_id': request.GET.get('station_id'),
+            'element': request.GET.get('element'),
+            'product': request.GET.get('product'),
+            'numeric_param_1': request.GET.get('numeric_param_1'),
+            'numeric_param_2': request.GET.get('numeric_param_2'),
+            'aggregation': request.GET.get('aggregation'),
+            'summary_type': request.GET.get('summary_type'),
+            'months': request.GET.get('months'),
+            'interval': request.GET.get('interval'),
+            'validate_data': request.GET.get('validate_data').lower() == 'true',
+            'max_hour_pct': request.GET.get('max_hour_pct'),
+            'max_day_pct': request.GET.get('max_day_pct'),
+            'max_day_gap': request.GET.get('max_day_gap'),
+        }
+
+    except ValueError as e:
+        logger.error(repr(e))
+        return HttpResponse(status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(repr(e))
+        return HttpResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # To calculate the seasonal summary, values from January of the next year and December of the previous year are required.
+    requestedData['start_date'] = f"{int(requestedData['start_year'])-1}-12-01"
+    requestedData['end_date'] = f"{int(requestedData['end_year'])+1}-02-01"
+ 
+    config = settings.SURFACE_CONNECTION_STRING
+
+    if not requestedData['validate_data']:
+        requestedData['max_hour_pct']=100
+        requestedData['max_day_pct']=100
+        requestedData['max_day_gap']=9999
+
+    env = get_agromet_products_sql_env(requestedData)
+    context = get_agromet_products_sql_context(requestedData, env)
+
+    pgia_code = '8858307' # Phillip Goldson Int'l Synop
+    station = Station.objects.get(pk=requestedData['station_id'])
+
+    is_hourly_station = station.is_automatic or station.code==pgia_code
+
+    if requestedData['summary_type']=='Monthly':
+        if is_hourly_station:
+            template_name = 'monthly_hourly_valid.sql'
+        else:
+            template_name = 'monthly_daily_valid.sql'        
+    else:
+        if is_hourly_station:
+            template_name = 'seasonal_hourly_valid.sql'
+        else:
+            template_name = 'seasonal_daily_valid.sql'
+
+
+    template = env.get_template(template_name)
+    query = template.render(context)
+
+    logger.debug("Agromet Products Query: %s", query)
+
+    config = settings.SURFACE_CONNECTION_STRING
+    with psycopg2.connect(config) as conn:
+        df = pd.read_sql(query, conn)
+
+    if df.empty:
+        response = []
+        return JsonResponse(response, status=status.HTTP_200_OK, safe=False)
+
+    products_without_statistics = [
+        'Wind rose',
+        'Evapotranspiration',
+        'Drought indices',
+        'Growing season statistics',
+        'First and Last dates above specified specified temperature'
+    ]
+    
+    if requestedData['product'] in products_without_statistics:
+        tableData = df.fillna('').to_dict('records')
+        minMaxData = {station.name: {}}
+    else:
+        tableData =  calculate_agromet_products_df_statistics(df)
+        # minMaxData =  get_agromet_products_df_min_max(df)
+        minMaxData = {station.name: {}}
+
+    filtered_context = {key: value for key, value in context.items() if key not in ['timezone']}
+
+    response = {
+        'tableData': tableData,
+        'context': filtered_context,
+        'minMaxData': minMaxData
+    }
+
+    return JsonResponse(response, status=status.HTTP_200_OK, safe=False)            
+
+
+class AgroMetProductsView(LoginRequiredMixin, TemplateView):
+    template_name = "wx/agromet/agromet_products.html"
+    agromet_variable_symbols = [
+        'TEMP',
+        'TEMPAVG',
+        'TEMPMAX',
+        'TEMPMIN',
+        'EVAPPAN',
+        'PRECIP',
+        'RH',
+        'RHAVG',
+        'RHMAX',
+        'RHMIN',
+        'TSOIL1',
+        'TSOIL4',
+        'SOLARRAD',
+        'WNDDIR',
+        'WNDSPD',
+        'WNDSPAVG',
+        'WNDSPMAX',
+        'WNDSPMIN'
+    ]  
+
+    agromet_variable_ids = Variable.objects.filter(symbol__in=agromet_variable_symbols).values_list('id', flat=True)
+              
+    def get(self, request, *args, **kwargs):
+        context = self.get_context_data(**kwargs)
+
+        context['username'] = f'{request.user.first_name} {request.user.last_name}' if request.user.first_name and request.user.last_name else request.user.username
+
+        context['station_id'] = request.GET.get('station_id', 'null')
+        context['variable_ids'] = request.GET.get('variable_ids', 'null')
+
+        station_variables = StationVariable.objects.filter(variable_id__in=self.agromet_variable_ids).values('id', 'station_id', 'variable_id')
+        station_ids = station_variables.values_list('station_id', flat=True).distinct()
+
+        context['oldest_year'] = 1900
+        context['stationvariable_list'] = list(station_variables)
+        context['variable_list'] = list(Variable.objects.filter(symbol__in=self.agromet_variable_symbols).values('id', 'name', 'symbol'))
+        context['station_list'] = list(Station.objects.filter(id__in=station_ids, is_active=True).values('id', 'name', 'code', 'is_automatic', 'latitude', 'longitude'))
+
+        return self.render_to_response(context)
+
+
+class CropViewSet(viewsets.ModelViewSet):
+    permission_classes = (IsAuthenticated,)
+    queryset = Crop.objects.all()
+    
+    serializer_class = serializers.CropSerializer
+
+
+class AquacropModelRunView(views.APIView):
+    permission_classes = (IsAuthenticated,)
+
+    FORECAST_DAYS = 16
+
+    def post(self, request):
+        try:
+            json_data = json.loads(request.body)
+
+            model_params = self._get_model_params(json_data)
+            schedule_df = self._get_irrigation_history(json_data)
+            # schedule_df = schedule_df[schedule_df['Date' >= model_params['plantingDatetime'].strftime('%Y/%m/%d')]]
+
+            is_historical_simulation = model_params['startDatetimeForecast'] is None
+
+            history_df = self._get_weather_history(
+                station_id=json_data['stationId'],
+                start_date_history=model_params['startDatetimeHistory'].strftime('%Y/%m/%d'),
+                end_date_history=model_params['endDatetimeHistory'].strftime('%Y/%m/%d'),
+                data_type='last_filled'
+            )
+
+            if not is_historical_simulation:
+                forecast_df = self._get_weather_forecast(
+                    station_id=json_data['stationId'],
+                    start_date_forecast=model_params['startDatetimeForecast'].strftime('%Y/%m/%d'),
+                    end_date_forecast=model_params['endDatetimeForecast'].strftime('%Y/%m/%d'),
+                    data_type='last_filled'
+                )
+
+                weather_df = pd.concat([history_df, forecast_df])
+
+                # Extend weather_df to harvesting date because AquaCrop can't handle some cases
+                date_range = pd.date_range(weather_df['Date'].max() + pd.Timedelta(days=1), model_params['harvestDate'])
+                extended_df = pd.DataFrame(date_range, columns=['Date'])
+                weather_df = pd.concat([weather_df, extended_df], ignore_index=True).ffill()
+
+            else:
+                weather_df = history_df
+
+            if is_historical_simulation:
+                model_history_df_1, output_1 = self._simulation_historical(json_data, model_params, weather_df, schedule_df)
+                response = {
+                    'history': model_history_df_1.to_dict('list'),
+                    'strategies':[{
+                        'id': 1,
+                        'name': 'Historical Simulation',
+                        'output': output_1
+                    }]
+                }
+            else:
+                model_history_df_1, output_1 = self._simulation_strategy_1(json_data, model_params, weather_df, schedule_df)
+                model_history_df_2, output_2 = self._simulation_strategy_2(json_data, model_params, weather_df, schedule_df)
+                model_history_df_3, output_3 = self._simulation_strategy_3(json_data, model_params, weather_df, schedule_df)
+
+                response = {
+                    'history': model_history_df_1.to_dict('list'),
+                    'strategies':[{
+                        'id': 1,
+                        'name': 'Rainfed',
+                        'output': output_1
+                    },{
+                        'id': 2,
+                        'name': f"Irrigate {json_data['irrStratFixedAmount']} mm/day",
+                        'output': output_2
+                    },{
+                        'id': 3,
+                        'name': f"Irrigate {json_data['irrStratWCAmount']} mm/day if water content is below {json_data['irrStratWCPct']}%",
+                        'output': output_3
+                    }]
+                }
+
+
+            return JsonResponse(response, status=status.HTTP_200_OK)
+            
+        except json.JSONDecodeError:
+            return Response({'error': 'Invalid JSON format'}, status=status.HTTP_400_BAD_REQUEST)
+
+    def _get_weather_history(self, station_id: int, start_date_history: str, end_date_history: str, data_type: str):
+        env_path= '/surface/wx/sql/agromet/agromet_irrigation/aquacrop_data'
+        env = Environment(loader=FileSystemLoader(env_path))
+
+        context = {
+            'station_id': station_id,
+            'sim_start_date': start_date_history,
+            'sim_end_date': end_date_history
+        }
+
+        pgia_code = '8858307' # Phillip Goldson Int'l Synop
+        station = Station.objects.get(id=station_id)
+        referenec_et_method = 'Penman-Monteith' if station.is_automatic or station.code==pgia_code else 'Hargreaves'
+        
+        if referenec_et_method == 'Penman-Monteith':
+            if data_type == 'last_filled':
+                template_name = 'penman_lastfilled.sql'
+            else:
+                template_name = 'penman_original.sql'
+        else:
+            template_name = 'aquacrop_data_hargreaves.sql'
+            if data_type == 'last_filled':
+                template_name = 'hargreaves_lastfilled.sql'
+            else:
+                template_name = 'hargreaves_original.sql'            
+            
+        template = env.get_template(template_name)
+        query = template.render(context)
+
+        config = settings.SURFACE_CONNECTION_STRING
+        with psycopg2.connect(config) as conn:
+            df = pd.read_sql(query, conn)
+
+        if df.empty:
+            return pd.DataFrame()
+
+        return df
+
+    def _get_weather_forecast(self, station_id: int, start_date_forecast: str, end_date_forecast: str, data_type: str):
+        # response = requests.get(f"https://storage.googleapis.com/surfaceforecast/forecast_station_{station_id}.json")
+        # response.raise_for_status()
+
+        # forecast_data = response.json()
+
+        station = Station.objects.get(id=station_id)
+        latitude = station.latitude
+        longitude = station.longitude
+
+        forecast_list = []
+        OPENMETEO_URL = "https://api.open-meteo.com/v1/forecast"
+        variables = "temperature_2m_max,temperature_2m_min,precipitation_sum,et0_fao_evapotranspiration"
+        timezone = "America%2FChicago" # GMT-6 same as Belize
+
+        url = f"{OPENMETEO_URL}?latitude={latitude}&longitude={longitude}&daily={variables}&timezone={timezone}&forecast_days={self.FORECAST_DAYS}"
+        forecast_response = requests.get(url, timeout=20)
+        forecast_data = forecast_response.json()
+
+        # forecast_df = pd.DataFrame(forecast_data['forecast']['daily'])
+        forecast_df = pd.DataFrame(forecast_data['daily'])
+        forecast_df = forecast_df.rename(columns={
+            'time': 'Date',
+            'temperature_2m_max': 'MaxTemp',
+            'temperature_2m_min': 'MinTemp',
+            'precipitation_sum': 'Precipitation',
+            'et0_fao_evapotranspiration': 'ReferenceET'
+        })
+        forecast_df['Date'] = pd.to_datetime(forecast_df['Date'])
+        columns_order = ['Date', 'MinTemp', 'MaxTemp', 'Precipitation', 'ReferenceET']  
+        forecast_df = forecast_df[columns_order]
+
+        forecast_df = forecast_df[
+            (forecast_df['Date'] >= pd.to_datetime(start_date_forecast)) &
+            (forecast_df['Date'] <= pd.to_datetime(end_date_forecast))
+        ]
+
+        return forecast_df
+
+    def _get_irrigation_history(self, json_data):
+        # To do: Replace with real data from Supabase
+        # Dummy data for testing
+
+        supabase_url = os.getenv('SUPABASE_URL')
+        supabase_key = os.getenv('SUPABASE_ANON_KEY')
+
+        supabase: Client = create_client(supabase_url, supabase_key)        
+
+        response = supabase.table('irrigations')\
+            .select('*')\
+            .eq('crop_id', json_data['simulationScenarioId'])\
+            .execute()
+
+        if len(response.data) > 0:
+            irrigation_schedule = response.data
+        else:
+            irrigation_schedule = []      
+
+        # irrigation_schedule = [{
+        #     'id': None,
+        #     'simulation_scenario_id': '498c24b6-19f1-4878-b99a-f1c4b539ed90',
+        #     'first_date': '2010-01-01',
+        #     'last_date': '2010-02-01',
+        #     'amount': '2',
+        # },{
+        #     'id': None,
+        #     'simulation_scenario_id': '498c24b6-19f1-4878-b99a-f1c4b539ed90',
+        #     'first_date': '2010-02-02',
+        #     'last_date': '2010-03-31',
+        #     'amount': '1',
+        # }]
+        
+        # irrigation_schedule = [{
+        #     'id': None,
+        #     'simulation_scenario_id': '498c24b6-19f1-4878-b99a-f1c4b539ed90',
+        #     'first_date': '2010-01-01',
+        #     'last_date': '2010-04-04',
+        #     'amount': '5',
+        # }]
+
+        if len(irrigation_schedule) > 0:
+            schedule_dfs = []
+            for entry in irrigation_schedule:
+                all_days = pd.date_range(entry['start_date'], entry['end_date'])
+                depths = [entry['amount']] * len(all_days)
+                entry_df = pd.DataFrame({'Date': all_days,'Depth': depths})
+                schedule_dfs.append(entry_df)
+
+            schedule_df = pd.concat(schedule_dfs, ignore_index=True)
+        else:
+            schedule_df =  pd.DataFrame(columns=['Date', 'Depth'])
+
+        return schedule_df
+
+    def _prepare_output(self, model, model_params, additional_df, is_historical_simulation):
+        # output_df = pd.concat([
+        #     model.weather_df.reset_index(drop=True),
+        #     model._outputs.water_storage,
+        #     model._outputs.water_flux,
+        #     model._outputs.crop_growth
+        # ], axis=1)
+
+        model_output_cols = {
+            'water_storage': ['time_step_counter', 'growing_season', 'dap', 'th1', 'th2', 'th3', 'th4', 'th5', 'th6', 'th7', 'th8', 'th9', 'th10', 'th11', 'th12'],
+            'water_flux': ['time_step_counter', 'season_counter', 'dap', 'Wr', 'z_gw', 'surface_storage', 'IrrDay', 'Infl', 'Runoff', 'DeepPerc', 'CR', 'GwIn', 'Es', 'EsPot', 'Tr', 'TrPot'],
+            'crop_growth': ['time_step_counter', 'season_counter', 'dap', 'gdd', 'gdd_cum', 'z_root', 'canopy_cover', 'canopy_cover_ns', 'biomass', 'biomass_ns', 'harvest_index', 'harvest_index_adj', 'DryYield', 'FreshYield', 'YieldPot']
+        }
+
+        output_df = pd.concat([
+            model.weather_df.reset_index(drop=True),
+            pd.DataFrame(model._outputs.water_storage, columns=model_output_cols['water_storage']),
+            pd.DataFrame(model._outputs.water_flux, columns=model_output_cols['water_flux']),
+            pd.DataFrame(model._outputs.crop_growth, columns=model_output_cols['crop_growth'])
+        ], axis=1)
+
+        output_df = output_df[output_df['Date'] <= model_params['simEndDate']]
+        output_df.loc[:, 'Date'] = output_df['Date'].dt.strftime('%Y-%m-%d')
+
+        output_df = output_df.loc[:, ~output_df.columns.duplicated()]
+        output_df = output_df.round(2)
+
+
+        # Drop last simulation day as AquacropOSPy does not output last day metrics
+        output_df = output_df.iloc[:-1]
+
+        output_df = output_df.drop(columns='z_gw') # This column has NaN values
+
+        # For some reason AquacropOSPy os calculating Yield as HI * Biomass/100 and not 1000
+        # so we need to convert the biomass to t/ha dividing by 100. Furthe investigation is needed
+        output_df['biomass'] = output_df['biomass']/100
+        output_df['biomass_ns'] = output_df['biomass_ns']/100
+
+        output_df = pd.concat([output_df.reset_index(drop=True), additional_df.reset_index(drop=True)], axis=1)
+        output_df['Depletion'] = output_df['Depletion'].fillna(0)
+        output_df['TAW'] = output_df['TAW'].fillna(0)
+        output_df['WaterContent'] = output_df['WaterContent'].fillna(0)
+        output_df['WaterContentPct'] = (output_df['WaterContent'] / output_df['TAW']).replace(np.inf, np.nan).fillna(0)
+
+        # Compute statistics for growing season (after planting and before maturity)
+        output_df['gdd_nonpositive'] = ((output_df['growing_season'] == 1) & (output_df['gdd'] == 0)).astype(int)
+        output_df['gdd_positive'] = ((output_df['growing_season'] == 1) & (output_df['gdd'] > 0)).astype(int)
+        output_df['gdd_nonpositive_count'] = output_df['gdd_nonpositive'].cumsum()
+        output_df['gdd_positive_count'] = output_df['gdd_positive'].cumsum()
+
+        output_df['wc_25'] = ((output_df['growing_season'] == 1) & (output_df['WaterContentPct'] < 0.25)).astype(int)
+        output_df['wc_50'] = ((output_df['growing_season'] == 1) & (output_df['WaterContentPct'] < 0.50)).astype(int)
+        output_df['wc_75'] = ((output_df['growing_season'] == 1) & (output_df['WaterContentPct'] < 0.75)).astype(int)
+        
+        output_df['wc_25_count'] = output_df['wc_25'].cumsum()
+        output_df['wc_50_count'] = output_df['wc_50'].cumsum()
+        output_df['wc_75_count'] = output_df['wc_75'].cumsum()
+
+        output_df['growing_season_count'] = output_df['growing_season'].cumsum()
+        
+        if is_historical_simulation:
+            history_df = output_df
+
+            display_df = output_df.iloc[-self.FORECAST_DAYS:]
+            data =  display_df.to_dict('list')
+            indicators = self._compute_indicators(output_df, model_params, is_historical_simulation)
+
+        else:
+            history_df = output_df[output_df['Date'] <= model_params['endDatetimeHistory']]
+            forecast_df = output_df[output_df['Date'] > model_params['endDatetimeHistory']]
+            forecast_df = forecast_df.iloc[:-1] # Aquacrop does not output last day metrics
+
+            # history_df.loc[:, 'Date'] = history_df['Date'].dt.date
+            # forecast_df.loc[:, 'Date'] = forecast_df['Date'].dt.date
+
+            history_df.loc[:, 'Date'] = history_df['Date'].dt.strftime('%Y-%m-%d')
+            forecast_df.loc[:, 'Date'] = forecast_df['Date'].dt.strftime('%Y-%m-%d')            
+
+            data = forecast_df.to_dict('list')
+
+            indicators = self._compute_indicators(output_df, model_params)
+
+
+        return history_df, {'data': data, 'indicators': indicators}
+
+    def _simulation_strategy_1(self, json_data, model_params, weather_df, schedule_df):     
+        # Rainfed the next days
+        # Even if we are rainfeding the next days, we need to account for past irrigations
+        model = AquaCropModel(
+            sim_start_time=model_params['simStartDate'],
+            sim_end_time=model_params['harvestDate'],
+            weather_df=weather_df,
+            soil=model_params['soil'],
+            crop=model_params['crop'],
+            irrigation_management=IrrigationManagement(irrigation_method=3,Schedule=schedule_df),
+            initial_water_content=InitialWaterContent(value=['FC']),
+        )
+
+        additional_data = {'Depletion': [], 'TAW': [], 'WaterContent': []}
+        model._initialize()
+        t = datetime.datetime.strptime(model_params['simStartDate'], '%Y/%m/%d') 
+        # while model._clock_struct.model_is_finished is False:
+        while t < datetime.datetime.strptime(model_params['simEndDate'], '%Y/%m/%d') :
+            t = model._clock_struct.step_start_time
+
+            additional_data['Depletion'].append(model._init_cond.depletion)
+            additional_data['TAW'].append(model._init_cond.taw)
+            water_content = max(0, model._init_cond.taw - max(0, model._init_cond.depletion))
+            additional_data['WaterContent'].append(water_content)
+            model.run_model(initialize_model=False, num_steps=1)
+
+        additional_df = pd.DataFrame(additional_data)        
+
+        historical_data, output = self._prepare_output(model, model_params, additional_df, is_historical_simulation=False)
+        
+        return historical_data, output
+
+    def _simulation_strategy_2(self, json_data, model_params, weather_df, schedule_df):
+        # Apply constant irrigation for the forecast period
+        all_days = pd.date_range(model_params['startDatetimeForecast'], model_params['endDatetimeForecast'])
+
+        depths = [json_data['irrStratFixedAmount']] * len(all_days)
+        schedule_forecast_df = pd.DataFrame({'Date': all_days,'Depth': depths})
+
+        combined_schedules_df = pd.concat([schedule_df, schedule_forecast_df])
+
+        combined_schedules_df = combined_schedules_df[
+            (combined_schedules_df['Date'] >= model_params['plantingDatetime'].strftime('%Y/%m/%d'))
+        ]
+
+        model = AquaCropModel(
+            sim_start_time=model_params['simStartDate'],
+            sim_end_time=model_params['harvestDate'],
+            weather_df=weather_df,
+            soil=model_params['soil'],
+            crop=model_params['crop'],
+            irrigation_management=IrrigationManagement(irrigation_method=3,Schedule=combined_schedules_df),
+            initial_water_content=InitialWaterContent(value=['FC']),
+        )
+
+        additional_data = {'Depletion': [], 'TAW': [], 'WaterContent': []}
+
+        model._initialize()
+        t = datetime.datetime.strptime(model_params['simStartDate'], '%Y/%m/%d') 
+        # while model._clock_struct.model_is_finished is False:
+        while t < datetime.datetime.strptime(model_params['simEndDate'], '%Y/%m/%d') :
+            t = model._clock_struct.step_start_time
+
+            additional_data['Depletion'].append(model._init_cond.depletion)
+            additional_data['TAW'].append(model._init_cond.taw)
+            water_content = max(0, model._init_cond.taw - max(0, model._init_cond.depletion))
+            additional_data['WaterContent'].append(water_content)
+            model.run_model(initialize_model=False, num_steps=1)
+
+        additional_df = pd.DataFrame(additional_data)        
+
+        historical_data, output = self._prepare_output(model, model_params, additional_df, is_historical_simulation=False)
+        return historical_data, output
+
+    def _simulation_strategy_3(self, json_data, model_params, weather_df, schedule_df):
+        # Irrigate based on water content threshold for the forecast period
+
+        model = AquaCropModel(
+            sim_start_time=model_params['simStartDate'],
+            sim_end_time=model_params['harvestDate'],
+            weather_df=weather_df,
+            soil=model_params['soil'],
+            crop=model_params['crop'],
+            irrigation_management=IrrigationManagement(irrigation_method=3,Schedule=schedule_df),
+            initial_water_content=InitialWaterContent(value=['FC']),
+        )
+        
+        # Custom run to modify irrigation schedule on the fly
+        additional_data = {'Depletion': [], 'TAW': [], 'WaterContent': []}
+        model._initialize()
+        t = datetime.datetime.strptime(model_params['simStartDate'], '%Y/%m/%d') 
+        # while model._clock_struct.model_is_finished is False:
+        while t < datetime.datetime.strptime(model_params['simEndDate'], '%Y/%m/%d') :
+            t = model._clock_struct.step_start_time
+            
+            additional_data['Depletion'].append(model._init_cond.depletion)
+            additional_data['TAW'].append(model._init_cond.taw)
+            water_content = max(0, model._init_cond.taw - max(0, model._init_cond.depletion))
+            additional_data['WaterContent'].append(water_content)
+
+            if model._clock_struct.step_start_time > model_params['endDatetimeHistory']:
+                if (model._init_cond.taw > 0):
+                    wc_pct = 1-max(model._init_cond.depletion, 0)/model._init_cond.taw
+                    if wc_pct < json_data['irrStratWCPct']/100:
+                        model._param_struct.IrrMngt.Schedule[t]=json_data['irrStratWCAmount']
+                else:
+                    pass # No irrigation if TAW is 0
+            
+            model.run_model(initialize_model=False, num_steps=1)
+
+        additional_df = pd.DataFrame(additional_data)
+        
+        historical_data, output = self._prepare_output(model, model_params, additional_df, is_historical_simulation=False)
+
+        return historical_data, output              
+    
+    def _simulation_historical(self, json_data, model_params, weather_df, schedule_df):     
+        # Even if we are rainfeding the next days, we need to account for past irrigations
+        model = AquaCropModel(
+            sim_start_time=model_params['simStartDate'],
+            sim_end_time=model_params['simEndDate'],
+            weather_df=weather_df,
+            soil=model_params['soil'],
+            crop=model_params['crop'],
+            irrigation_management=IrrigationManagement(irrigation_method=3,Schedule=schedule_df),
+            initial_water_content=InitialWaterContent(value=['FC']),
+        )
+
+        additional_data = {'Depletion': [], 'TAW': [], 'WaterContent': []}
+        model._initialize()
+        while model._clock_struct.model_is_finished is False:
+            additional_data['Depletion'].append(model._init_cond.depletion)
+            additional_data['TAW'].append(model._init_cond.taw)
+            water_content = max(0, model._init_cond.taw - max(0, model._init_cond.depletion))
+            additional_data['WaterContent'].append(water_content)
+            model.run_model(initialize_model=False, num_steps=1)
+
+        additional_df = pd.DataFrame(additional_data)
+        historical_data, output = self._prepare_output(model, model_params, additional_df, is_historical_simulation=True)
+        
+        return historical_data, output
+    
+    def _get_simulation_datetimes(self, planting_datetime, crop):
+        # Calculate initial harvest date using the planting year
+        # # Crop maturity in calendar days +30 for latest harvest date
+        # harvest_datetime = planting_datetime+datetime.timedelta(days=crop.MaturityCD+30)
+        
+        # # Can not Irrigate after maturity
+        # harvest_datetime = planting_datetime+datetime.timedelta(days=crop.MaturityCD)
+
+        # Add 1 so that Aquacrop handle last date of simulation
+        # harvest_datetime = planting_datetime+datetime.timedelta(days=crop.MaturityCD+1)
+
+        harvest_datetime = planting_datetime+datetime.timedelta(days=min(364, crop.MaturityCD))
+
+
+        today = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        yestday = today - datetime.timedelta(days=1)
+
+        if (harvest_datetime > yestday):
+            is_historical_simulation = False
+
+            # Get forecast days
+            delta = harvest_datetime - yestday
+            forecast_days = min(self.FORECAST_DAYS, delta.days)
+
+            start_datetime_history = planting_datetime-datetime.timedelta(days=90)
+            end_datetime_history = yestday
+            
+            start_datetime_forecast = today
+            end_datetime_forecast = end_datetime_history+datetime.timedelta(days=forecast_days)
+
+        else:
+            start_datetime_history = planting_datetime-datetime.timedelta(days=90)
+            end_datetime_history = harvest_datetime
+            start_datetime_forecast = None
+            end_datetime_forecast = None
+
+        
+        return harvest_datetime, start_datetime_history, end_datetime_history, start_datetime_forecast, end_datetime_forecast
+            
+    def _get_model_params(self, json_data):
+        # To do: get simulation scenario from supabase
+        # Dummy data for testing
+        supabase_url = os.getenv('SUPABASE_URL')
+        supabase_key = os.getenv('SUPABASE_ANON_KEY')
+
+        supabase: Client = create_client(supabase_url, supabase_key)
+
+        response = supabase.table('crops')\
+            .select('*')\
+            .eq('id', json_data['simulationScenarioId'])\
+            .execute()
+
+        if len(response.data) > 0:
+            simulation_scenario = response.data[0]
+            # simulation_scenario['crop'] = 'Tomato'
+            # simulation_scenario['soil_type'] = 'LoamySand'
+            # simulation_scenario['planting_date'] = '2010-01-01'
+        else:
+            raise ValueError("No simulation scenario found with the provided ID.")
+            # pass # Handle no data found
+            # simulation_scenario = {
+            #     'id': '498c24b6-19f1-4878-b99a-f1c4b539ed90',
+            #     'property_id': '32b16e11-39b2-40e9-8828-ede8d2e24e5f',
+            #     'crop': 'Tomato',
+            #     'planting_date': '2010-02-01',
+            #     'soil_type': 'Loam',
+            #     'irrigation': 'drip',
+            #     'user_id': 'e0f6dc43-5716-4f08-ae3b-4f1e1d8a66e2',
+            #     'created_at': '2025-09-25T01:34:37.884447+00:00',
+            #     'updated_at': '2025-09-25T01:34:37.884447+00:00'
+            # }
+            # simulation_scenario['crop'] = 'Tomato'
+            # simulation_scenario['soil_type'] = 'LoamySand'
+            # simulation_scenario['planting_date'] = '2010-01-01'
+            # simulation_scenario['planting_date'] = planting_date_test.strftime("%Y-%m-%d")
+
+        crop_origin = 'default'
+        if 'cropOrigin' in json_data.keys():
+            if json_data['cropOrigin']=='custom':
+                crop_origin = 'custom'
+            else:
+                crop_origin = 'default'
+
+        planting_datetime = datetime.datetime.strptime(simulation_scenario['planting_date'], "%Y-%m-%d")
+        planting_date = simulation_scenario['planting_date'].replace('-','/')[5:]       
+
+        if crop_origin == 'default':
+            crop = AquacropCrop(c_name=simulation_scenario['crop'], planting_date=planting_date)
+        else:
+            crop = self._set_custom_crop(c_name=simulation_scenario['crop'], planting_date=planting_date)
+
+        soil = AquacropSoil(soil_type=simulation_scenario['soil_type'])
+
+        sim_datetimes = self._get_simulation_datetimes(planting_datetime, crop)
+
+        harvest_datetime = sim_datetimes[0]
+        start_datetime_history = sim_datetimes[1]
+        end_datetime_history = sim_datetimes[2]
+        start_datetime_forecast = sim_datetimes[3]
+        end_datetime_forecast = sim_datetimes[4]
+                
+        # Some crops require harvest datetime to work properly
+        crop.harvest_date = harvest_datetime.strftime("%m/%d")
+
+        is_historical_simulation = start_datetime_forecast is None
+
+        sim_start_datetime = start_datetime_history
+        if is_historical_simulation:
+            sim_end_datetime = end_datetime_history            
+        else:
+            sim_end_datetime = end_datetime_forecast
+
+        model_params = {
+            'crop': crop,
+            'soil': soil,
+            'plantingDatetime': planting_datetime,
+            'startDatetimeHistory': start_datetime_history,
+            'endDatetimeHistory': end_datetime_history,
+            'startDatetimeForecast': start_datetime_forecast,
+            'endDatetimeForecast': end_datetime_forecast,
+            'simStartDate': sim_start_datetime.strftime("%Y/%m/%d"),
+            'simEndDate': sim_end_datetime.strftime('%Y/%m/%d'),
+            'harvestDate': harvest_datetime.strftime('%Y/%m/%d'),
+        }
+
+        return model_params
+
+    def _compute_indicators(self, output_df, model_params, is_historical_simulation=False):
+        output_df['Tr_ind'] = output_df['Tr']/output_df['TrPot']
+        output_df['Es_ind'] = output_df['Es']/output_df['EsPot']
+        output_df['B_ind'] = output_df['biomass']/output_df['biomass_ns']
+        output_df['CC_ind'] = output_df['canopy_cover']/output_df['canopy_cover_ns']
+        output_df['Yield_ind'] = output_df['DryYield']/output_df['YieldPot']
+        output_df['GDD_ind'] = output_df['gdd_positive_count']/output_df['growing_season_count']
+        output_df['WC25_ind'] = 1-output_df['wc_25_count']/output_df['growing_season_count']
+        output_df['WC50_ind'] = 1-output_df['wc_50_count']/output_df['growing_season_count']
+        output_df['WC75_ind'] = 1-output_df['wc_75_count']/output_df['growing_season_count']
+
+        output_df['Tr_ind'] = round(output_df['Tr_ind'].fillna(1), 2)
+        output_df['Es_ind'] = round(output_df['Es_ind'].fillna(1), 2)
+        output_df['B_ind'] = round(output_df['B_ind'].fillna(1), 2)
+        output_df['CC_ind'] = round(output_df['CC_ind'].fillna(1), 2)
+        output_df['Yield_ind'] = round(output_df['Yield_ind'].fillna(1), 2)
+        output_df['GDD_ind'] = round(output_df['GDD_ind'].fillna(1), 2)
+        output_df['WC25_ind'] = round(output_df['WC25_ind'].fillna(1), 2)
+        output_df['WC50_ind'] = round(output_df['WC50_ind'].fillna(1), 2)
+        output_df['WC75_ind'] = round(output_df['WC75_ind'].fillna(1), 2)
+        output_df['WC_ind'] = round(output_df['WaterContentPct'].fillna(1), 2)
+        
+        indicators = {
+            'Transpiration': output_df['Tr_ind'].iloc[-2],
+            'Evaporation': output_df['Es_ind'].iloc[-2],
+            'Biomass': output_df['B_ind'].iloc[-2],
+            'Canopy cover': output_df['CC_ind'].iloc[-2],
+            'Yield': output_df['Yield_ind'].iloc[-2],
+            'GDD': output_df['GDD_ind'].iloc[-2],
+            'WC25':output_df['WC25_ind'].iloc[-2],
+            'WC50':output_df['WC50_ind'].iloc[-2],
+            'WC75':output_df['WC75_ind'].iloc[-2],
+            'WC':output_df['WC_ind'].iloc[-2],
+        }
+
+
+        return indicators
+
+    def _set_custom_crop(self, c_name, planting_date):
+        django_crop = Crop.objects.get(name=c_name)
+
+        # We need to initializeusing a crop because aquacrop has issues defining custom crops from scratch.
+        custom_crop = AquacropCrop(c_name='Tomato', planting_date=planting_date)
+
+        # Set custom parameters
+        custom_crop.CropType=django_crop.crop_type
+        custom_crop.PlantMethod=django_crop.plant_method
+        custom_crop.CalendarType=django_crop.calendar_type
+        custom_crop.SwitchGDD=1 if django_crop.switch_gdd else 0
+        custom_crop.Emergence=django_crop.emergence
+        custom_crop.EmergenceCD=django_crop.emergence_cd
+        custom_crop.MaxRooting=django_crop.max_rooting
+        custom_crop.MaxRootingCD=django_crop.max_rooting_cd
+        custom_crop.Senescence=django_crop.senescence
+        custom_crop.SenescenceCD=django_crop.senescence_cd
+        custom_crop.Maturity=django_crop.maturity
+        custom_crop.MaturityCD=django_crop.maturity_cd
+        custom_crop.HIstart=django_crop.hi_start
+        custom_crop.HIstartCD=django_crop.hi_start_cd
+        custom_crop.Flowering=django_crop.flowering
+        custom_crop.FloweringCD=django_crop.flowering_cd
+        custom_crop.YldForm=django_crop.yld_form
+        custom_crop.YldFormCD=django_crop.yld_form_cd
+        custom_crop.YldWC=django_crop.yld_wc
+        custom_crop.GDDMethod=django_crop.gdd_method
+        custom_crop.Tbase=django_crop.t_base
+        custom_crop.Tupp=django_crop.t_upp
+        custom_crop.PolHeatStress=1 if django_crop.pol_heat_stress else 0
+        custom_crop.Tmax_up=django_crop.t_max_up
+        custom_crop.Tmax_lo=django_crop.t_max_lo
+        custom_crop.PolColdStress=1 if django_crop.pol_cold_stress else 0
+        custom_crop.Tmin_up=django_crop.t_min_up
+        custom_crop.Tmin_lo=django_crop.t_min_lo
+        custom_crop.TrColdStress=1 if django_crop.tr_cold_stress else 0
+        custom_crop.GDD_up=django_crop.gdd_up
+        custom_crop.GDD_lo=django_crop.gdd_lo
+        custom_crop.Zmin=django_crop.z_min
+        custom_crop.Zmax=django_crop.z_max
+        custom_crop.fshape_r=django_crop.fshape_r
+        custom_crop.SxTopQ=django_crop.sx_top_q
+        custom_crop.SxBotQ=django_crop.sx_bot_q
+        custom_crop.SeedSize=django_crop.seed_size
+        custom_crop.PlantPop=django_crop.plant_pop
+        custom_crop.CCx=django_crop.ccx
+        custom_crop.CDC=django_crop.cdc
+        custom_crop.CDC_CD=django_crop.cdc_cd
+        custom_crop.CGC=django_crop.cgc
+        custom_crop.CGC_CD=django_crop.cgc_cd
+        custom_crop.Kcb=django_crop.kcb
+        custom_crop.fage=django_crop.fage
+        custom_crop.WP=django_crop.wp
+        custom_crop.WPy=django_crop.wpy
+        custom_crop.fsink=django_crop.fsink
+        custom_crop.HI0=django_crop.hi0
+        custom_crop.dHI_pre=django_crop.dhi_pre
+        custom_crop.a_HI=django_crop.a_hi
+        custom_crop.b_HI=django_crop.b_hi
+        custom_crop.dHI0=django_crop.dhi0
+        custom_crop.Determinant=1 if django_crop.determinant else 0
+        custom_crop.exc=django_crop.exc
+        custom_crop.p_up1 = django_crop.p_up1
+        custom_crop.p_up2 = django_crop.p_up2
+        custom_crop.p_up3 = django_crop.p_up3
+        custom_crop.p_up4 = django_crop.p_up4
+        custom_crop.p_lo1 = django_crop.p_lo1
+        custom_crop.p_lo2 = django_crop.p_lo2
+        custom_crop.p_lo3 = django_crop.p_lo3
+        custom_crop.p_lo4 = django_crop.p_lo4
+        custom_crop.fshape_w1 = django_crop.fshape_w1
+        custom_crop.fshape_w2 = django_crop.fshape_w2
+        custom_crop.fshape_w3 = django_crop.fshape_w3
+        custom_crop.fshape_w4 = django_crop.fshape_w4
+        custom_crop.fshape_b=django_crop.fshape_b
+        custom_crop.PctZmin=django_crop.pct_z_min
+        custom_crop.fshape_ex=django_crop.fshape_ex
+        custom_crop.ETadj=1 if django_crop.et_adj else 0
+        custom_crop.Aer=django_crop.aer
+        custom_crop.LagAer=django_crop.lag_aer
+        custom_crop.beta=django_crop.beta
+        custom_crop.a_Tr=django_crop.a_tr
+        custom_crop.GermThr=django_crop.germ_thr
+        custom_crop.CCmin=django_crop.cc_min
+        custom_crop.MaxFlowPct=django_crop.max_flow_pct
+        custom_crop.HIini=django_crop.hi_ini
+        custom_crop.bsted=django_crop.bsted
+        custom_crop.bface=django_crop.bface
+        # Dates
+        custom_crop.planting_date=planting_date
+
+        return custom_crop
+
+
+class AquacropAvailableDataView(views.APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        try:
+            json_data = json.loads(request.body)
+
+            # To do: get simulation scenario from supabase
+            # Dummy data for testing
+            supabase_url = os.getenv('SUPABASE_URL')
+            supabase_key = os.getenv('SUPABASE_ANON_KEY')
+
+            supabase: Client = create_client(supabase_url, supabase_key)
+
+            response = supabase.table('crops')\
+                .select('*')\
+                .eq('id', json_data['simulationScenarioId'])\
+                .execute()
+
+            if len(response.data) > 0:
+                simulation_scenario = response.data[0]
+                # simulation_scenario['crop'] = 'Tomato'
+                # simulation_scenario['soil_type'] = 'LoamySand'
+                # simulation_scenario['planting_date'] = '2010-01-01'
+            else:
+                raise ValueError("No simulation scenario found with the provided ID.")
+                # # pass # Handle no data found
+                # simulation_scenario = {
+                #     'id': '498c24b6-19f1-4878-b99a-f1c4b539ed90',
+                #     'property_id': '32b16e11-39b2-40e9-8828-ede8d2e24e5f',
+                #     'crop': 'Tomato',
+                #     'planting_date': '2010-02-01',
+                #     'soil_type': 'Loam',
+                #     'irrigation': 'drip',
+                #     'user_id': 'e0f6dc43-5716-4f08-ae3b-4f1e1d8a66e2',
+                #     'created_at': '2025-09-25T01:34:37.884447+00:00',
+                #     'updated_at': '2025-09-25T01:34:37.884447+00:00'
+                # }
+                # simulation_scenario['crop'] = 'Tomato'
+                # simulation_scenario['soil_type'] = 'LoamySand'
+                # simulation_scenario['planting_date'] = '2010-01-01'                   
+        
+            planting_datetime = datetime.datetime.strptime(simulation_scenario['planting_date'], "%Y-%m-%d")
+            planting_date = simulation_scenario['planting_date'].replace('-','/')[5:]
+
+            crop_origin = 'default'
+            if crop_origin == 'default':
+                crop = AquacropCrop(c_name=simulation_scenario['crop'], planting_date=planting_date)
+            else:
+                crop = AquacropCrop(c_name=simulation_scenario['crop'], planting_date=planting_date)
+
+            start_datetime_history, end_datetime_history = self._get_history_datetimes(planting_datetime, crop)
+
+            env_path= '/surface/wx/sql/agromet/agromet_irrigation'
+            env = Environment(loader=FileSystemLoader(env_path))
+
+            context = {
+                'station_id': json_data['stationId'],
+                'sim_start_date': start_datetime_history.strftime('%Y/%m/%d'),
+                'sim_end_date': end_datetime_history.strftime('%Y/%m/%d'),
+            }
+
+            pgia_code = '8858307' # Phillip Goldson Int'l Synop
+            station = Station.objects.get(id=json_data['stationId'])
+            referenec_et_method = 'Penman-Monteith' if station.is_automatic or station.code==pgia_code else 'Hargreaves'
+            
+            if referenec_et_method == 'Penman-Monteith':
+                template_name = 'available_data_penman.sql'
+            else:
+                template_name = 'available_data_hargreaves.sql'
+
+            template = env.get_template(template_name)
+            query = template.render(context)
+            # logger.info(query)
+
+            config = settings.SURFACE_CONNECTION_STRING
+            with psycopg2.connect(config) as conn:
+                df = pd.read_sql(query, conn)
+
+            if df.empty:
+                return Response({'error': 'No data'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+            result = df.to_dict(orient='records')[0]
+
+            if referenec_et_method == 'Penman-Monteith':
+                variables=[
+                    'MinTemp',
+                    'MaxTemp',
+                    'Precipitation',
+                    'AtmosphericPressure',
+                    'WindSpeed',
+                    'SolarRadiation',
+                    'RelativeHumidity'
+                ]
+            else:
+                variables=[
+                    'MinTemp',
+                    'MaxTemp',
+                    'Precipitation',
+                ]
+            
+            results = [{
+                    'variable': variable,
+                    'percentage': f"{round(100*result[f'{variable}Count']/result['Days'], 2)}%",
+                    'first_day': result[f'{variable}MinDay'],
+                    'last_day': result[f'{variable}MaxDay'],
+                } for variable in variables
+            ]
+
+            return JsonResponse({'data': results}, status=status.HTTP_200_OK)
+        except json.JSONDecodeError:
+            return Response({'error': 'Invalid JSON format'}, status=status.HTTP_400_BAD_REQUEST)
+
+    def _get_history_datetimes(self, planting_datetime, crop):
+        # Calculate initial harvest date using the planting year
+        # Crop maturity in calendar days +30 for latest harvest date
+        # harvest_datetime = planting_datetime+datetime.timedelta(days=crop.MaturityCD+30)
+
+        harvest_datetime = planting_datetime+datetime.timedelta(days=min(364, crop.MaturityCD))
+        start_datetime_history = planting_datetime-datetime.timedelta(days=90)
+        
+        today = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        yestday = today - datetime.timedelta(days=1)
+        if (harvest_datetime > yestday):
+            end_datetime_history = yestday
+        else:
+            end_datetime_history = harvest_datetime
+
+        return start_datetime_history, end_datetime_history
+
+>>>>>>> dev_test
