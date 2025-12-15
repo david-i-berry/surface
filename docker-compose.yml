@@ -9,6 +9,7 @@ services:
   nginx:
     image: nmsbdocker/surface-nginx:v1.0.0
     container_name: surface-nginx
+    restart: unless-stopped
     volumes:
       - ./api/static:/home/app/web/staticfiles
       - ./data:/home/app/web/data

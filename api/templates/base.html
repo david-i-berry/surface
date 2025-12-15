@@ -753,7 +753,7 @@
                 </span>
               </a>
 
-              <a id="agromet-summaries"  href="{% url 'agromet-summaries' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Monthly/Seasonal Summaries<i class="material-icons secondary-content">view_list</i></a>
+              <a id="agromet-summaries"  href="{% url 'agromet-summaries' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Monthly & Seasonal<i class="material-icons secondary-content">view_list</i></a>
               
               <a id="agromet-products"  href="{% url 'agromet-products' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Calculated Products<i class="material-icons secondary-content">calculate</i></a>
 
@@ -1031,7 +1031,6 @@
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
 
     <script src="https://code.highcharts.com/9.1.0/highcharts.js"></script>
-    <script src="https://code.highcharts.com/9.1.0/highcharts-more.js"></script>
     <script src="https://code.highcharts.com/9.1.0/modules/exporting.js"></script>
     <script src="https://code.highcharts.com/9.1.0/modules/heatmap.js"></script>
     <script src="https://code.highcharts.com/9.1.0/modules/drilldown.js"></script>
@@ -1077,81 +1076,6 @@
 
         // Select all elements with the class "hide-dropdown-icon"
         const dropdownIconItems = document.querySelectorAll('.hide-dropdown-icon');
-        const localGroups = [
-          'stations-group',
-          'maintenance-group',          
-          'data-group',
-          'agromet-group',
-          'products-group',
-          'quality-control-group',
-          'agromet-group'
-        ];
-
-        const localMenus = [
-          'stations-map',
-          'stations-list',
-          'station-metadata',
-          'stations-monitoring',
-          'daily-form',
-          'synop-capture',
-          'data-export',
-          'instrumentlogs-list',
-          'station-report',
-          'wave-data',
-          'product-compare',
-          'yearly-average',
-          'spatial-analysis',
-          'extremes-means',
-          'quality-control',
-          'variable-report',
-          'data-inventory',
-          'range-threshold',
-          'step-threshold',
-          'persist-threshold',
-          'equipement-inventory',
-          'maintenance-reports',
-          'agromet-summaries',
-          'agromet-products'
-        ]
-
-        const menuList = "{{USER_PERMISSIONS|safe}}";
-        const userIsAdmin = "{{USER_IS_ADMIN|safe}}";
-
-        localMenus.forEach(menu => {
-          if ($(`#${menu}`).length > 0) {
-            if ((menuList[menu] != null && menuList[menu].includes('read')) || userIsAdmin) {
-              document.getElementById(menu).classList.remove('hide-menu');
-            }
-          }
-        });
-
-        localGroups.forEach(group => {
-          // Test if the group have some child with class 'hide-menu'
-          // If it have none, hide the group too.
-          // If not, just leave it.
-          if ($(`#${group}`).length > 0) {
-            if($(`#${group} > div > div > ul > a.hide-menu`).length !== $(`#${group} > div > div > ul > a`).length){
-              document.getElementById(group).classList.remove('hide-menu');
-            } else {
-              // Have some menu inside. So, do nothing.
-            }
-          } else {
-            // Group do not exist
-          }
-        })
-
-        //MOBILE
-        document.getElementById('menu-toggler')
-          .addEventListener('click', function(evt) {
-            menu.classList.add('open');
-            closer.classList.add('open');
-          });
-
-        document.getElementById('menu-closer')
-          .addEventListener('click', function(evt) {
-            menu.classList.remove('open');
-            closer.classList.remove('open');
-          });
         
         // WEB
         hoverOpenSidebar = function() {
