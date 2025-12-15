@@ -10004,7 +10004,6 @@ class DownloadSpatialFilesView(View):
         response = FileResponse(open(path, "rb"), as_attachment=True, filename=filename)
         response["Last-Modified"] = http_date(os.path.getmtime(path))
         return response
-    return Response(result, status=status.HTTP_200_OK)
 
 
 def calculate_agromet_summary_df_statistics(df: pd.DataFrame) -> list:
