@@ -421,7 +421,7 @@ def GetInterpolationImage(request):
     df_climate = df_merged[["station_id", dt_query, "longitude", "latitude", value_query]]
 
     if agg != "instant":
-        df_climate = df_climate.groupby(['station_id', 'longitude', 'latitude']).agg(agg).reset_index()
+        df_climate = df_climate.groupby(['station_id', 'longitude', 'latitude'], as_index=False).agg({value_query: agg})
 
     gx, gy, img = interpolate_to_grid(
         df_climate["longitude"],
