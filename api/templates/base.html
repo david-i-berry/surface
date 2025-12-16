@@ -738,30 +738,6 @@
             </li>
             {% endif %}
 
-            <!-- agromet tab -->
-            {% if request.user.is_staff or request.user.is_superuser %}
-            <li id="agromet-group" class="hover-item nav-dropdown-toggle">
-
-              <!-- tab name -->
-              <a class="collapsible-item" style="padding: 0px 16px; position: relative;">
-                <i class="material-icons">eco</i>
-                <span class="custom-navbar-text-fade-out">Agrometeorology</span>
-                
-                <!-- new span for vert buttons, absolutely positioned to the right -->
-                <span class="hide-dropdown-icon" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%);">
-                  <i class="material-icons">more_vert</i>
-                </span>
-              </a>
-
-              <a id="agromet-summaries"  href="{% url 'agromet-summaries' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Monthly & Seasonal<i class="material-icons secondary-content">view_list</i></a>
-              
-              <a id="agromet-products"  href="{% url 'agromet-products' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Calculated Products<i class="material-icons secondary-content">calculate</i></a>
-
-              <!-- pill border at the bottom of the dropdown -->
-              <hr class="hidden-end">
-            </li>
-            {% endif %}
-
             <!-- data tab -->
             {% if 'monthly-form' in request.user_permissions or 'data-export' in request.user_permissions or 'manual-data-import' in request.user_permissions or 'synop-capture-form' in request.user_permissions or 'synop-capture' in request.user_permissions or 'data-inventory' in request.user_permissions or request.user.is_superuser %}
             <li id="data-group" class="hover-item nav-dropdown-toggle">
@@ -880,6 +856,30 @@
               {% if 'wave-data' in request.user_permissions or request.user.is_superuser%}
                 <a id="wave-data" href="{% url 'wave-data' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Wave data analysis<i class="material-icons secondary-content">water</i></a>
               {% endif %}
+
+              <!-- pill border at the bottom of the dropdown -->
+              <hr class="hidden-end">
+            </li>
+            {% endif %}
+
+            <!-- agromet tab -->
+            {% if request.user.is_staff or request.user.is_superuser %}
+            <li id="agromet-group" class="hover-item nav-dropdown-toggle">
+
+              <!-- tab name -->
+              <a class="collapsible-item" style="padding: 0px 16px; position: relative;">
+                <i class="material-icons">eco</i>
+                <span class="custom-navbar-text-fade-out">Agrometeorology</span>
+                
+                <!-- new span for vert buttons, absolutely positioned to the right -->
+                <span class="hide-dropdown-icon" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%);">
+                  <i class="material-icons">more_vert</i>
+                </span>
+              </a>
+
+              <a id="agromet-summaries"  href="{% url 'agromet-summaries' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Monthly & Seasonal<i class="material-icons secondary-content">view_list</i></a>
+              
+              <a id="agromet-products"  href="{% url 'agromet-products' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Calculated Products<i class="material-icons secondary-content">calculate</i></a>
 
               <!-- pill border at the bottom of the dropdown -->
               <hr class="hidden-end">
