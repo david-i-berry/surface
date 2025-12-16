@@ -7,18 +7,21 @@ networks:
 
 services:
   nginx:
-    image: nmsbdocker/surface-nginx:v1.0.0
+    image: nmsbdocker/surface-nginx:v1.1.1
     container_name: surface-nginx
     restart: unless-stopped
-    volumes:
-      - ./api/static:/home/app/web/staticfiles
-      - ./data:/home/app/web/data
-    env_file:
-      - api/production.env
+
     ports:
-      - 8080:80
+      - "8080:80"
+
+    volumes:
+    # setting files to read only
+      - ./api/static:/home/app/web/staticfiles:ro
+      - ./data:/home/app/web/data:ro
+
     depends_on:
       - api
+
     networks:
       - surface-net
 
