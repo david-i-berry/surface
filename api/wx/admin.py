@@ -172,6 +172,7 @@ class NoaaTransmissionTypeAdmin(admin.ModelAdmin):
 @admin.register(models.NoaaTransmissionRate)
 class NoaaTransmissionRateAdmin(admin.ModelAdmin):
     list_display = ("rate",)
+    search_fields = ("rate")
 
 
 @admin.register(models.NoaaDcp)
@@ -325,6 +326,7 @@ class StationDataFileStatusAdmin(admin.ModelAdmin):
 @admin.register(models.HourlySummaryTask)
 class HourlySummaryTaskAdmin(admin.ModelAdmin):
     list_display = ("created_at", "started_at", "finished_at", "station", "datetime")
+    search_fields = ("created_at", "started_at", "finished_at", "station", "datetime")
 
 
 @admin.register(models.DailySummaryTask)
@@ -447,26 +449,31 @@ class ElementDecoder(admin.ModelAdmin):
 @admin.register(models.VisitType)
 class VisitTypeAdmin(admin.ModelAdmin):
     list_display = ("name",)
+    search_fields = ("name")
 
 @admin.register(models.Technician)
 class TechnicianAdmin(admin.ModelAdmin):
     list_display = ("name",)
+    search_fields = ("name")
 
 
 @admin.register(models.Manufacturer)
 class ManufacturerAdmin(admin.ModelAdmin):
     list_display = ("name",)
+    search_fields = ("name",)
 
 
 @admin.register(models.FundingSource)
 class FundingSourceAdmin(admin.ModelAdmin):
     list_display = ("name",)
+    search_fields = ("name",)
 
 from simple_history.admin import SimpleHistoryAdmin
 
 @admin.register(models.EquipmentType)
 class EquipmentTypeAdmin(admin.ModelAdmin):
     list_display = ("name",)
+    search_fields = ("name",)
 
 @admin.register(models.Equipment)
 class EquipmentAdmin(SimpleHistoryAdmin):
@@ -487,6 +494,7 @@ class EquipmentAdmin(SimpleHistoryAdmin):
         return None
     
     list_display = ("equipment_type", "manufacturer", "model", "serial_number", "acquisition_date", "first_deploy_date", "last_calibration_date")
+    search_fields = ("equipment_type", "manufacturer", "model", "serial_number", "acquisition_date", "first_deploy_date", "last_calibration_date")
     history_list_display = ["changed_fields","list_changes"]
 
     def save_model(self, request, obj, form, change):
@@ -496,10 +504,12 @@ class EquipmentAdmin(SimpleHistoryAdmin):
 @admin.register(models.StationProfileEquipmentType)
 class StationProfileEquipmentTypeAdmin(admin.ModelAdmin):
     list_display = ("station_profile", "equipment_type", "equipment_type_order")
+    search_fields = ("station_profile", "equipment_type", "equipment_type_order")
 
 @admin.register(models.Crop)
 class CropAdmin(admin.ModelAdmin):
     list_display = ("name",)
+    search_fields = ("name")
 
 # @admin.register(models.Soil)
 # class SoilAdmin(admin.ModelAdmin):
