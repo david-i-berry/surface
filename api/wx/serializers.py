@@ -272,4 +272,4 @@ class CropSerializer(serializers.ModelSerializer):
     # unit_symbol = serializers.CharField(source='unit.symbol', read_only=True)
     class Meta:
         model = models.Crop
-        fields = ('name', 'crop_type', 'maturity')
+        fields = ('name', 'name_spanish', 'crop_type', 'maturity_cd')
