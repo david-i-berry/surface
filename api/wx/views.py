@@ -7710,34 +7710,13 @@ class AquacropModelRunView(views.APIView):
 
         if len(response.data) > 0:
             simulation_scenario = response.data[0]
-            # simulation_scenario['crop'] = 'Tomato'
-            # simulation_scenario['soil_type'] = 'LoamySand'
-            # simulation_scenario['planting_date'] = '2010-01-01'
         else:
             raise ValueError("No simulation scenario found with the provided ID.")
-            # pass # Handle no data found
-            # simulation_scenario = {
-            #     'id': '498c24b6-19f1-4878-b99a-f1c4b539ed90',
-            #     'property_id': '32b16e11-39b2-40e9-8828-ede8d2e24e5f',
-            #     'crop': 'Tomato',
-            #     'planting_date': '2010-02-01',
-            #     'soil_type': 'Loam',
-            #     'irrigation': 'drip',
-            #     'user_id': 'e0f6dc43-5716-4f08-ae3b-4f1e1d8a66e2',
-            #     'created_at': '2025-09-25T01:34:37.884447+00:00',
-            #     'updated_at': '2025-09-25T01:34:37.884447+00:00'
-            # }
-            # simulation_scenario['crop'] = 'Tomato'
-            # simulation_scenario['soil_type'] = 'LoamySand'
-            # simulation_scenario['planting_date'] = '2010-01-01'
-            # simulation_scenario['planting_date'] = planting_date_test.strftime("%Y-%m-%d")
-
-        crop_origin = 'default'
-        if 'cropOrigin' in json_data.keys():
-            if json_data['cropOrigin']=='custom':
-                crop_origin = 'custom'
-            else:
-                crop_origin = 'default'
+            
+        if simulation_scenario['is_custom']:
+            crop_origin = 'custom'
+        else:
+            crop_origin = 'default'
 
         planting_datetime = datetime.datetime.strptime(simulation_scenario['planting_date'], "%Y-%m-%d")
         planting_date = simulation_scenario['planting_date'].replace('-','/')[5:]       
@@ -7936,27 +7915,9 @@ class AquacropAvailableDataView(views.APIView):
 
             if len(response.data) > 0:
                 simulation_scenario = response.data[0]
-                # simulation_scenario['crop'] = 'Tomato'
-                # simulation_scenario['soil_type'] = 'LoamySand'
-                # simulation_scenario['planting_date'] = '2010-01-01'
             else:
                 raise ValueError("No simulation scenario found with the provided ID.")
-                # # pass # Handle no data found
-                # simulation_scenario = {
-                #     'id': '498c24b6-19f1-4878-b99a-f1c4b539ed90',
-                #     'property_id': '32b16e11-39b2-40e9-8828-ede8d2e24e5f',
-                #     'crop': 'Tomato',
-                #     'planting_date': '2010-02-01',
-                #     'soil_type': 'Loam',
-                #     'irrigation': 'drip',
-                #     'user_id': 'e0f6dc43-5716-4f08-ae3b-4f1e1d8a66e2',
-                #     'created_at': '2025-09-25T01:34:37.884447+00:00',
-                #     'updated_at': '2025-09-25T01:34:37.884447+00:00'
-                # }
-                # simulation_scenario['crop'] = 'Tomato'
-                # simulation_scenario['soil_type'] = 'LoamySand'
-                # simulation_scenario['planting_date'] = '2010-01-01'                   
-        
+
             planting_datetime = datetime.datetime.strptime(simulation_scenario['planting_date'], "%Y-%m-%d")
             planting_date = simulation_scenario['planting_date'].replace('-','/')[5:]
 
