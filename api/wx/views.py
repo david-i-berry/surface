@@ -6521,23 +6521,24 @@ def calculate_agromet_summary_df_statistics(df: pd.DataFrame) -> list:
     """
 
     index = ['station', 'variable_id', 'month', 'year']
-    agg_cols = [col for col in df.columns if (col not in index) and not col.endswith("(%% of days)")]
+    agg_cols = [col for col in df.columns if (col not in index) and not col.endswith("(% of days)")]
     grouped = df.groupby(['station', 'variable_id'])
     
     def calculate_stats(group):
         min_values = group[agg_cols].min()
         max_values = group[agg_cols].max()
-        avg_values = group[agg_cols].mean().round(2)
-        std_values = group[agg_cols].std().round(2)
+        avg_values = group[agg_cols].mean().round(1)
+        std_values = group[agg_cols].std().round(1)
+        sum_values = group[agg_cols].sum().round(1)
 
         stats_dict = {}
         for col in agg_cols:
-            stats_dict[col] = [min_values[col], max_values[col], avg_values[col], std_values[col]]
+            stats_dict[col] = [min_values[col], max_values[col], avg_values[col], std_values[col], sum_values[col]]
         
         # Add metadata for the new rows
         stats_dict['station'] = group.name[0]  # Station name from the group key
         stats_dict['variable_id'] = group.name[1]  # Variable ID from the group key
-        stats_dict['year'] = ['MIN', 'MAX', 'AVG', 'STD']  # Labels for the new rows
+        stats_dict['year'] = ['MIN', 'MAX', 'AVG', 'STD', 'SUM']  # Labels for the new rows
         
         new_rows = pd.DataFrame(stats_dict)
         
@@ -6735,6 +6736,7 @@ class AgroMetSummariesView(LoginRequiredMixin, TemplateView):
         'TSOIL1',
         'TSOIL4',
         'SOLARRAD',
+        'SUNSHNHR',
         'WNDDIR',
         'WNDSPD',
         'WNDSPAVG',
@@ -6798,17 +6800,18 @@ def calculate_agromet_products_df_statistics(df: pd.DataFrame) -> list:
 
         min_values = numeric_group.min()
         max_values = numeric_group.max()
-        avg_values = numeric_group.mean().round(2)
-        std_values = numeric_group.std().round(2)
+        avg_values = numeric_group.mean().round(1)
+        std_values = numeric_group.std().round(1)
+        sum_values = numeric_group.sum().round(1)
 
         stats_dict = {}
         for col in agg_cols:
-            stats_dict[col] = [min_values[col], max_values[col], avg_values[col], std_values[col]]
+            stats_dict[col] = [min_values[col], max_values[col], avg_values[col], std_values[col], sum_values[col]]
         
         # Add metadata for the new rows
         stats_dict['station'] = group.name[0]  # Station name from the group key
         stats_dict['product'] = group.name[1]  # Variable symbol from the group key
-        stats_dict['year'] = ['MIN', 'MAX', 'AVG', 'STD']  # Labels for the new rows
+        stats_dict['year'] = ['MIN', 'MAX', 'AVG', 'STD', 'SUM']  # Labels for the new rows
         
         
         new_rows = pd.DataFrame(stats_dict)
