@@ -1449,6 +1449,13 @@ class Crop(BaseModel):
         verbose_name='Name'
     )
 
+    name_spanish = models.CharField(
+        help_text='Crop Name in Spanish e.ge. "maíz"',
+        unique=True,
+        max_length=128,
+        verbose_name='Spanish Name'
+    )    
+
     crop_type = models.IntegerField(
         choices=AquaCropCropType.choices,
         default=AquaCropCropType.FRUIT_GRAIN,
