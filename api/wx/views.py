@@ -7259,6 +7259,11 @@ class AquacropModelRunView(views.APIView):
             else:
                 weather_df = history_df
 
+            if weather_df.isna().any().any():
+                message = self._get_missing_data_message(json_data)
+                print(message)
+                return JsonResponse({'message': message}, status=400)
+
             if is_historical_simulation:
                 model_history_df_1, output_1 = self._simulation_historical(json_data, model_params, weather_df, schedule_df)
                 response = {
@@ -7296,6 +7301,55 @@ class AquacropModelRunView(views.APIView):
             
         except json.JSONDecodeError:
             return Response({'error': 'Invalid JSON format'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    def _get_missing_data_message(self, json_data):
+        station = Station.objects.get(id=json_data['stationId'])
+
+        pgia_code = '8858307' # Phillip Goldson Int'l Synop
+        referenec_et_method = 'Penman-Monteith' if station.is_automatic or station.code==pgia_code else 'Hargreaves'
+
+        if referenec_et_method == 'Penman-Monteith':                
+            template_name = 'missing_data_penman.sql'
+            variables_symbols = ['TEMP', 'PRECIP', 'PRESSTN', 'WNDSPAVG', 'SOLARRAD', 'RH']
+        else:
+            template_name = 'missing_data_hargreaves.sql'
+            variables_symbols = ['TEMPMIN', 'TEMPMAX', 'PRECIP']
+
+        variables = list(Variable.objects.filter(symbol__in=variables_symbols))
+
+        station_variables = list(StationVariable.objects.filter(station_id=station.id))
+
+        missing_variables = []
+        for variable in variables:
+            if variable.id not in [sv.variable_id for sv in station_variables]:
+                missing_variables.append(variable.name)
+
+        if len(missing_variables) > 0:
+            message = f"Station do not variables {missing_variables}."
+        else:
+            env_path= '/surface/wx/sql/agromet/agromet_irrigation'
+            env = Environment(loader=FileSystemLoader(env_path))
+            template = env.get_template(template_name)
+            query = template.render(context={'station_id': station.id})
+
+            config = settings.SURFACE_CONNECTION_STRING
+            with psycopg2.connect(config) as conn:
+                df_missing = pd.read_sql(query, conn)
+
+            
+            missing_data_variables = []
+            for variable in variables:
+                first_date = df_missing[df_missing['symbol'] == variable.symbol]['first_date'].to_list()[0]
+                last_date = df_missing[df_missing['symbol'] == variable.symbol]['last_date'].to_list()[0]
+                if first_date is None:
+                    missing_data_variables.append(variable.name)
+
+            if len(missing_data_variables) > 0:
+                message = f"Station do not data for variables {missing_data_variables}."
+            else:
+                message = f"Station do not have enough data."
+
+        return message
 
     def _get_weather_history(self, station_id: int, start_date_history: str, end_date_history: str, data_type: str):
         env_path= '/surface/wx/sql/agromet/agromet_irrigation/aquacrop_data'
@@ -7325,6 +7379,8 @@ class AquacropModelRunView(views.APIView):
             
         template = env.get_template(template_name)
         query = template.render(context)
+
+        logger.debug("Aquacrop Query: %s", query)
 
         config = settings.SURFACE_CONNECTION_STRING
         with psycopg2.connect(config) as conn:
@@ -7375,9 +7431,6 @@ class AquacropModelRunView(views.APIView):
         return forecast_df
 
     def _get_irrigation_history(self, json_data):
-        # To do: Replace with real data from Supabase
-        # Dummy data for testing
-
         supabase_url = os.getenv('SUPABASE_URL')
         supabase_key = os.getenv('SUPABASE_ANON_KEY')
 
@@ -7696,8 +7749,7 @@ class AquacropModelRunView(views.APIView):
         return harvest_datetime, start_datetime_history, end_datetime_history, start_datetime_forecast, end_datetime_forecast
             
     def _get_model_params(self, json_data):
-        # To do: get simulation scenario from supabase
-        # Dummy data for testing
+        # Get simulation scenario from supabase
         supabase_url = os.getenv('SUPABASE_URL')
         supabase_key = os.getenv('SUPABASE_ANON_KEY')
 
@@ -7713,18 +7765,13 @@ class AquacropModelRunView(views.APIView):
         else:
             raise ValueError("No simulation scenario found with the provided ID.")
             
-        if simulation_scenario['is_custom']:
-            crop_origin = 'custom'
-        else:
-            crop_origin = 'default'
-
         planting_datetime = datetime.datetime.strptime(simulation_scenario['planting_date'], "%Y-%m-%d")
         planting_date = simulation_scenario['planting_date'].replace('-','/')[5:]       
 
-        if crop_origin == 'default':
-            crop = AquacropCrop(c_name=simulation_scenario['crop'], planting_date=planting_date)
-        else:
+        if simulation_scenario['is_custom']:
             crop = self._set_custom_crop(c_name=simulation_scenario['crop'], planting_date=planting_date)
+        else:
+            crop = AquacropCrop(c_name=simulation_scenario['crop'], planting_date=planting_date)
 
         soil = AquacropSoil(soil_type=simulation_scenario['soil_type'])
 
@@ -7901,12 +7948,13 @@ class AquacropAvailableDataView(views.APIView):
         try:
             json_data = json.loads(request.body)
 
-            # To do: get simulation scenario from supabase
-            # Dummy data for testing
+            # Get simulation scenario from supabase
             supabase_url = os.getenv('SUPABASE_URL')
             supabase_key = os.getenv('SUPABASE_ANON_KEY')
 
             supabase: Client = create_client(supabase_url, supabase_key)
+
+            # json_data['simulationScenarioId'] = "bf13e656-665e-45ac-98a8-802b483c29be"
 
             response = supabase.table('crops')\
                 .select('*')\
@@ -7921,9 +7969,8 @@ class AquacropAvailableDataView(views.APIView):
             planting_datetime = datetime.datetime.strptime(simulation_scenario['planting_date'], "%Y-%m-%d")
             planting_date = simulation_scenario['planting_date'].replace('-','/')[5:]
 
-            crop_origin = 'default'
-            if crop_origin == 'default':
-                crop = AquacropCrop(c_name=simulation_scenario['crop'], planting_date=planting_date)
+            if simulation_scenario['is_custom']:
+                crop = self._set_custom_crop(c_name=simulation_scenario['crop'], planting_date=planting_date)
             else:
                 crop = AquacropCrop(c_name=simulation_scenario['crop'], planting_date=planting_date)
 
