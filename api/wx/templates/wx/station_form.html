@@ -411,6 +411,7 @@
 
       <h6>Select station location on the map</h6>
 
+      <!-- station map -->
       <div id="mapid" class="map-small"></div>
 
       <h6 style="color: #9e9e9e;">Options prefixed with <span style="color: red;">**</span> are required!</h6>
@@ -482,12 +483,9 @@
     
     // map
     $(document).ready(function() {
-      // var tempLat = "{{ MAP_LATITUDE|safe }}";
-      // var tempLng = "{{ MAP_LONGITUDE|safe }}";
-      // var tempZoom = 8;
-      var tempLat = 0;
-      var tempLng = 0;
-      var tempZoom = 0;
+      var tempLat = "{{ MAP_LATITUDE|safe }}";
+      var tempLng = "{{ MAP_LONGITUDE|safe }}";
+      var tempZoom = "{{ MAP_ZOOM|safe }}";
 
       $('select').formSelect();
 
