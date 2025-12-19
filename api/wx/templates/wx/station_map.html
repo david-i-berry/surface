@@ -641,7 +641,7 @@
     data: {
       defaultIcon: L.icon({
         iconUrl: "{% static 'images/placeholder.png' %}",
-        iconSize:      [32, 32],
+        iconSize:      [16, 16],
         iconAnchor:    [16, 32],
         popupAnchor:   [0, 0],
         tooltipAnchor: [0, -34]
@@ -1381,45 +1381,117 @@
       },
       
       showWindBarbSummaries(timeToggle, date) {
+        // Enable wind barb layer / UI state
         this.showWindBarbs = true;
+
+        // Generate a unique request id to prevent race conditions
+        // (older async responses should not overwrite newer ones)
+        const requestId = Date.now();
+        this._lastWindRequest = requestId;
+
+        // Fetch wind + weather summary data
         this.getWindBards(timeToggle, date).then((wind) => {
-          this.lastUpdate = moment(new Date()).format('L LT') ;
 
+          // If another request was made after this one, ignore this response
+          if (this._lastWindRequest !== requestId) return;
+
+          // Update "last updated" timestamp for the UI
+          this.lastUpdate = moment().format('L LT');
+
+          // Normalize station IDs to avoid:
+          // - string vs number mismatches
+          // - trailing whitespace issues
+          const normalizeId = id => String(id).trim();
+
+          // Destructure datasets for clarity instead of wind[0], wind[1], etc.
+          const [
+            windSpeedData,
+            windDirectionData,
+            tempMaxData,
+            tempMinData,
+            atmPressureData,
+            precipitationData
+          ] = wind;
+
+          // Convert arrays into Maps for O(1) station lookup
+          const toMap = arr =>
+            new Map(arr.map(d => [normalizeId(d.station), d]));
+
+          const windSpeedMap = toMap(windSpeedData);
+          const windDirectionMap = toMap(windDirectionData);
+          const tempMaxMap = toMap(tempMaxData);
+          const tempMinMap = toMap(tempMinData);
+          const atmPressureMap = toMap(atmPressureData);
+          const precipitationMap = toMap(precipitationData);
+
+          // Track stations that cannot display wind barbs (for debugging)
+          const missingWindBarbs = [];
+
+          // Loop through all map markers (weather stations)
           this.markers.forEach(marker => {
-            //marker.icon = L.WindBarb.icon();
-            marker.windSpeed = null;
-            marker.windDirection = null;
-            marker.tempMax = null;
-            marker.tempMin = null;
-            marker.atmPressure = null;
-            marker.precipitation = null;
+            const stationId = normalizeId(marker.id);
 
-            // proceed only IF Marker have windSpeed and windDirection
-            // if (wind[0].find(el => el.station === marker.id && wind[1].find(el => el.station === marker.id))) {
+            // Look up wind data for this station
+            const windSpeed = windSpeedMap.get(stationId);
+            const windDirection = windDirectionMap.get(stationId);
 
-              windSpeed = wind[0].find(el => el.station === marker.id);
-              windDirection = wind[1].find(el => el.station === marker.id);
-              tempMax = wind[2].find(el => el.station === marker.id);
-              tempMin = wind[3].find(el => el.station === marker.id);
-              atmPressure = wind[4].find(el => el.station === marker.id);
-              precipitation = wind[5].find(el => el.station === marker.id);
+            /*
+              IMPORTANT:
+              Do NOT blindly reset values every time.
+              If only one dataset is missing, keep the last valid value.
+              This prevents wind barbs from "appearing then disappearing".
+            */
+            if (!windSpeed && !windDirection) {
+              marker.windSpeed = null;
+              marker.windDirection = null;
+            } else {
+              marker.windSpeed = windSpeed ?? marker.windSpeed;
+              marker.windDirection = windDirection ?? marker.windDirection;
+            }
 
-              marker.windSpeed = windSpeed ? windSpeed : null;
-              marker.windDirection = windDirection ? windDirection : null;
-              marker.tempMax = tempMax ? tempMax.value.toFixed(1) : null;
-              marker.tempMin = tempMin ? tempMin.value.toFixed(1) : null;
-              marker.atmPressure = atmPressure ? atmPressure.value.toFixed(1) : null;
-              marker.precipitation = precipitation ? precipitation.value.toFixed(1) : null;
+            // Look up other weather summaries
+            const tempMax = tempMaxMap.get(stationId);
+            const tempMin = tempMinMap.get(stationId);
+            const atmPressure = atmPressureMap.get(stationId);
+            const precipitation = precipitationMap.get(stationId);
 
-              if (windSpeed && windDirection) {
-                marker.icon = L.WindBarb.icon({fillColor: 'black', pointRadius: 1, deg: marker.windDirection.value, speed: marker.windSpeed.value, iconAnchor: [16, 32],forceDir: true, autoClose: false, closeOnClick: false, closePopupOnClick: false});
-              } else {
-                marker.icon = L.icon({
-                  iconUrl: "{% static 'images/close.png' %}",
-                  iconSize: [8, 8],
-                });
-              }
+            // Assign values (formatted) or keep existing ones if missing
+            marker.tempMax = tempMax ? tempMax.value.toFixed(1) : marker.tempMax;
+            marker.tempMin = tempMin ? tempMin.value.toFixed(1) : marker.tempMin;
+            marker.atmPressure = atmPressure ? atmPressure.value.toFixed(1) : marker.atmPressure;
+            marker.precipitation = precipitation ? precipitation.value.toFixed(1) : marker.precipitation;
+
+            // Decide which icon to display
+            if (marker.windSpeed && marker.windDirection) {
+              // Both wind speed and direction exist → draw wind barb
+              marker.icon = L.WindBarb.icon({
+                fillColor: 'black',
+                pointRadius: 1,
+                deg: marker.windDirection.value,
+                speed: marker.windSpeed.value,
+                iconAnchor: [16, 32],
+                forceDir: true
+              });
+            } else {
+              // Missing wind data → track for debugging
+              missingWindBarbs.push({
+                station: stationId,
+                hasSpeed: !!windSpeed,
+                hasDirection: !!windDirection
+              });
+
+              // Optional: fallback icon (can be removed if undesired)
+              marker.icon = L.icon({
+                iconUrl: "{% static 'images/close.png' %}",
+                iconSize: [8, 8]
+              });
+            }
           });
+
+          // Log stations that could not render wind barbs and WHY
+          // if (missingWindBarbs.length) {
+          //  console.warn('Stations missing wind barbs:', missingWindBarbs);
+          // }
         });
       },
       
