@@ -3189,7 +3189,14 @@ def MonthlyFormLoad(request):
 
     station = Station.objects.get(id=station_id)
     datetime_offset = pytz.FixedOffset(station.utc_offset_minutes)
-    end_date = start_date.replace(month=start_date.month + 1) - datetime.timedelta(days=1)
+
+    # catch for December Edgecase
+    if start_date.month == 12:
+        next_month = start_date.replace(year=start_date.year + 1, month=1)
+    else:
+        next_month = start_date.replace(month=start_date.month + 1)
+
+    end_date = next_month - datetime.timedelta(days=1)
 
     with psycopg2.connect(settings.SURFACE_CONNECTION_STRING) as conn:
         with conn.cursor() as cursor:
