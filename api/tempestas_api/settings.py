@@ -141,6 +141,11 @@ SURFACE_CONNECTION_STRING = "dbname={0} user={1} password={2} host={3}".format(o
                                                                                os.getenv('SURFACE_DB_PASSWORD'),
                                                                                os.getenv('SURFACE_DB_HOST'))
 
+SURFACE_DB_NAME = os.getenv('SURFACE_DB_NAME')
+SURFACE_DB_USER = os.getenv('SURFACE_DB_USER')
+SURFACE_DB_PASSWORD = os.getenv('SURFACE_DB_PASSWORD')
+SURFACE_DB_HOST = os.getenv('SURFACE_DB_HOST')
+
 # Password validation
 # https://docs.djangoproject.com/en/1.11/ref/settings/#auth-password-validators
 

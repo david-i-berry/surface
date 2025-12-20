@@ -2542,6 +2542,7 @@ def qc_list(request):
                         station_timezone = pytz.FixedOffset(station.utc_offset_minutes)
 
                     date = req_datetime.astimezone(station_timezone).date()
+
                     cursor.execute("""
                         INSERT INTO wx_dailysummarytask (station_id, date, updated_at, created_at)
                         VALUES (%s, %s, %s, %s)

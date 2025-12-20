@@ -337,8 +337,8 @@ class DailySummaryTaskAdmin(admin.ModelAdmin):
 
 @admin.register(models.DcpMessages)
 class DcpMessagesAdmin(admin.ModelAdmin):
-    list_display = ("noaa_dcp", "station", "datetime", "frequency_offset", "failure_code", "data_quality")
-    search_fields = ("station__name",)
+    list_display = ("noaa_dcp", "datetime", "frequency_offset", "failure_code", "data_quality")
+    search_fields = ("noaa_dcp__dcp_address",)
 
 @admin.register(models.RatingCurve)
 class RatingCurveAdmin(admin.ModelAdmin):

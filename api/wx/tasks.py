@@ -90,6 +90,18 @@ def gen_toa5_file():
     df, filename = gen_dataframe_and_filename()
     format_and_send_data(df, filename)
 
+
+############################################################
+
+
+from sqlalchemy import create_engine
+
+ENGINE = create_engine(
+    f"postgresql+psycopg2://{settings.SURFACE_DB_USER}:{settings.SURFACE_DB_PASSWORD}@{settings.SURFACE_DB_HOST}:5432/{settings.SURFACE_DB_NAME}",
+    pool_pre_ping=True
+)
+
+
 ############################################################
 
 def backup_set_running(backup_task, started_at, file_path):
@@ -380,134 +392,260 @@ def calculate_hourly_summary(start_datetime=None, end_datetime=None, station_id_
     conn.close()
     logger.info(f'Hourly summary finished at {datetime.now(pytz.UTC)}. Took {time() - start_at} seconds.')
 
+
 @shared_task
 def calculate_daily_summary(start_date=None, end_date=None, station_id_list=None):
-    logger.info(f'DAILY SUMMARY started at {datetime.now(tz=pytz.UTC)} with parameters: '
-                f'start_date={start_date} end_date={end_date} '
-                f'station_id_list={station_id_list}')
+    """
+    Calculate (or recalculate) DAILY summaries.
+
+    IMPORTANT DESIGN RULES (DO NOT BREAK):
+    --------------------------------------
+    1. DAILY summaries are keyed by a *logical local DATE* (daily_summary.day).
+    2. DELETES must ALWAYS be done using DATE equality, NEVER datetime ranges.
+    3. Datetime ranges are ONLY for selecting raw_data, NOT for deleting summaries.
+    4. This function may be called:
+       - as a normal scheduled daily run (today)
+       - as a QC-triggered recalculation (past dates)
+       Therefore it MUST be safe to run repeatedly and out-of-order.
+    """
+
+    logger.info(
+        f'DAILY SUMMARY started at {datetime.now(tz=pytz.UTC)} with parameters: '
+        f'start_date={start_date} end_date={end_date} '
+        f'station_id_list={station_id_list}'
+    )
 
     start_at = time()
 
+    # ------------------------------------------------------------------
+    # Normalize input dates
+    # ------------------------------------------------------------------
+    # If no dates are provided, default to "today only".
+    # NOTE: end_date is EXCLUSIVE (standard half-open interval).
     if start_date is None or end_date is None:
         start_date = datetime.now(pytz.UTC).date()
-        end_date = (datetime.now(pytz.UTC) + timedelta(days=1)).date()
+        end_date = start_date + timedelta(days=1)
 
-    if start_date > end_date:
-        print('Error - start_date is more recent than end_date.')
+    # Guard against invalid input
+    if start_date >= end_date:
+        logger.error("Invalid date range: start_date must be < end_date")
         return
 
     conn = get_connection()
-    with conn.cursor() as cursor:
 
-        if station_id_list is None:
-            stations = Station.objects.filter(is_active=True)
-        else:
-            stations = Station.objects.filter(id__in=station_id_list)
+    try:
+        with conn.cursor() as cursor:
 
-        offsets = list(set([s.utc_offset_minutes for s in stations]))
-        for offset in offsets:
-            station_ids = list(stations.filter(utc_offset_minutes=offset).values_list('id', flat=True))
-            fixed_offset = pytz.FixedOffset(offset)
+            # ------------------------------------------------------------------
+            # Determine which stations to process
+            # ------------------------------------------------------------------
+            if station_id_list is None:
+                # Normal scheduled run: all active stations
+                stations = Station.objects.filter(is_active=True)
+            else:
+                # Recalculation path: explicit station list
+                stations = Station.objects.filter(id__in=station_id_list)
 
-            # datetime_start_utc = datetime(start_date.year, start_date.month, start_date.day, 0, 0, 0, tzinfo=pytz.UTC)
-            # datetime_end_utc = datetime(end_date.year, end_date.month, end_date.day, 0, 0, 0, tzinfo=pytz.UTC)
+            # Group stations by UTC offset.
+            # This is REQUIRED because "daily" is defined in local station time.
+            offsets = set(stations.values_list("utc_offset_minutes", flat=True))
 
-            datetime_start = datetime(start_date.year, start_date.month, start_date.day, 0, 0, 0,
-                                      tzinfo=fixed_offset).astimezone(pytz.UTC)
-            datetime_end = datetime(end_date.year, end_date.month, end_date.day, 0, 0, 0,
-                                    tzinfo=fixed_offset).astimezone(pytz.UTC)
-
-            logger.info(f"datetime_start={datetime_start}, datetime_end={datetime_end} "
-                        f"offset={offset} "
-                        f"station_ids={station_ids}")
-
-            delete_sql = """
-                DELETE FROM daily_summary 
-                WHERE station_id = ANY(%(station_ids)s) 
-                AND day >= %(datetime_start)s
-                AND day < %(datetime_end)s
-            """
-
-            insert_sql = """
-                INSERT INTO daily_summary (
-                    "day",
-                    station_id,
-                    variable_id,
-                    min_value,
-                    max_value,
-                    avg_value,
-                    sum_value,
-                    num_records,
-                    created_at,
-                    updated_at
+            for offset in offsets:
+                station_ids = list(
+                    stations.filter(utc_offset_minutes=offset)
+                    .values_list("id", flat=True)
                 )
-                SELECT 
-                    cast((rd.datetime + interval '%(offset)s minutes') at time zone 'utc' - '1 second'::interval as DATE) as "date",
-                    station_id,
-                    variable_id,
-                    min(calc.value) AS min_value,
-                    max(calc.value) AS max_value,
-                    avg(calc.value) AS avg_value,
-                    sum(calc.value) AS sum_value,
-                    count(calc.value) AS num_records,
-                    now(),
-                    now()
-                FROM 
-                    raw_data rd
-                    ,LATERAL (SELECT CASE WHEN rd.consisted IS NOT NULL THEN rd.consisted ELSE rd.measured END as value) AS calc
-                WHERE rd.datetime > %(datetime_start)s
-                  AND rd.datetime <= %(datetime_end)s
-                  AND calc.value != %(MISSING_VALUE)s
-                  AND station_id = ANY(%(station_ids)s) 
-                  AND (rd.manual_flag in (1,4) OR (rd.manual_flag IS NULL AND rd.quality_flag in (1,4)))
-                  AND NOT rd.is_daily
-                GROUP BY 1,2,3
-                UNION ALL
-                SELECT 
-                    cast((rd.datetime + interval '%(offset)s minutes') at time zone 'utc' as DATE) as "date",
-                    station_id,
-                    variable_id,
-                    min(calc.value) AS min_value,
-                    max(calc.value) AS max_value,
-                    avg(calc.value) AS avg_value,
-                    sum(calc.value) AS sum_value,
-                    count(calc.value) AS num_records,
-                    now(),
-                    now()
-                FROM 
-                    raw_data rd
-                    ,LATERAL (SELECT CASE WHEN rd.consisted IS NOT NULL THEN rd.consisted ELSE rd.measured END as value) AS calc
-                WHERE rd.datetime > %(datetime_start)s
-                  AND rd.datetime <= %(datetime_end)s
-                  AND calc.value != %(MISSING_VALUE)s
-                  AND station_id = ANY(%(station_ids)s) 
-                  AND (rd.manual_flag in (1,4) OR (rd.manual_flag IS NULL AND rd.quality_flag in (1,4)))
-                  AND rd.is_daily
-                GROUP BY 1,2,3
-                ON CONFLICT (day, station_id, variable_id) DO UPDATE
-                SET min_value = EXCLUDED.min_value,
-                    max_value = EXCLUDED.max_value,
-                    avg_value = EXCLUDED.avg_value,
-                    sum_value = EXCLUDED.sum_value,
-                    num_records = EXCLUDED.num_records,
-                    updated_at = now();
-            """
 
+                if not station_ids:
+                    continue
 
-            cursor.execute(delete_sql, {"datetime_start": datetime_start, "datetime_end": datetime_end,
-                                        "station_ids": station_ids})
-            
-            cursor.execute(insert_sql,
-                           {"datetime_start": datetime_start, "datetime_end": datetime_end, "station_ids": station_ids,
-                            "offset": offset, "MISSING_VALUE": settings.MISSING_VALUE})
-            conn.commit()
+                fixed_offset = pytz.FixedOffset(offset)
 
+                # ------------------------------------------------------------------
+                # Iterate EXPLICITLY over LOGICAL DATES
+                # ------------------------------------------------------------------
+                # This is the single most important structural fix:
+                #   - We process ONE logical date at a time
+                #   - We delete ONLY that date
+                #   - We recompute ONLY that date
+                current_date = start_date
 
-    conn.commit()
-    conn.close()
+                while current_date < end_date:
 
-    cache.set('daily_summary_last_run', datetime.today(), None)
-    logger.info(f'Daily summary finished at {datetime.now(pytz.UTC)}. Took {time() - start_at} seconds.')
+                    # ----------------------------------------------------------
+                    # Convert logical local DATE -> UTC datetime window
+                    # ----------------------------------------------------------
+                    # These datetimes are ONLY used to SELECT raw_data.
+                    # They must NEVER be used to DELETE from daily_summary.
+                    datetime_start = datetime(
+                        current_date.year,
+                        current_date.month,
+                        current_date.day,
+                        0, 0, 0,
+                        tzinfo=fixed_offset
+                    ).astimezone(pytz.UTC)
+
+                    datetime_end = datetime_start + timedelta(days=1)
+
+                    logger.info(
+                        "Daily Summary | date=%s offset=%s stations=%d "
+                        "utc_window=[%s, %s)",
+                        current_date,
+                        offset,
+                        len(station_ids),
+                        datetime_start,
+                        datetime_end,
+                    )
+
+                    # ----------------------------------------------------------
+                    # SAFE DELETE
+                    # ----------------------------------------------------------
+                    # CRITICAL:
+                    #   - daily_summary.day is a DATE column
+                    #   - We MUST delete by DATE equality
+                    #
+                    # This guarantees:
+                    #   - Recalculations cannot delete other days
+                    #   - Timezones and offsets cannot cause collateral damage
+                    #   - Repeated runs are safe and idempotent
+                    delete_sql = """
+                        DELETE FROM daily_summary
+                        WHERE station_id = ANY(%(station_ids)s)
+                          AND day = %(target_date)s
+                    """
+
+                    cursor.execute(
+                        delete_sql,
+                        {
+                            "station_ids": station_ids,
+                            "target_date": current_date,
+                        }
+                    )
+
+                    # ----------------------------------------------------------
+                    # INSERT / UPDATE DAILY SUMMARY
+                    # ----------------------------------------------------------
+                    # Notes:
+                    #   - Datetime filtering is done in UTC
+                    #   - Logical date is derived from station local time
+                    #   - ON CONFLICT ensures idempotency
+                    insert_sql = """
+                        INSERT INTO daily_summary (
+                            "day",
+                            station_id,
+                            variable_id,
+                            min_value,
+                            max_value,
+                            avg_value,
+                            sum_value,
+                            num_records,
+                            created_at,
+                            updated_at
+                        )
+                        SELECT 
+                            CAST(
+                                (rd.datetime + interval '%(offset)s minutes')
+                                AT TIME ZONE 'utc'
+                                - '1 second'::interval
+                                AS DATE
+                            ) AS day,
+                            station_id,
+                            variable_id,
+                            MIN(calc.value),
+                            MAX(calc.value),
+                            AVG(calc.value),
+                            SUM(calc.value),
+                            COUNT(calc.value),
+                            now(),
+                            now()
+                        FROM raw_data rd,
+                             LATERAL (
+                                 SELECT CASE
+                                     WHEN rd.consisted IS NOT NULL THEN rd.consisted
+                                     ELSE rd.measured
+                                 END AS value
+                             ) AS calc
+                        WHERE rd.datetime > %(datetime_start)s
+                          AND rd.datetime <= %(datetime_end)s
+                          AND calc.value != %(MISSING_VALUE)s
+                          AND station_id = ANY(%(station_ids)s)
+                          AND (
+                              rd.manual_flag IN (1,4)
+                              OR (rd.manual_flag IS NULL AND rd.quality_flag IN (1,4))
+                          )
+                          AND NOT rd.is_daily
+                        GROUP BY 1,2,3
+
+                        UNION ALL
+
+                        SELECT 
+                            CAST(
+                                (rd.datetime + interval '%(offset)s minutes')
+                                AT TIME ZONE 'utc'
+                                AS DATE
+                            ) AS day,
+                            station_id,
+                            variable_id,
+                            MIN(calc.value),
+                            MAX(calc.value),
+                            AVG(calc.value),
+                            SUM(calc.value),
+                            COUNT(calc.value),
+                            now(),
+                            now()
+                        FROM raw_data rd,
+                             LATERAL (
+                                 SELECT CASE
+                                     WHEN rd.consisted IS NOT NULL THEN rd.consisted
+                                     ELSE rd.measured
+                                 END AS value
+                             ) AS calc
+                        WHERE rd.datetime > %(datetime_start)s
+                          AND rd.datetime <= %(datetime_end)s
+                          AND calc.value != %(MISSING_VALUE)s
+                          AND station_id = ANY(%(station_ids)s)
+                          AND (
+                              rd.manual_flag IN (1,4)
+                              OR (rd.manual_flag IS NULL AND rd.quality_flag IN (1,4))
+                          )
+                          AND rd.is_daily
+                        GROUP BY 1,2,3
+
+                        ON CONFLICT (day, station_id, variable_id) DO UPDATE
+                        SET min_value   = EXCLUDED.min_value,
+                            max_value   = EXCLUDED.max_value,
+                            avg_value   = EXCLUDED.avg_value,
+                            sum_value   = EXCLUDED.sum_value,
+                            num_records = EXCLUDED.num_records,
+                            updated_at  = now();
+                    """
+
+                    cursor.execute(
+                        insert_sql,
+                        {
+                            "datetime_start": datetime_start,
+                            "datetime_end": datetime_end,
+                            "station_ids": station_ids,
+                            "offset": offset,
+                            "MISSING_VALUE": settings.MISSING_VALUE,
+                        }
+                    )
+
+                    # Commit per logical date to keep recalculations safe
+                    conn.commit()
+
+                    current_date += timedelta(days=1)
+
+    finally:
+        conn.close()
+
+    cache.set("daily_summary_last_run", datetime.now(pytz.UTC), None)
+
+    logger.info(
+        f'Daily summary finished at {datetime.now(pytz.UTC)}. '
+        f'Took {time() - start_at:.2f} seconds.'
+    )
+
 
 @shared_task
 def calculate_station_minimum_interval(start_date=None, end_date=None, station_id_list=None):
@@ -2566,11 +2704,15 @@ def get_hourly_raw_data(start_datetime, end_datetime, station_ids):
     params = {"station_ids": station_ids, "start_datetime": start_datetime, "end_datetime": end_datetime}
     
 
-    sql_query = pd.read_sql_query(sql=sql, con=con, params=params)
-    con.close()
+    # sql_query = pd.read_sql_query(sql=sql, con=con, params=params)
+    # con.close()
 
-    df = pd.DataFrame(sql_query)
+    # df = pd.DataFrame(sql_query)
+
+    df = pd.read_sql_query(sql=sql, con=ENGINE, params=params)
+
     return df
+
 
 # Station and variables used
 def get_hourly_sv_dict(start_datetime, end_datetime, station_ids):
@@ -2587,27 +2729,40 @@ def get_hourly_sv_dict(start_datetime, end_datetime, station_ids):
         dict_sv[station_id] = dict_v
     return dict_sv
 
-# Get data from each statation and variable with window interval
+
+
+
 def get_hourly_sv_data(start_datetime, end_datetime, station_id, variable_id, window):
-    con = get_connection()
-    sql = '''SELECT *
-             FROM raw_data
-             WHERE (datetime BETWEEN %(start_datetime)s AND %(end_datetime)s)
-               AND station_id = %(station_id)s
-               AND variable_id = %(variable_id)s
-          '''
-    params = {"station_id": station_id, "variable_id": int(variable_id), "start_datetime": start_datetime-timedelta(seconds=window), "end_datetime": end_datetime}
+    sql = '''
+        SELECT *
+        FROM raw_data
+        WHERE (datetime BETWEEN %(start_datetime)s AND %(end_datetime)s)
+          AND station_id = %(station_id)s
+          AND variable_id = %(variable_id)s
+    '''
 
-    sql_query = pd.read_sql_query(sql=sql, con=con, params=params)
-    con.close()
+    params = {
+        "station_id": station_id,
+        "variable_id": int(variable_id),
+        "start_datetime": start_datetime - timedelta(seconds=window),
+        "end_datetime": end_datetime,
+    }
 
-    df = pd.DataFrame(sql_query)
+    df = pd.read_sql_query(sql=sql, con=ENGINE, params=params)
+
+    # sql_query = pd.read_sql_query(sql=sql, con=con, params=params)
+    # con.close()
+
+    # df = pd.DataFrame(sql_query)
 
     if not df.empty:
         mask = df.datetime.between(start_datetime, end_datetime)
-        df['updated'] = False
-        df.loc[mask, 'updated'] = True
+        df["updated"] = False
+        df.loc[mask, "updated"] = True
+
     return df
+
+
 
 def most_frequent(List):
     return max(set(List), key = List.count)
@@ -2841,6 +2996,7 @@ def recalculate_summary(df, station_id, s_datetime, e_datetime, summary_type):
             for date in dates:
                 _dailysummaries = DailySummaryTask.objects.filter(station_id=station_id, date=date, started_at__isnull=True)
                 if not _dailysummaries:
+
                     insert_summay(date, station_id, summary_type)
 
 def hourly_summary(hourly_summary_tasks_ids, station_ids, s_datetime, e_datetime):
