@@ -86,6 +86,8 @@ urlpatterns = [
     path('wx/settings/spatial/files/', views.UploadOrDeleteSpatialFilesView.as_view(), name='upload-document'),
     path('wx/settings/spatial/files/download/<str:key>/', views.DownloadSpatialFilesView.as_view(), name='download-document'),
 
+    path('wx/permissions/', views.ManagePermissionsView.as_view(), name='manage-permissions'),
+
     path('wx/spatial_analysis/', views.SpatialAnalysisView.as_view(), name='spatial-analysis'),
     path('wx/spatial_analysis/image', views.GetInterpolationImage, name='spatial-analysis-image'),
     path('wx/spatial_analysis/data', views.GetInterpolationData, name='spatial-analysis-data'),

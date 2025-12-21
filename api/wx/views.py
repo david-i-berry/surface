@@ -9537,7 +9537,7 @@ class SynopCaptureView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateVi
     template_name = "wx/data/synop_capture_form.html"
 
     # This is the only “permission” string you need to supply:
-    permission_required = "Synop Capture New - Full Access"
+    permission_required = "Synop Capture - Full Access"
 
     # If you want a custom 403 page instead of redirecting to login again, explicitly set:
     raise_exception = True
@@ -9868,19 +9868,19 @@ def stat_file_info(path):
 
 
 @method_decorator(require_http_methods(["GET"]), name="dispatch")
-class ConfigurationSettingsView(LoginRequiredMixin, TemplateView):
-    """
-    Renders the documents management page and injects initial JSON state describing
-    which whitelisted files exist in the chosen static directory.
-    Template expected: 'documents/manage_documents.html'
-    """
+class ConfigurationSettingsView(LoginRequiredMixin,  WxPermissionRequiredMixin, TemplateView):
+
     template_name = "wx/configuration_settings.html"
 
-    # # This is the only “permission” string you need to supply:
-    # permission_required = "Configuration Settings - Full Access"
+    # This is the only “permission” string you need to supply:
+    permission_required = "Configuration Settings - Full Access"
 
-    # # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    # raise_exception = True
+    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
+    raise_exception = True
+
+    # (Optional) override the login URL if you don’t want the default:
+    # login_url = "/new-reroute/"
+    # If omitted, it will use settings.LOGIN_URL
 
     def get_context_data(self, **kwargs):
         static_dir = get_static_assets_dir()
@@ -9913,6 +9913,21 @@ class ConfigurationSettingsView(LoginRequiredMixin, TemplateView):
         ctx = super().get_context_data(**kwargs)
         ctx["options_json"] = json.dumps(options)
         return ctx
+
+
+@method_decorator(require_http_methods(["GET"]), name="dispatch")
+class ManagePermissionsView(LoginRequiredMixin,  WxPermissionRequiredMixin, TemplateView):
+    template_name = "wx/manage_permissions.html"
+
+    # This is the only “permission” string you need to supply:
+    permission_required = "Permission Management - Full Access"
+
+    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
+    raise_exception = True
+
+    # (Optional) override the login URL if you don’t want the default:
+    # login_url = "/new-reroute/"
+    # If omitted, it will use settings.LOGIN_URL
 
 
 @method_decorator(require_http_methods(["POST"]), name="dispatch")
@@ -10234,8 +10249,19 @@ def get_agromet_summary_data(request):
     return JsonResponse(response, status=status.HTTP_200_OK, safe=False)
 
 
-class AgroMetSummariesView(LoginRequiredMixin, TemplateView):
+class AgroMetSummariesView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
     template_name = "wx/agromet/agromet_summaries.html"
+
+    # This is the only “permission” string you need to supply:
+    permission_required = "Agromet Monthly & Seasonal - Full Access"
+
+    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
+    raise_exception = True
+
+    # (Optional) override the login URL if you don’t want the default:
+    # login_url = "/new-reroute/"
+    # If omitted, it will use settings.LOGIN_URL
+
     agromet_variable_symbols = [
         'TEMP',
         'TEMPAVG',
@@ -10680,8 +10706,19 @@ def get_agromet_products_data(request):
     return JsonResponse(response, status=status.HTTP_200_OK, safe=False)            
 
 
-class AgroMetProductsView(LoginRequiredMixin, TemplateView):
+class AgroMetProductsView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
     template_name = "wx/agromet/agromet_products.html"
+
+    # This is the only “permission” string you need to supply:
+    permission_required = "Agromet Products - Full Access"
+
+    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
+    raise_exception = True
+
+    # (Optional) override the login URL if you don’t want the default:
+    # login_url = "/new-reroute/"
+    # If omitted, it will use settings.LOGIN_URL
+
     agromet_variable_symbols = [
         'TEMP',
         'TEMPAVG',

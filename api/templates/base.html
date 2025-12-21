@@ -1,5 +1,6 @@
 <!-- templates/base.html -->
 {% load static %}
+{% load permissions %}
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -667,7 +668,9 @@
           <hr style="border: none !important; border-top: 3px solid #1e8fff40 !important; width: 90%; border-radius: 5px; margin: 5px auto;">
           
           <ul class="collapsible to-uppercase trans_background">
+
             <!-- stations tab -->
+            {% if request|has_any_feature_permission:"stations-map, station-create, stations-list, station-metadata, station-oscar-export, stations-monitoring" %}
             <li id="stations-group" class="hover-item nav-dropdown-toggle">
 
               <!-- tab name -->
@@ -682,41 +685,42 @@
               </a>
 
 
-              {% if 'stations-map' in request.user_permissions or request.user.is_superuser%}
+              {% if request|has_any_feature_permission:"stations-map" %}
                 <a id="stations-map" href="{% url 'stations-map' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">MAP<i class="material-icons secondary-content">map</i></a>
               {% endif%}
 
-              {% if 'station-create' in request.user_permissions or request.user.is_superuser%}
+              {% if request|has_any_feature_permission:"station-create" %}
                 <a id="station-create" href="{% url 'station-create' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">CREATE&nbsp;STATION<i class="material-icons secondary-content">create</i></a>
               {% endif%}
 
-              {% if 'stations-list' in request.user_permissions or request.user.is_superuser%}
+              {% if request|has_any_feature_permission:"stations-list" %}
                 <a id="stations-list" href="{% url 'stations-list' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">LIST<i class="material-icons secondary-content">list</i></a>
               {% endif%}
 
-              {% if 'station-metadata' in request.user_permissions or request.user.is_superuser%}
+              {% if request|has_any_feature_permission:"station-metadata" %}
                 <a id="station-metadata" href="{% url 'station-metadata' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">METADATA<i class="material-icons secondary-content">assessment</i></a>
               {% endif%}
               
-              {% if 'station-oscar-export' in request.user_permissions or request.user.is_superuser%}
+              {% if request|has_any_feature_permission:"station-oscar-export" %}
                 <a id="station-oscar-export" href="{% url 'station-oscar-export' %}" class="left-space hidden-link"  onclick="mainOverlayLoader()">OSCAR&nbsp;Export<i class="material-icons secondary-content">send</i></a>
               {% endif%}
               
-              {% if 'stations-monitoring' in request.user_permissions or request.user.is_superuser%}
+              {% if request|has_any_feature_permission:"stations-monitoring" %}
                 <a id="stations-monitoring" href="{% url 'stations-monitoring' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">MONITORING<i class="material-icons secondary-content">monitor</i></a>                    
               {% endif%}
 
               <!-- pill border at the bottom of the dropdown -->
               <hr class="hidden-end">
             </li>
+            {% endif%}
 
             <!-- maintenance tab -->
-            {% if 'equipment-inventory' in request.user_permissions or 'maintenance-reports' in request.user_permissions or 'new-maintenance-report' in request.user_permissions or request.user.is_superuser %}
+            {% if request|has_any_feature_permission:"equipment-inventory, maintenance-reports" %}
             <li id="maintenance-group" class="hover-item nav-dropdown-toggle">
 
               <!-- tab name -->
               <a class="collapsible-item" style="padding: 0px 16px; position: relative;">
-                <i class="material-icons">build</i>
+                <i class="material-icons">handyman</i>
                 <span class="custom-navbar-text-fade-out">MAINTENANCE</span>
               
                 <!-- new span for vert buttons, absolutely positioned to the right -->
@@ -724,13 +728,13 @@
                   <i class="material-icons">more_vert</i>
                 </span>
               </a>
-              
-              {% if 'maintenance-reports' in request.user_permissions or 'new-maintenance-report' in request.user_permissions or request.user.is_superuser%}                
+               
+              {% if request|has_any_feature_permission:"maintenance-reports" %}             
                 <a id="maintenance-reports" href="{% url 'maintenance-reports' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Maint. Reports<i class="material-icons-outlined secondary-content">article</i></a>
               {% endif %}
 
-              {% if 'equipment-inventory' in request.user_permissions or request.user.is_superuser%}
-                <a id="equipement-inventory" href="{% url 'equipment-inventory' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Equip. Inventory<i class="material-icons-outlined secondary-content">inventory</i></a>
+              {% if request|has_any_feature_permission:"equipment-inventory" %}
+                <a id="equipment-inventory" href="{% url 'equipment-inventory' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Equip. Inventory<i class="material-icons-outlined secondary-content">inventory</i></a>
               {% endif %}
 
               <!-- pill border at the bottom of the dropdown -->
@@ -739,7 +743,7 @@
             {% endif %}
 
             <!-- data tab -->
-            {% if 'monthly-form' in request.user_permissions or 'data-export' in request.user_permissions or 'manual-data-import' in request.user_permissions or 'synop-capture-form' in request.user_permissions or 'synop-capture' in request.user_permissions or 'data-inventory' in request.user_permissions or request.user.is_superuser %}
+            {% if request|has_any_feature_permission:"monthly-form, data-export, manual-data-import, synop-capture-form, data-inventory" %}
             <li id="data-group" class="hover-item nav-dropdown-toggle">
 
               <!-- tab name -->
@@ -753,23 +757,23 @@
                 </span>
               </a>
 
-              {% if 'monthly-form' in request.user_permissions or request.user.is_superuser %}
+              {% if request|has_any_feature_permission:"monthly-form" %}
                 <a id="monthly-form" href="{% url 'monthly-form' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Monthly Capture<i class="material-icons secondary-content">filter_center_focus</i></a>
               {% endif %}
                           
-              {% if 'synop-capture-form' in request.user_permissions or request.user.is_superuser %}
+              {% if request|has_any_feature_permission:"synop-capture-form" %}
                 <a id="synop-capture-form" href="{% url 'synop-capture-form' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Synop Capture<i class="material-icons secondary-content">keyboard</i></a>
               {% endif %}
               
-              {% if 'data-inventory' in request.user_permissions or request.user.is_superuser %}
+              {% if request|has_any_feature_permission:"data-inventory" %}
                 <a id="data-inventory" href="{% url 'data-inventory' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Data Inventory<i class="material-icons secondary-content">web</i></a>
               {% endif %}
 
-              {% if 'manual-data-import' in request.user_permissions or request.user.is_superuser %}
+              {% if request|has_any_feature_permission:"manual-data-import" %}
                 <a id="manual-data-import" href="{% url 'manual-data-import' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Import<i class="material-icons-outlined secondary-content">cloud_upload</i></a>
               {% endif %}
 
-              {% if 'data-export' in request.user_permissions or request.user.is_superuser %}
+              {% if request|has_any_feature_permission:"data-export" %}
                 <a id="data-export" href="{% url 'data-export' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Export<i class="material-icons secondary-content">cloud_download</i></a>
               {% endif %}
 
@@ -778,8 +782,8 @@
             </li>
             {% endif %}
 
-            <!-- Quality control-1 -->
-            {% if 'persist-threshold' in request.user_permissions or 'step-threshold' in request.user_permissions or 'range-threshold' in request.user_permissions or 'quality-control' in request.user_permissions or request.user.is_superuser %}
+            <!-- Quality control -->
+            {% if request|has_any_feature_permission:"persist-threshold, step-threshold, range-threshold, quality-control" %}
             <li id="quality-control-group" class="hover-item nav-dropdown-toggle">
 
               <!-- tab name -->
@@ -793,19 +797,19 @@
                 </span>
               </a>
 
-              {% if 'quality-control' in request.user_permissions or request.user.is_superuser%}
+              {% if request|has_any_feature_permission:"quality-control" %}
                 <a id="quality-control" href="{% url 'quality-control' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Data Validation<i class="material-icons secondary-content">done_all</i></a>
               {% endif %}
 
-              {% if 'range-threshold' in request.user_permissions or request.user.is_superuser%}
+              {% if request|has_any_feature_permission:"range-threshold" %}
                 <a id="range-threshold" href="{% url 'range-threshold' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Range Threshold<i class="material-icons secondary-content">clear_all</i></a>
               {% endif %}
 
-              {% if 'step-threshold' in request.user_permissions or request.user.is_superuser%}
+              {% if request|has_any_feature_permission:"step-threshold" %}
                 <a id="step-threshold" href="{% url 'step-threshold' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Step Threshold<i class="material-icons secondary-content">low_priority</i></a>
               {% endif %}
 
-              {% if 'persist-threshold' in request.user_permissions or request.user.is_superuser%}
+              {% if request|has_any_feature_permission:"persist-threshold" %}
                 <a id="persist-threshold" href="{% url 'persist-threshold' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Persist Threshold<i class="material-icons secondary-content">format_align_left</i></a>
               {% endif %}
 
@@ -815,7 +819,7 @@
             {% endif %}
 
             <!-- products -->
-            {% if 'wave-data' in request.user_permissions or 'extremes-means' in request.user_permissions or 'spatial-analysis' in request.user_permissions or 'product-compare' in request.user_permissions or 'variable-report' in request.user_permissions or 'station-report' in request.user_permissions or request.user.is_superuser %}
+            {% if request|has_any_feature_permission:"wave-data, extremes-means, spatial-analysis, product-compare, variable-report, station-report" %}
             <li id="products-group" class="hover-item nav-dropdown-toggle">
 
               <!-- tab name -->
@@ -829,31 +833,31 @@
                 </span>
               </a>
 
-              {% if 'station-report' in request.user_permissions or request.user.is_superuser%}
+              {% if request|has_any_feature_permission:"station-report" %}
                 <a id="station-report" href="{% url 'station-report' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Station Report<i class="material-icons secondary-content">people</i></a>
               {% endif %}
 
-              {% if 'variable-report' in request.user_permissions or request.user.is_superuser%}
+              {% if request|has_any_feature_permission:"variable-report" %}
                 <a id="variable-report" href="{% url 'variable-report' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Variable Report<i class="material-icons secondary-content">view_list</i></a>
               {% endif %}
 
-              {% if 'product-compare' in request.user_permissions or request.user.is_superuser%}
+              {% if request|has_any_feature_permission:"product-compare" %}
                 <a id="product-compare" href="{% url 'product-compare' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Station Compare<i class="material-icons secondary-content">compare_arrows</i></a>
               {% endif %}
 
-              {% if 'yearly-average' in request.user_permissions or request.user.is_superuser%}
+              {% if request|has_any_feature_permission:"yearly-average" %}
                 <a id="yearly-average" href="{% url 'yearly-average' %}" class="left-space hidden-link">Yearly Average<i class="material-icons secondary-content" onclick="mainOverlayLoader()">timeline</i></a>
               {% endif %}
 
-              {% if 'spatial-analysis' in request.user_permissions or request.user.is_superuser%}
+              {% if request|has_any_feature_permission:"spatial-analysis" %}
                 <a id="spatial-analysis" href="{% url 'spatial-analysis' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Spatial analysis<i class="material-icons secondary-content">dashboard</i></a>
               {% endif %}
 
-              {% if 'extremes-means' in request.user_permissions or request.user.is_superuser%}
+              {% if request|has_any_feature_permission:"extremes-means" %}
                 <a id="extremes-means" href="{% url 'extremes-means' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Extremes & Means<i class="material-icons secondary-content">equalizer</i></a>
               {% endif %}
               
-              {% if 'wave-data' in request.user_permissions or request.user.is_superuser%}
+              {% if request|has_any_feature_permission:"wave-data" %}
                 <a id="wave-data" href="{% url 'wave-data' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Wave data analysis<i class="material-icons secondary-content">water</i></a>
               {% endif %}
 
@@ -863,7 +867,7 @@
             {% endif %}
 
             <!-- agromet tab -->
-            {% if request.user.is_staff or request.user.is_superuser %}
+            {% if request|has_any_feature_permission:"agromet-summaries,agromet-products" %}
             <li id="agromet-group" class="hover-item nav-dropdown-toggle">
 
               <!-- tab name -->
@@ -877,9 +881,13 @@
                 </span>
               </a>
 
-              <a id="agromet-summaries"  href="{% url 'agromet-summaries' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Monthly & Seasonal<i class="material-icons secondary-content">view_list</i></a>
+              {% if request|has_any_feature_permission:"agromet-summaries" %}
+                <a id="agromet-summaries"  href="{% url 'agromet-summaries' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Monthly & Seasonal<i class="material-icons secondary-content">view_list</i></a>
+              {% endif %}
               
-              <a id="agromet-products"  href="{% url 'agromet-products' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Calculated Products<i class="material-icons secondary-content">calculate</i></a>
+              {% if request|has_any_feature_permission:"agromet-products" %}
+                <a id="agromet-products"  href="{% url 'agromet-products' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Calculated Products<i class="material-icons secondary-content">calculate</i></a>
+              {% endif %}
 
               <!-- pill border at the bottom of the dropdown -->
               <hr class="hidden-end">
@@ -887,7 +895,7 @@
             {% endif %}
 
             <!-- wis2dashboard -->
-            {% if 'wis2-dashboard' in request.user_permissions or request.user.is_superuser %}
+            {% if request|has_any_feature_permission:"wis2-dashboard" %}
             <li class="">
 
               <!-- tab name -->
@@ -898,18 +906,35 @@
             </li>
             {% endif %}
 
-            <!-- administrative area -->
-            {% if request.user.is_staff or request.user.is_superuser %}
-            <li class="">
-              <!-- tab name -->
-              <a class="collapsible-item" href="{% url 'admin:index' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()"><i class="material-icons">business_center</i><span class="custom-navbar-text-fade-out">ADMINISTRATIVE AREA</span></a>
-            </li>
-            {% endif %}
+            <!-- settings tab -->
+            {% if request|has_any_feature_permission:"configuration-settings,manage-permissions" %}
+            <li id="settings-group" class="hover-item nav-dropdown-toggle">
 
-            {% if request.user.is_staff or request.user.is_superuser %}
-            <!-- Configuration Settings -->
-            <li class="collapsible-item">
-              <a href="{% url 'configuration-settings' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()"><i class="material-icons">settings</i><span class="to-uppercase custom-navbar-text-fade-out">Settings</span></a>
+              <!-- tab name -->
+              <a class="collapsible-item" style="padding: 0px 16px; position: relative;">
+                <i class="material-icons">settings</i>
+                <span class="custom-navbar-text-fade-out">Settings</span>
+                
+                <!-- new span for vert buttons, absolutely positioned to the right -->
+                <span class="hide-dropdown-icon" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%);">
+                  <i class="material-icons">more_vert</i>
+                </span>
+              </a>
+
+              {% if request|has_any_feature_permission:"configuration-settings" %}
+                <a id="configuration-settings"  href="{% url 'configuration-settings' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Configuration<i class="material-icons secondary-content">build</i></a>
+              {% endif %}
+
+              {% if request|has_any_feature_permission:"manage-permissions" %}
+                <a id="manage-permissions"  href="{% url 'manage-permissions' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Manage Permissions<i class="material-icons secondary-content">key_vertical</i></a>
+              {% endif %}
+              
+              {% if request|has_any_feature_permission:"" %} <!-- leaving it blank just does a superuser check-->
+                <a id="admin-area"  href="{% url 'admin:index' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Administrative Area<i class="material-icons secondary-content">business_center</i></a>
+              {% endif %}
+
+              <!-- pill border at the bottom of the dropdown -->
+              <hr class="hidden-end">
             </li>
             {% endif %}
 
