@@ -1,16 +1,505 @@
 {% extends "base.html" %}
-{% block content %}
 {% load static %}
 
+{% block content %}
 
+<div class="srf-container">
+  <!-- Page title -->
+  <div class="srf-flex flex-row align-items-center justify-content-between srf-padding">
+    <span class="srf-display-1 text-uppercase">Manage User Permissions</span><br /><br />
+  </div>
+
+  <div id="app" class="srf-flex justify-content-between srf-padding" v-cloak>
+
+  <v-app>
+
+    <section>
+    <!-- Tabs -->
+      <v-tabs v-model="activeTab" grow>
+        <v-tab>Users & Roles</v-tab>
+        <v-tab>Group Permissions</v-tab>
+      </v-tabs>
+
+      <!-- Tab items -->
+      <v-tabs-items v-model="activeTab">
+
+        <!-- TAB 0: USERS & ROLES -->
+        <v-tab-item>
+
+          <v-card class="mt-4">
+            <v-card-title>User Permissions</v-card-title>
+
+            <!-- Search -->
+            <v-text-field
+              v-model="search"
+              label="Search users or roles"
+              prepend-icon="mdi-magnify"
+              clearable
+              class="mb-4"
+            ></v-text-field>
+
+            <!-- Users table -->
+            <v-data-table
+              :headers="headers"
+              :items="filteredUsers"
+              item-key="id"
+              dense
+              class="elevation-1"
+              @click:row="openRoleModal"
+            >
+              <template v-slot:item.roles="{ item }">
+                <v-chip
+                  v-for="role in item.roles"
+                  :key="role"
+                  small
+                  class="ma-1"
+                  color="primary"
+                  text-color="white"
+                >
+                  [[ groupById[role] ]]
+                </v-chip>
+              </template>
+            </v-data-table>
+          </v-card>
+
+          <!-- Edit Roles Modal -->
+          <v-dialog v-model="dialog" max-width="500px" v-if="selectedUser">
+            <v-card>
+              <v-card-title>
+                Edit Roles for [[ selectedUser.username ]]
+              </v-card-title>
+
+              <v-card-text>
+                <v-select
+                  v-model="editedRoles"
+                  :items="groups"
+                  label="Roles"
+                  multiple
+                  chips
+                  clearable
+                ></v-select>
+              </v-card-text>
+
+              <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn text @click="closeModal">Cancel</v-btn>
+                <v-btn color="primary" text @click="saveRoles">Save</v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-dialog>
+
+        </v-tab-item>
+
+        
+        <!-- TAB 1: GROUP PERMISSIONS -->
+        <v-tab-item>
+
+          <v-row class="mt-4">
+            <!-- LEFT: Group navigation -->
+            <v-col cols="12" md="3">
+              <v-card outlined>
+                <v-card-title class="text-subtitle-1">
+                  Groups
+                </v-card-title>
+
+                <v-divider></v-divider>
+
+                <v-list dense>
+                  <v-list-item
+                    v-for="group in groups"
+                    :key="group.name"
+                    @click="attemptGroupSwitch(group.name)"
+                    :class="{
+                      'grey lighten-3': selectedGroup === group.name,
+                      'font-weight-medium': selectedGroup === group.name
+                    }"
+                  >
+                    <v-list-item-content>
+                      <v-list-item-title v-text="group.name"></v-list-item-title>
+                    </v-list-item-content>
+
+                    <v-list-item-icon v-if="selectedGroup === group.name">
+                      <v-icon small color="primary">mdi-check</v-icon>
+                    </v-list-item-icon>
+                  </v-list-item>
+                </v-list>
+              </v-card>
+            </v-col>
+
+            <!-- Permissions -->
+            <v-col cols="12" md="9">
+
+              <v-alert
+                v-if="!selectedGroup"
+                type="info"
+                outlined
+              >
+                Select a group to manage its permissions.
+              </v-alert>
+
+        <v-slide-y-transition v-else mode="out-in">
+          <v-card
+            v-if="selectedGroup"
+            :key="selectedGroup"
+            class="position-relative"
+          >
+            <!-- Overlay spinner -->
+            <!-- <v-overlay
+              :value="switchingGroup"
+              absolute
+              opacity="0.08"
+            >
+              <v-progress-circular
+                indeterminate
+                size="32"
+              ></v-progress-circular>
+            </v-overlay> -->
+
+            <v-card-title>
+              Permissions for [[ selectedGroup ]]
+            </v-card-title>
+
+            <v-card-subtitle class="text--secondary">
+              Now editing <strong>[[ selectedGroup ]]</strong> permissions
+            </v-card-subtitle>
+
+            <v-card-text>
+
+              <!-- your expansion panels stay EXACTLY the same here -->
+              <v-expansion-panels multiple>
+                <v-expansion-panel
+                  v-for="group in permissionGroups"
+                  :key="group.key"
+                >
+                  <v-expansion-panel-header>
+                    [[ group.title ]]
+                  </v-expansion-panel-header>
+
+                  <v-expansion-panel-content>
+                    <v-list dense>
+                      <v-list-item
+                        v-for="perm in group.permissions"
+                        :key="perm.code"
+                      >
+                        <v-list-item-content>
+                          <v-list-item-title>
+                            <code>[[ perm.code ]]</code>
+                          </v-list-item-title>
+                          <v-list-item-subtitle>
+                            [[ perm.description ]]
+                          </v-list-item-subtitle>
+                        </v-list-item-content>
+
+                        <v-list-item-action>
+                          <v-switch
+                            v-model="editedGroupPermissionsMap[perm.code]"
+                            inset
+                          ></v-switch>
+                        </v-list-item-action>
+                      </v-list-item>
+                    </v-list>
+                  </v-expansion-panel-content>
+                </v-expansion-panel>
+              </v-expansion-panels>
+
+            </v-card-text>
+
+            <v-card-actions>
+              <v-spacer></v-spacer>
+
+              <v-btn
+                text
+                color="secondary"
+                @click="resetGroupPermissions"
+              >
+                Reset
+              </v-btn>
+
+              <v-btn
+                color="primary"
+                text
+                @click="saveGroupPermissions"
+              >
+                Save
+              </v-btn>
+            </v-card-actions>
+
+          </v-card>
+        </v-slide-y-transition>
+
+
+            </v-col>
+          </v-row>
+
+        </v-tab-item>
+
+        <!-- snack bar status -->
+        <v-snackbar v-model="snackbar.show" :timeout="3000" :color="snackbar.color">
+            [[ snackbar.message ]]
+        </v-snackbar>
+
+      </v-tabs-items>
+    </section>
+
+  </v-app>
+  </div>
+</div>
 
 {% endblock %}
 
 {% block localjavascript %}
 <script>
+  new Vue({
+    el: "#app",
+    vuetify: new Vuetify(),
+    delimiters: ["[[", "]]"],
 
+    data() {
+      return {
+        isSaving: false,
+        
+        activeTab: 0,
+        
+        search: "",
+        
+        switchingGroup: false,
+        
+        headers: [
+          { text: "First Name", value: "first_name" },
+          { text: "Last Name", value: "last_name" },
+          { text: "Username", value: "username" },
+          { text: "Email Address", value: "email" },
+          { text: "Role(s)", value: "roles" },
+        ],
+        
+        users: [],
+        
+        availableRoles: ["Admin", "Editor", "Viewer", "Reporter"],
+        
+        dialog: false,
+        
+        selectedUser: null,
+        
+        editedRoles: [],
+        
+        groups: [],
+        
+        permissionGroups: [
+          {
+            key: "station",
+            title: "Station",
+            permissions: [
+              { code: "station_read", description: "View station metadata and observations" },
+              { code: "station_write", description: "Create and update station information" },
+              { code: "station_delete", description: "Delete stations from the system" },
+            ],
+          },
+          {
+            key: "wave",
+            title: "Wave Data",
+            permissions: [
+              { code: "wave_data_read", description: "View wave and marine data" },
+            ],
+          },
+          {
+            key: "spatial",
+            title: "Spatial Analysis",
+            permissions: [
+              { code: "spatial_analysis_read", description: "Access spatial and GIS analysis tools" },
+            ],
+          },
+        ],
+        
+        groupPermissions: {
+          Admin: ["station_read", "station_write", "station_delete", "wave_data_read", "spatial_analysis_read"],
+          Editor: ["station_read", "station_write", "wave_data_read"],
+          Viewer: ["station_read", "wave_data_read"],
+          Reporter: ["station_read", "wave_data_read"],
+        },
+        
+        selectedGroup: null,
+        
+        editedGroupPermissionsMap: {},
 
-<style>
+        snackbar: { show: false, message: '', color: '' },
+      };
+    },
+    methods: {    
+      openRoleModal(user) {
+        this.selectedUser = user;
+        this.editedRoles = [...user.roles];
+        this.dialog = true;
+      },
+      
+      saveRoles() {
+        this.selectedUser.roles = [...this.editedRoles];
+        this.closeModal();
+      },
+      
+      closeModal() {
+        this.dialog = false;
+        this.selectedUser = null;
+        this.editedRoles = [];
+      },
 
-</style>
+      resetGroupPermissions() {
+        this.editedGroupPermissionsMap = {};
+
+        if (!this.selectedGroup) return;
+
+        const current = this.groupPermissions[this.selectedGroup] || [];
+
+        current.forEach(code => {
+          this.$set(this.editedGroupPermissionsMap, code, true);
+        });
+      },
+
+      saveGroupPermissions() {
+        this.isSaving = true;
+
+        const enabled = Object.keys(this.editedGroupPermissionsMap)
+          .filter(code => this.editedGroupPermissionsMap[code]);
+
+        // simulate async save (replace with real API call later)
+        setTimeout(() => {
+          this.groupPermissions[this.selectedGroup] = enabled;
+          this.isSaving = false;
+
+              // later: POST to backend
+          console.log("Saved permissions:", this.selectedGroup, enabled);
+        }, 3000);
+      },
+
+      attemptGroupSwitch(groupName) {
+        if (this.hasUnsavedChanges || this.isSaving) {
+          this.$emit("showUnsavedWarning");
+          return;
+        }
+
+        this.selectedGroup = groupName;
+      },
+    
+      // fetch group names (Roles)
+      fetchRoles() {
+        fetch("/api/groups/")
+          .then(res => res.json())
+          .then(data => {
+            this.groups = data;
+          })
+          .catch(err => {
+            console.error("Failed to retrieve groups / roles names", err);
+            this.snackbar = { show: true, message: 'Failed to load group / role names', color: 'red' }
+          });
+      },
+
+      // fetch user details and groups (Roles) user is a part off
+      fetchUserInfo() {
+        fetch("/api/users_groups/")
+          .then(res => res.json())
+          .then(data => {
+            this.users = data;
+          })
+          .catch(err => {
+            console.error("Failed to retrieve user information", err);
+            this.snackbar = { show: true, message: 'Failed to load user details', color: 'red' }
+          });
+      },
+    },
+    computed: {
+      filteredUsers() {
+        if (!this.search) return this.users;
+        const term = this.search.toLowerCase();
+        return this.users.filter(u =>
+          u.first_name.toLowerCase().includes(term) ||
+          u.last_name.toLowerCase().includes(term) ||
+          u.username.toLowerCase().includes(term) ||
+          u.email.toLowerCase().includes(term) ||
+          u.roles.some(r => r.toLowerCase().includes(term))
+        );
+      },
+
+      hasUnsavedChanges() {
+        if (!this.selectedGroup) return false;
+
+        const original = this.groupPermissions[this.selectedGroup] || [];
+        const current = Object.keys(this.editedGroupPermissionsMap)
+          .filter(code => this.editedGroupPermissionsMap[code]);
+
+        if (original.length !== current.length) return true;
+
+        return original.some(code => !current.includes(code));
+      },
+    
+      groupById() {
+        /*
+        This computed property transforms the `groups` array
+        into a lookup object keyed by group ID.
+
+        WHY:
+        - Templates often need to go from `group_id -> group name`
+        - Doing a loop in the template is inefficient and messy
+        - This gives O(1) access instead of looping every time
+
+        INPUT (this.groups):
+        [
+          { id: 1, name: "Guest" },
+          { id: 2, name: "Data Entry Clerk" },
+          ...
+        ]
+
+        OUTPUT (returned object):
+        {
+          1: "Guest",
+          2: "Data Entry Clerk",
+          ...
+        }
+        */
+
+        return this.groups.reduce((accumulator, group) => {
+          /*
+          accumulator:
+            - The object we are building up and returning
+            - Starts as an empty object {}
+
+          group:
+            - The current group object from the `groups` array
+            - Example: { id: 7, name: "System Administrator" }
+          */
+
+          // Use the group's `id` as the key
+          // and the group's `name` as the value
+          accumulator[group.id] = group.name
+
+          // IMPORTANT:
+          // We must return the accumulator so `reduce`
+          // can pass it to the next iteration
+          return accumulator
+
+        }, {}) // Initial accumulator value (empty object)
+      }
+
+    },
+    watch: {
+      selectedGroup() {
+        // show overlay immediately
+        this.switchingGroup = true;
+
+        // reset permissions for the new group
+        this.resetGroupPermissions();
+
+        // hide overlay shortly after (UX delay)
+        // setTimeout(() => {
+        //   this.switchingGroup = false;
+        // }, 3000);
+      },
+    },
+    created() {
+      // fetch group names (Roles)
+      this.fetchRoles();
+
+      // fetch user information
+      this.fetchUserInfo();
+    },
+  });
+</script>
 {% endblock %}

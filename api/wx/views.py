@@ -65,6 +65,7 @@ from wx.decoders import insert_raw_data_pgia, insert_raw_data_synop
 from wx.decoders.hobo import read_file as read_file_hobo
 from wx.decoders.toa5 import read_file
 from wx.forms import StationForm
+from wx.permissions import IsSuperUser
 from wx.models import AdministrativeRegion, StationFile, Decoder, QualityFlag, DataFile, DataFileStation, \
     DataFileVariable, StationImage, WMOStationType, WMORegion, WMOProgram, StationCommunication, CombineDataFile, ManualStationDataFile
 from wx.models import Country, Unit, Station, Variable, DataSource, StationVariable, StationDataFileStatus,\
@@ -7475,8 +7476,8 @@ def daily_means_data_view(request):
 
 class DataInventoryView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
     # The actual data inventory page will be disabled until it is re-worked
-    # template_name = "wx/data_inventory.html"
-    template_name = "coming-soon.html"
+    template_name = "wx/data_inventory.html"
+    # template_name = "coming-soon.html"
 
     # This is the only “permission” string you need to supply:
     permission_required = "Data Inventory - Read"
@@ -11594,3 +11595,60 @@ class AquacropAvailableDataView(views.APIView):
 
         return start_datetime_history, end_datetime_history
 
+
+class GroupsInfo(views.APIView):
+    permission_classes = (IsAuthenticated, IsSuperUser)
+
+    def get(self, request, *args, **kwargs):
+        query = "SELECT id, name FROM auth_group ORDER BY id;"
+
+        with connection.cursor() as cursor:
+            cursor.execute(query)
+            rows = cursor.fetchall()
+
+        # Convert tuples to JSON-safe structures
+        groups_data = [
+            {"id": row[0], "name": row[1]}
+            for row in rows
+        ]
+
+        return Response(groups_data)
+
+
+class UsersGroupsInfo(views.APIView):
+    permission_classes = (IsAuthenticated, IsSuperUser)
+
+    def get(self, request, *args, **kwargs):
+        query = """
+                    SELECT
+                        AU.id,
+                        AU.first_name,
+                        AU.last_name,
+                        AU.username,
+                        AU.email,
+                        COALESCE(array_agg(AUG.group_id ORDER BY AUG.group_id)
+                                FILTER (WHERE AUG.group_id IS NOT NULL),
+                                '{}') AS all_group_ids
+                    FROM auth_user AS AU
+                    LEFT JOIN auth_user_groups AS AUG
+                        ON AU.id = AUG.user_id
+                    GROUP BY
+                        AU.id,
+                        AU.first_name,
+                        AU.last_name,
+                        AU.username,
+                        AU.email
+                    ORDER BY AU.id;
+                """
+
+        with connection.cursor() as cursor:
+            cursor.execute(query)
+            rows = cursor.fetchall()
+
+        # Convert tuples to JSON-safe structures
+        users_groups_data = [
+            {"id": row[0], "first_name": row[1], "last_name": row[2], "username": row[3], "email": row[4], "roles": row[5]}
+            for row in rows
+        ]
+
+        return Response(users_groups_data)

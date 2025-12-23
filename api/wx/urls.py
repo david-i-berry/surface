@@ -184,6 +184,9 @@ urlpatterns = [
     path('api/agromet/aquacrop/run/', views.AquacropModelRunView.as_view()),
     path('api/agromet/aquacrop/available/', views.AquacropAvailableDataView.as_view()),
     path('api/crops/', views.CropViewSet.as_view({'get': 'list'})),
+
+    path('api/groups/', views.GroupsInfo.as_view(), name="groups-info"),
+    path('api/users_groups/', views.UsersGroupsInfo.as_view(), name="users-groups-info"),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

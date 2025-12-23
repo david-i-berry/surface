@@ -925,8 +925,8 @@
                 <a id="configuration-settings"  href="{% url 'configuration-settings' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Configuration<i class="material-icons secondary-content">build</i></a>
               {% endif %}
 
-              {% if request|has_any_feature_permission:"manage-permissions" %}
-                <a id="manage-permissions"  href="{% url 'manage-permissions' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Manage Permissions<i class="material-icons secondary-content">key_vertical</i></a>
+              {% if request|has_any_feature_permission:"" %}
+                <!-- <a id="manage-permissions"  href="{% url 'manage-permissions' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Manage Permissions<i class="material-icons secondary-content">key_vertical</i></a> -->
               {% endif %}
               
               {% if request|has_any_feature_permission:"" %} <!-- leaving it blank just does a superuser check-->
