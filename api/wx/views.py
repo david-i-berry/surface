@@ -8354,8 +8354,10 @@ def synop_pressure_calc(request):
 
             value = pressure_data[station_name]['data'][0]['value']  
 
-            # return the absolute value as the pressure difference
-            pressure_difference = round((value - pressure_value), 1) if pressure_value != -99.9 and value != -99.9 else -99.9
+            # return the pressure difference
+            # "value" is the pressure from 24 hrs ago
+            # "pressure_value" is the current pressure
+            pressure_difference = round((pressure_value - value), 1) if pressure_value != -99.9 and value != -99.9 else -99.9
         else:
             pressure_difference = 'no data'
 
