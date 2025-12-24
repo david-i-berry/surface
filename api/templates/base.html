@@ -766,7 +766,14 @@
               {% endif %}
               
               {% if request|has_any_feature_permission:"data-inventory" %}
-                <a id="data-inventory" href="{% url 'data-inventory' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Data Inventory<i class="material-icons secondary-content">web</i></a>
+                <a id="data-inventory" href="{% url 'coming-soon' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Data Inventory<i class="material-icons secondary-content">web</i></a>
+                <!-- Actual like, coming soon above -->
+                <!-- <a id="data-inventory" href="{% url 'data-inventory' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Data Inventory<i class="material-icons secondary-content">web</i></a> -->
+              {% endif %}
+
+              <!-- wis2dashboard -->
+              {% if request|has_any_feature_permission:"wis2-dashboard" %}
+                <a id="wis2-dashboard" href="{% url 'wis2-dashboard' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">WIS2 DASHBOARD<i class="material-icons secondary-content">space_dashboard</i></a>
               {% endif %}
 
               {% if request|has_any_feature_permission:"manual-data-import" %}
@@ -894,18 +901,6 @@
             </li>
             {% endif %}
 
-            <!-- wis2dashboard -->
-            {% if request|has_any_feature_permission:"wis2-dashboard" %}
-            <li class="">
-
-              <!-- tab name -->
-              <a class="collapsible-item" href="{% url 'wis2-dashboard' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()">
-                <i class="material-icons">space_dashboard</i>
-                <span class="custom-navbar-text-fade-out">WIS2 DASHBOARD</span>
-              </a>
-            </li>
-            {% endif %}
-
             <!-- settings tab -->
             {% if request|has_any_feature_permission:"configuration-settings,manage-permissions" %}
             <li id="settings-group" class="hover-item nav-dropdown-toggle">
@@ -926,7 +921,9 @@
               {% endif %}
 
               {% if request|has_any_feature_permission:"manage-permissions" %}
-                <a id="manage-permissions"  href="{% url 'manage-permissions' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Manage Permissions<i class="material-icons secondary-content">key_vertical</i></a>
+                <a id="manage-permissions"  href="{% url 'coming-soon' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Manage Permissions<i class="material-icons secondary-content">key_vertical</i></a>
+                <!-- Actual like, coming soon above -->
+                <!--  <a id="manage-permissions"  href="{% url 'manage-permissions' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Manage Permissions<i class="material-icons secondary-content">key_vertical</i></a> -->
               {% endif %}
               
               {% if request|has_any_feature_permission:"" %} <!-- leaving it blank just does a superuser check-->

@@ -7479,8 +7479,7 @@ def daily_means_data_view(request):
 
 class DataInventoryView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
     # The actual data inventory page will be disabled until it is re-worked
-    # template_name = "wx/data_inventory.html"
-    template_name = "coming-soon.html"
+    template_name = "wx/data_inventory.html"
 
     # This is the only “permission” string you need to supply:
     permission_required = "Data Inventory - Read"
