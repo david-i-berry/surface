@@ -14,11 +14,26 @@
   <v-app>
 
     <section>
-    <!-- Tabs -->
-      <v-tabs v-model="activeTab" grow>
-        <v-tab>Users & Roles</v-tab>
-        <v-tab>Group Permissions</v-tab>
-      </v-tabs>
+      <!-- Tabs -->
+      <div class="d-flex mb-4">
+        <v-btn
+          outlined
+          class="mr-3"
+          :color="activeTab === 0 ? 'primary' : 'grey'"
+          @click="activeTab = 0"
+        >
+          Users & Roles
+        </v-btn>
+
+        <v-btn
+          outlined
+          :color="activeTab === 1 ? 'purple' : 'grey'"
+          @click="activeTab = 1"
+        >
+          Group Permissions
+        </v-btn>
+      </div>
+
 
       <!-- Tab items -->
       <v-tabs-items v-model="activeTab">
@@ -26,41 +41,58 @@
         <!-- TAB 0: USERS & ROLES -->
         <v-tab-item>
 
-          <v-card class="mt-4">
-            <v-card-title>User Permissions</v-card-title>
-
-            <!-- Search -->
+          <!-- Search -->
+          <v-flex lg3 ml-1>
             <v-text-field
               v-model="search"
               label="Search users or roles"
-              prepend-icon="mdi-magnify"
+              append-icon="search"
               clearable
               class="mb-4"
             ></v-text-field>
+          </v-flex>
 
-            <!-- Users table -->
-            <v-data-table
-              :headers="headers"
-              :items="filteredUsers"
-              item-key="id"
-              dense
-              class="elevation-1"
-              @click:row="openRoleModal"
-            >
-              <template v-slot:item.roles="{ item }">
-                <v-chip
-                  v-for="role in item.roles"
-                  :key="role"
-                  small
-                  class="ma-1"
-                  color="primary"
-                  text-color="white"
-                >
-                  [[ groupById[role] ]]
-                </v-chip>
-              </template>
-            </v-data-table>
-          </v-card>
+          <v-layout class="m-1">
+            <v-flex>
+
+              <!-- <v-card-title>User Permissions</v-card-title> -->
+
+              <v-data-table
+                :headers="headers"
+                :items="filteredUsers"
+                item-key="id"
+                class="elevation-1"
+              >
+                <template v-slot:item.roles="{ item }">
+                  <v-chip
+                    v-for="role in item.roles"
+                    :key="role"
+                    dark
+                    outlined
+                    :color="getColor(item.roles)"
+                    class="ma-1"
+                  >
+                    [[ groupById[role] ]]
+                  </v-chip>
+                </template>
+
+                <!-- Action buttons -->
+                <template v-slot:item.actions="{ item }">
+
+                  <!-- edit btn -->
+                  <v-btn 
+                    icon 
+                    v-on="on" 
+                    @click="openRoleModal(item)"
+                  >
+                    <v-icon small>edit</v-icon>
+                  </v-btn>
+                </template>
+
+              </v-data-table>
+        
+            </v-flex>
+          </v-layout>
 
           <!-- Edit Roles Modal -->
           <v-dialog v-model="dialog" max-width="500px" v-if="selectedUser">
@@ -137,98 +169,97 @@
                 Select a group to manage its permissions.
               </v-alert>
 
-        <v-slide-y-transition v-else mode="out-in">
-          <v-card
-            v-if="selectedGroup"
-            :key="selectedGroup"
-            class="position-relative"
-          >
-            <!-- Overlay spinner -->
-            <!-- <v-overlay
-              :value="switchingGroup"
-              absolute
-              opacity="0.08"
-            >
-              <v-progress-circular
-                indeterminate
-                size="32"
-              ></v-progress-circular>
-            </v-overlay> -->
-
-            <v-card-title>
-              Permissions for [[ selectedGroup ]]
-            </v-card-title>
-
-            <v-card-subtitle class="text--secondary">
-              Now editing <strong>[[ selectedGroup ]]</strong> permissions
-            </v-card-subtitle>
-
-            <v-card-text>
-
-              <!-- your expansion panels stay EXACTLY the same here -->
-              <v-expansion-panels multiple>
-                <v-expansion-panel
-                  v-for="group in permissionGroups"
-                  :key="group.key"
+              <v-slide-y-transition v-else mode="out-in">
+                <v-card
+                  v-if="selectedGroup"
+                  :key="selectedGroup"
+                  class="position-relative"
                 >
-                  <v-expansion-panel-header>
-                    [[ group.title ]]
-                  </v-expansion-panel-header>
+                  <!-- Overlay spinner -->
+                  <!-- <v-overlay
+                    :value="switchingGroup"
+                    absolute
+                    opacity="0.08"
+                  >
+                    <v-progress-circular
+                      indeterminate
+                      size="32"
+                    ></v-progress-circular>
+                  </v-overlay> -->
 
-                  <v-expansion-panel-content>
-                    <v-list dense>
-                      <v-list-item
-                        v-for="perm in group.permissions"
-                        :key="perm.code"
+                  <v-card-title>
+                    Permissions for [[ selectedGroup ]]
+                  </v-card-title>
+
+                  <v-card-subtitle class="text--secondary">
+                    Now editing <strong>[[ selectedGroup ]]</strong> permissions
+                  </v-card-subtitle>
+
+                  <v-card-text>
+
+                    <!-- your expansion panels stay EXACTLY the same here -->
+                    <v-expansion-panels multiple>
+                      <v-expansion-panel
+                        v-for="group in permissionGroups"
+                        :key="group.key"
                       >
-                        <v-list-item-content>
-                          <v-list-item-title>
-                            <code>[[ perm.code ]]</code>
-                          </v-list-item-title>
-                          <v-list-item-subtitle>
-                            [[ perm.description ]]
-                          </v-list-item-subtitle>
-                        </v-list-item-content>
+                        <v-expansion-panel-header>
+                          [[ group.title ]]
+                        </v-expansion-panel-header>
 
-                        <v-list-item-action>
-                          <v-switch
-                            v-model="editedGroupPermissionsMap[perm.code]"
-                            inset
-                          ></v-switch>
-                        </v-list-item-action>
-                      </v-list-item>
-                    </v-list>
-                  </v-expansion-panel-content>
-                </v-expansion-panel>
-              </v-expansion-panels>
+                        <v-expansion-panel-content>
+                          <v-list dense>
+                            <v-list-item
+                              v-for="perm in group.permissions"
+                              :key="perm.code"
+                            >
+                              <v-list-item-content>
+                                <v-list-item-title>
+                                  <code>[[ perm.code ]]</code>
+                                </v-list-item-title>
+                                <v-list-item-subtitle>
+                                  [[ perm.description ]]
+                                </v-list-item-subtitle>
+                              </v-list-item-content>
 
-            </v-card-text>
+                              <v-list-item-action>
+                                <v-switch
+                                  v-model="editedGroupPermissionsMap[perm.code]"
+                                  inset
+                                ></v-switch>
+                              </v-list-item-action>
+                            </v-list-item>
+                          </v-list>
+                        </v-expansion-panel-content>
+                      </v-expansion-panel>
+                    </v-expansion-panels>
 
-            <v-card-actions>
-              <v-spacer></v-spacer>
+                  </v-card-text>
 
-              <v-btn
-                text
-                color="secondary"
-                @click="resetGroupPermissions"
-              >
-                Reset
-              </v-btn>
+                  <v-card-actions>
+                    <v-spacer></v-spacer>
 
-              <v-btn
-                color="primary"
-                text
-                @click="saveGroupPermissions"
-              >
-                Save
-              </v-btn>
-            </v-card-actions>
+                    <v-btn
+                      text
+                      color="secondary"
+                      @click="resetGroupPermissions"
+                    >
+                      Reset
+                    </v-btn>
 
-          </v-card>
-        </v-slide-y-transition>
+                    <v-btn
+                      color="primary"
+                      text
+                      @click="saveGroupPermissions"
+                    >
+                      Save
+                    </v-btn>
+                  </v-card-actions>
 
-
+                </v-card>
+              </v-slide-y-transition>
             </v-col>
+
           </v-row>
 
         </v-tab-item>
@@ -270,6 +301,7 @@
           { text: "Username", value: "username" },
           { text: "Email Address", value: "email" },
           { text: "Role(s)", value: "roles" },
+          { text: 'Actions', value: 'actions' }
         ],
         
         users: [],
@@ -404,18 +436,45 @@
             this.snackbar = { show: true, message: 'Failed to load user details', color: 'red' }
           });
       },
+
+      // return chip color based on role
+      getColor(role) {
+
+        role_name = this.groupById[role]
+
+        const roleColors = {
+          "Guest": "grey",
+          "Data Entry Clerk": "blue",
+          "Instrument Technician": "teal",
+          "Climate Officer": "green",
+          "Climate Administrator": "indigo",
+          "Meteorologist": "purple",
+          "System Administrator": "red"
+        };
+
+        return roleColors[role_name ] || "grey";
+      }
     },
     computed: {
       filteredUsers() {
         if (!this.search) return this.users;
+
         const term = this.search.toLowerCase();
-        return this.users.filter(u =>
-          u.first_name.toLowerCase().includes(term) ||
-          u.last_name.toLowerCase().includes(term) ||
-          u.username.toLowerCase().includes(term) ||
-          u.email.toLowerCase().includes(term) ||
-          u.roles.some(r => r.toLowerCase().includes(term))
-        );
+
+        return this.users.filter(u => {
+          return (
+            (u.first_name || '').toLowerCase().includes(term) ||
+            (u.last_name || '').toLowerCase().includes(term) ||
+            (u.username || '').toLowerCase().includes(term) ||
+            (u.email || '').toLowerCase().includes(term) ||
+            (
+              Array.isArray(u.roles) &&
+              u.roles.some(r =>
+                (r.name || '').toLowerCase().includes(term)
+              )
+            )
+          );
+        });
       },
 
       hasUnsavedChanges() {
@@ -435,11 +494,6 @@
         This computed property transforms the `groups` array
         into a lookup object keyed by group ID.
 
-        WHY:
-        - Templates often need to go from `group_id -> group name`
-        - Doing a loop in the template is inefficient and messy
-        - This gives O(1) access instead of looping every time
-
         INPUT (this.groups):
         [
           { id: 1, name: "Guest" },
@@ -456,26 +510,12 @@
         */
 
         return this.groups.reduce((accumulator, group) => {
-          /*
-          accumulator:
-            - The object we are building up and returning
-            - Starts as an empty object {}
 
-          group:
-            - The current group object from the `groups` array
-            - Example: { id: 7, name: "System Administrator" }
-          */
-
-          // Use the group's `id` as the key
-          // and the group's `name` as the value
           accumulator[group.id] = group.name
 
-          // IMPORTANT:
-          // We must return the accumulator so `reduce`
-          // can pass it to the next iteration
           return accumulator
 
-        }, {}) // Initial accumulator value (empty object)
+        }, {})
       }
 
     },
