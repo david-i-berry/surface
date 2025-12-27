@@ -74,6 +74,7 @@
                 </div>
             </form>
 
+            <!-- The buttons -->
             <div class="mt-5">
                 <!-- utc change button -->
                 <v-btn
@@ -710,7 +711,7 @@
                     case 4055:
                         const calc_precip_url = `/wx/reports/synop/calc-precip/?station_id=${selectedId}`
 
-                        if (Number(rowData['0'])) {
+                        if (!Number.isNaN(Number(rowData['0']))) {
                             // send a request back to the server to retrieve the 24-hour difference
                             axios.post(calc_precip_url, {
                                 date: rowDatetime,
@@ -1018,7 +1019,9 @@
                     useUTC: false,
 
                     editorListeners: new Map(), // Map to track active editor listeners (keyed by "rowIndex-colId")
-
+                    
+                    columnRanges: {},
+                    
                     // next var....
                 };
             },
@@ -1304,6 +1307,8 @@
                     this.loading = true;
       
                     const { stationId, interval, date } = this.requestData;
+                    const month = moment(date).month() + 1 // moment has a zero based index for months
+
                     if (stationId===null){
                       this.loading = false;
                       return
@@ -1311,6 +1316,7 @@
 
                     const url = `/wx/reports/synop/load/?station_id=${stationId}&date=${date}`
 
+                    // get the data
                     axios.get(url).then(response => {
                         this.requestedData = Object.assign({}, this.requestData);
 
@@ -1348,6 +1354,15 @@
                         this.draft = false;
                         this.loading = false;
                     });
+
+                    // get the QC range threshold
+                    axios.get(`/api/range_threshold/?station_id=${stationId}&interval=${interval}&month=${month}`).then(response => {
+                        let processedRanges = {}
+                        response.data.forEach(record => processedRanges[record.variable.id] = {max: record.range_max, min: record.range_min});
+
+                        // save the output to columRanges in the format {var_id:{max:xx, min:xx}}
+                        this.columnRanges = processedRanges;
+                    });
                 },
 
 
@@ -1361,12 +1376,46 @@
                         return null;
                     }
 
-                    // numeric check
+                    // numeric fields
                     if (this.colIdsNumType.includes(colDef.colId)) {
                         const num = Number(val);
 
-                        if (isNaN(num)) {
+                        // is numeric check
+                        if(isNaN(num)) {
                             return 'Must be a number';
+                        }
+
+                        // QC values check
+                        if(this.columnRanges[colDef.colId]) {
+                            // Get the allowed range for the current column (by column ID)
+                            const range = this.columnRanges[colDef.colId];
+
+                            // Checks whether a value is within an inclusive numeric range.
+                            const isBetween = (value, min, max) => {
+                                const v = Number(value);
+                                const lo = Number(min);
+                                const hi = Number(max);
+
+                                // If any value is not a valid number, fail validation
+                                if (Number.isNaN(v) || Number.isNaN(lo) || Number.isNaN(hi)) {
+                                    return false;
+                                }
+
+                                // Inclusive range check
+                                return v >= lo && v <= hi;
+                            };
+
+                            // Safety check: if no range is defined for this column,
+                            // do not allow the value to pass validation
+                            if (!range) {
+                                return 'No validation range defined for this column';
+                            }
+
+                            // Validate the value against the column's allowed range
+                            if (!isBetween(val, range.min, range.max)) {
+                                return `Value must be between ${range.min} and ${range.max}`;
+                            }
+
                         }
                     }
 
@@ -1686,6 +1735,9 @@
                     this.loading = true;
 
                     const { stationId, date } = this.requestedData;
+
+                    console.log(this.pendingDeleteHours);
+
                     const calls = this.pendingDeleteHours.map(hour => {
                         const url = `/wx/reports/synop/delete/`
                                     + `?station_id=${stationId}`
