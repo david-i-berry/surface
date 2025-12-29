@@ -1575,7 +1575,7 @@ class HFSummaryTask(BaseModel):
 
 
 class Manufacturer(BaseModel):
-    name = models.CharField(max_length=64)
+    name = models.CharField(unique=True, max_length=64)
 
     class Meta:
         ordering = ['name']
@@ -1595,7 +1595,7 @@ class FundingSource(BaseModel):
 
 
 class EquipmentType(BaseModel):
-    name = models.CharField(max_length=64)
+    name = models.CharField(unique=True, max_length=64)
     description = models.CharField(max_length=256)
     report_template = RichTextField(blank=True, null=True)
 
@@ -1627,10 +1627,10 @@ class Equipment(BaseModel):
         PARTIALLY_FUNCTIONAL = 'P', gettext_lazy('Partially Functional')
         NOT_FUNCTIONAL = 'N', gettext_lazy('Not Functional')
 
-    equipment_type = models.ForeignKey(EquipmentType, on_delete=models.DO_NOTHING)
-    manufacturer = models.ForeignKey(Manufacturer, on_delete=models.DO_NOTHING)
+    equipment_type = models.ForeignKey(EquipmentType, null=True, blank=False, on_delete=models.SET_NULL)
+    manufacturer = models.ForeignKey(Manufacturer, null=True, blank=False, on_delete=models.SET_NULL)
     location = models.ForeignKey(Station, null=True, blank=True, on_delete=models.SET_NULL)
-    funding_source = models.ForeignKey(FundingSource, on_delete=models.DO_NOTHING)
+    funding_source = models.ForeignKey(FundingSource, null=True, blank=False, on_delete=models.SET_NULL)
     model = models.ForeignKey(EquipmentModel, null=True, blank=False, on_delete=models.SET_NULL)
     serial_number = models.CharField(max_length=64)
     acquisition_date = models.DateField()

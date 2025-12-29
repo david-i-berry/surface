@@ -588,8 +588,7 @@
           })  
           .catch((error) => {
             console.log("error", error.response);
-            this.request_error_message = error.response.data.message;
-            this.request_error = true;
+            this.snackbar = { show: true, message: `${error.response.data.message}`, color: 'red' };   
           })
           .finally(() => {
             this.getEquipmentData();
@@ -623,8 +622,7 @@
           })
           .catch((error) => {
             console.log("error", error.response);
-            this.request_error_message = error.response.data.message;
-            this.request_error = true;
+            this.snackbar = { show: true, message: `${error.response.data.message}`, color: 'red' };   
           })
           .finally(() => {
             this.getEquipmentData();
@@ -646,8 +644,7 @@
           })  
           .catch((error) => {
             console.log("error", error.response);
-            this.request_error_message = error.response.data.message;
-            this.request_error = true;
+            this.snackbar = { show: true, message: `${error.response.data.message}`, color: 'red' };   
           })
           .finally(() => {
             this.loading = false;
