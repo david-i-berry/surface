@@ -678,7 +678,11 @@ def GetInterpolationImage(request):
     df_climate = df_merged[["station_id", dt_query, "longitude", "latitude", value_query]]
 
     if agg != "instant":
-        df_climate = df_climate.groupby(['station_id', 'longitude', 'latitude']).agg(agg).reset_index()
+        df_climate = (
+            df_climate
+            .groupby(['station_id', 'longitude', 'latitude'], as_index=False)
+            .agg({value_query: agg})
+        )
 
     gx, gy, img = interpolate_to_grid(
         df_climate["longitude"],
@@ -7599,8 +7603,7 @@ def daily_means_data_view(request):
 
 class DataInventoryView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
     # The actual data inventory page will be disabled until it is re-worked
-    # template_name = "wx/data_inventory.html"
-    template_name = "coming-soon.html"
+    template_name = "wx/data_inventory.html"
 
     # This is the only “permission” string you need to supply:
     permission_required = "Data Inventory - Read"
@@ -8474,8 +8477,10 @@ def synop_pressure_calc(request):
 
             value = pressure_data[station_name]['data'][0]['value']  
 
-            # return the absolute value as the pressure difference
-            pressure_difference = round((value - pressure_value), 1) if pressure_value != -99.9 and value != -99.9 else -99.9
+            # return the pressure difference
+            # "value" is the pressure from 24 hrs ago
+            # "pressure_value" is the current pressure
+            pressure_difference = round((pressure_value - value), 1) if pressure_value != -99.9 and value != -99.9 else -99.9
         else:
             pressure_difference = 'no data'
 
