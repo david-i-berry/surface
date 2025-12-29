@@ -10,8 +10,13 @@
     <v-app>
       <div>
         <form class="col l12">
+
+          <!-- Form title -->
           <h6>Station Filters</h6>
+
+          <!-- Row 1-->
           <v-row dense justify="start" class="mb-3">
+            <!-- Distrit selector -->
             <v-col class="text-center" cols="3">
               <v-autocomplete
                 item-text="name"
@@ -23,6 +28,8 @@
                 clearable
               ></v-autocomplete>
             </v-col>
+
+            <!-- Watershed Selector -->
             <v-col class="text-center" cols="3">
               <v-autocomplete
                 item-text="name"
@@ -34,6 +41,8 @@
                 clearable
               ></v-autocomplete>
             </v-col>
+
+            <!-- Station Profile Selector -->
             <v-col class="text-center" cols="2">
               <v-autocomplete
                 item-text="name"
@@ -45,22 +54,31 @@
                 clearable
               ></v-autocomplete>
             </v-col>
+
+            <!-- is active switch -->
             <v-col class="text-center" cols="2">
               <v-switch
+                inset
                 v-model="filter.isActive"
                 @change="invertValue(filter.isActive)"
                 label="Active"
               ></v-switch>
             </v-col>
+
+            <!-- is automatic switch -->
             <v-col class="text-center" cols="2">
               <v-switch
+                inset
                 v-model="filter.isAutomatic"
                 @change="invertValue(filter.isAutomatic)"
                 label="Automatic"
               ></v-switch>
             </v-col>
           </v-row>
+
+          <!-- Row 2 -->
           <v-row dense justify="start" class="pt-3">
+            <!-- station search -->
             <v-col class="text-center" cols="10">
               <v-autocomplete
                 v-model="station"
@@ -77,6 +95,7 @@
               ></v-autocomplete>
             </v-col>
 
+            <!-- select all station button -->
             <v-col class="text-center" cols="2">
               <v-btn
                 class="ml-2"
@@ -88,8 +107,11 @@
               >
             </v-col>
           </v-row>
+
+          <!-- Row 3 -->
           <v-row dense justify="start" class="pt-3">
-            <v-col class="text-center" :cols="computedColsSource">
+            <!-- data source-->
+            <v-col class="text-center" :cols="6">
               <v-select
                 v-model="source"
                 :items="sources"
@@ -98,8 +120,9 @@
                 v-on:change="onChangeTimescale"
               ></v-select>
             </v-col>
-                        
-            <v-col class="text-center" :cols="computedCols" v-if="source.source === 'raw_data'">
+                    
+            <!-- data interval -->
+            <v-col class="text-center" :cols="6" v-if="source.source === 'raw_data'">
               <v-select
               v-model="dataInterval"
               :items="dataIntervals"
@@ -108,7 +131,7 @@
             </v-col>
 
             <!-- dropdown for aggregation -->
-            <v-col class="text-center" :cols="computedCols" v-if="source.source != 'raw_data'">
+            <v-col class="text-center" :cols="6" v-if="source.source != 'raw_data'">
               <!-- <v-select
                 v-model="aggregation"
                 :items="aggregations"
@@ -129,14 +152,9 @@
               ></v-autocomplete>
             </v-col>
 
-            <!-- Togglable switch to determine whether the output should be in local time of utc time -->
-            <v-col class="text-center" cols="3" v-if="source.source === 'hourly_summary' || source.source === 'raw_data'">
-              <v-switch
-                v-model="displayUTC"
-                label="Coordinated Universal Time (UTC)"
-              ></v-switch>
-            </v-col>
           </v-row>
+
+          <!-- Row 4 -->
           <v-row dense justify="start">
             <v-col class="text-center" cols="12">
               <v-autocomplete
@@ -154,6 +172,8 @@
               ></v-autocomplete>
             </v-col>
           </v-row>
+
+          <!-- Row 5 -->
           <v-row dense justify="start">
             <v-col class="text-center" cols="3">
               <v-menu
@@ -255,11 +275,41 @@
             </v-col>
           </v-row>
 
+          <!-- Row 6 -->
+          <v-row dense justify="start">
+            <!-- Export aqc validated -->
+            <v-col class="text-center" cols="auto" v-if="source.source === 'raw_data'">
+              <v-switch
+                inset
+                v-model="export_aqc"
+                label="Export AQC Validated Data"
+              ></v-switch>
+            </v-col>
+
+            <!-- Export manual validated -->
+            <v-col class="text-center" cols="auto" v-if="source.source === 'raw_data'">
+              <v-switch
+                inset
+                v-model="export_manual"
+                label="Export Manual Validated Data"
+              ></v-switch>
+            </v-col>    
+
+            <!-- Togglable switch to determine whether the output should be in local time of utc time -->
+            <v-col class="text-center" cols="auto" v-if="source.source === 'hourly_summary' || source.source === 'raw_data'">
+              <v-switch
+                inset
+                v-model="displayUTC"
+                label="Coordinated Universal Time (UTC)"
+              ></v-switch>
+            </v-col>
+          </v-row>
+
+          <!-- Action Buttons -->
           <v-row dense justify="start">
             <!-- Export to CSV button -->
             <v-col class="text-center" cols="auto">
               <v-btn
-                small
                 @click="exportCSV()"
                 :disabled="variables.length == 0 || station.length == 0"
               >
@@ -271,7 +321,6 @@
             <!-- Combine and Dowload .XLSX -->
             <v-col class="text-center" cols="auto">
               <v-btn
-              small
               @click="convertCombineXLSX"
               :disabled="showCombineXLSX()"
             >
@@ -286,6 +335,7 @@
           </v-row>
         </form>
 
+        <!-- Alert -->
         <v-alert v-model="request_error" dismissible type="error">
           [[ request_error_message ]]
         </v-alert>
@@ -542,6 +592,8 @@
         loading: false,
         station: [],
         displayUTC: false,
+        export_aqc: true,
+        export_manual: false,
         stations: [
           {% for station in station_list %}
           { value: {{ station.id }},
@@ -674,20 +726,6 @@
           filteredStations = filteredStations.filter(station => this.filter.isActive == station.is_active);
 
           return filteredStations;
-        },
-        computedCols() {
-          // if (this.source.source === "raw_data") {
-          //   return 3;
-          // }
-
-          return 5;
-        },
-        computedColsSource() {
-          // if (this.source.source === "hourly_summary") {
-          //   return 5;
-          // }
-
-          return 3;
         },
       },
       methods: {
