@@ -35,7 +35,6 @@
                   required
                   hint="*Required"
                   persistent-hint
-                  :rules="simpleTextFieldsRules"
                   autocomplete="off"
                 ></v-autocomplete>                
               </v-flex>
@@ -49,7 +48,6 @@
                   required
                   hint="*Required"
                   persistent-hint
-                  :rules="simpleTextFieldsRules"
                   autocomplete="off"
                 ></v-autocomplete>    
               </v-flex>
@@ -57,15 +55,18 @@
 
             <v-layout mx-2 mb-2>
               <v-flex mr-2>
-                  <v-text-field
+                  <!-- models option -->
+                  <v-autocomplete
+                    :items="equipment_models"
+                    item-text="name"
+                    item-value="id"
+                    v-model="equipment.equipment_model_id"
                     label="Model"
-                    v-model="equipment.model"
                     required
                     hint="*Required"
-                    persistent-hint                      
-                    single-line
-                    type="text"
-                  ></v-text-field>                
+                    persistent-hint
+                    autocomplete="off"
+                  ></v-autocomplete>     
                 </v-flex>
               <v-flex>
                 <v-text-field
@@ -80,6 +81,22 @@
               </v-flex>
             </v-layout>
 
+            <!-- add the location option which is the either the station or "Office" -->
+            <v-layout ma-2>
+              <v-flex mr-2>
+                <v-autocomplete
+                  :items="stations"
+                  item-text="name"
+                  item-value="id"
+                  v-model="equipment.location_id"
+                  label="Location of the equipment"
+                  hint="*The default location is office"
+                  persistent-hint
+                  autocomplete="off"
+                ></v-autocomplete>                
+              </v-flex>
+            </v-layout>
+
             <v-layout ma-2 mb-2>
               <v-flex mr-2>
                 <v-autocomplete
@@ -91,7 +108,6 @@
                   required
                   hint="*Required"
                   persistent-hint
-                  :rules="simpleTextFieldsRules"
                   autocomplete="off"
                 ></v-autocomplete>                
               </v-flex>
@@ -106,7 +122,7 @@
                   <template v-slot:activator="{ on }">
                     <v-text-field
                     v-model="equipment.acquisition_date"
-                    label="Date of Acquirement"
+                    label="Aquistion Date"
                     v-on="on"
                     required
                     hint="*Required"
@@ -256,31 +272,37 @@
                 ></v-autocomplete>                           
               </v-flex>
             </v-layout>
+
           </v-layout>            
           </v-layout>
 
           <v-card-actions>
+            <!-- cancel button -->
+            <v-btn width="50%" color="error" @click="dialog_new = false">
+              Cancel
+            </v-btn>
+
+            <!-- create equipment -->
             <v-btn
               v-if="is_new_equipment"
               width="50%"
-              color="primary"
+              color="success"
               @click="dialog_new = false; createEquipment()"
               :disabled="$v.equipment.$invalid"
             >
               Create Equipment
             </v-btn>
+
+            <!-- update equipment -->
             <v-btn
               v-if="!is_new_equipment"
               width="50%"
-              color="primary"
+              color="success"
               @click="dialog_new = false; updateEquipment()"
               :disabled="$v.equipment.$invalid"
             >
               Update Equipment
             </v-btn>            
-            <v-btn width="50%" @click="dialog_new = false">
-              Cancel
-            </v-btn>
           </v-card-actions>
         </v-card>
       </v-dialog>
@@ -298,7 +320,7 @@
               Manufacturer: [[equipment.manufacturer]]
             </v-layout>                
             <v-layout>
-              Model: [[equipment.model]]
+              Model: [[equipment.equipment_model]]
             </v-layout>
             <v-layout>
               Serial Number: [[equipment.serial_number]]
@@ -312,14 +334,14 @@
             >
               Delete Equipment
             </v-btn>
-            <v-btn width="50%" @click="dialog_del = false">
+            <v-btn width="50%" color="success" @click="dialog_del = false">
               Cancel
             </v-btn>
           </v-card-actions>
         </v-card>
       </v-dialog>
 
-      <v-content fluid fill-height style="background: white">
+      <v-main fluid fill-height style="background: white">
         <v-layout column>
           <div class="srf-flex flex-row align-items-center justify-content-between srf-padding">
             <span class="srf-display-1 text-uppercase">Equipment Inventory</span
@@ -337,7 +359,7 @@
           </v-flex>
           <v-flex lg1 mt-5>
             {% if 'write' in USER_PERMISSIONS.equipment_inventory or 'full_access' in USER_PERMISSIONS.equipment_inventory or user.is_superuser %}
-              <v-btn small label color="primary" @click="getEquipmentData(); is_new_equipment=true; dialog_new = true">
+              <v-btn label color="primary" @click="getEquipmentData(); is_new_equipment=true; dialog_new = true">
                 New Equipment
               </v-btn>
             {% endif %}            
@@ -349,14 +371,24 @@
             <v-data-table
               :headers="headers"
               :items="equipments"
-              class="elevation-1"
+              class="elevation-4"
               :search="search"
+              loading="true"
             >
               <template v-slot:item.actions="{ item }">
                 {% if 'update' in USER_PERMISSIONS.equipment_inventory or 'full_access' in USER_PERMISSIONS.equipment_inventory or user.is_superuser %}
                 <v-tooltip bottom>
                   <template v-slot:activator="{ on }">
-                    <v-btn icon> <v-icon v-on="on" small @click="dialog_new=true; is_new_equipment=false; equipment=item"> edit</v-icon></v-btn>
+
+                    <!-- edit btn -->
+                    <v-btn 
+                      icon 
+                      v-on="on" 
+                      @click="dialog_new=true; is_new_equipment=false; equipment=item"
+                    >
+                      <v-icon small>edit</v-icon>
+                    </v-btn>
+
                   </template>
                   <span>Update Equipment</span>
                 </v-tooltip>
@@ -365,7 +397,18 @@
                 {% if 'delete' in USER_PERMISSIONS.equipment_inventory or 'full_access' in USER_PERMISSIONS.equipment_inventory or user.is_superuser %}
                   <v-tooltip bottom>
                     <template v-slot:activator="{ on }">
-                      <v-btn icon> <v-icon color="error" v-on="on" small @click="dialog_del=true; equipment=item">delete</v-icon></v-btn>
+
+                      <!-- delete btn -->
+                      <v-btn 
+                        icon
+                        v-on="on"
+                        @click="dialog_del=true; equipment=item"
+                        > 
+                        <v-icon color="error" small>
+                          delete
+                        </v-icon>
+                      </v-btn>
+
                     </template>
                     <span>Delete Equipment</span>
                   </v-tooltip>
@@ -374,8 +417,13 @@
             </v-data-table>
           </v-flex>            
         </v-layout>
-      </v-content>
+      </v-main>
     </v-app>
+
+    <!-- snack bar status -->
+    <v-snackbar v-model="snackbar.show" :timeout="3000" :color="snackbar.color">
+        [[ snackbar.message ]]
+    </v-snackbar>
   </div>
 </div>
 {% endblock %} {% block localjavascript %}
@@ -391,15 +439,16 @@
           equipment_type_id: { required },
           funding_source_id: { required },
           manufacturer_id: { required },
-          model: { required },
+          equipment_model_id: { required },
           serial_number: { required },          
-          acquisition_date: { required },          
+          acquisition_date: { required },                
         },
       },      
       data:{
         search: '',
         tester_tester: [],
-        loading: false,
+        snackbar: { show: false, message: '', color: '' },
+        loading: true,
         request_error_message: null,
         request_error: false,
         dialog_new: false,
@@ -409,6 +458,7 @@
         manufacturers: [],
         funding_sources: [],
         stations: [],
+        equipment_models: [],
         equipment_classifications: [],
         is_new_equipment: true,
         equipment: {
@@ -419,7 +469,8 @@
           funding_source_id: null,          
           manufacturer: null,
           manufacturer_id: null,
-          model: null,
+          equipment_model: null,
+          equipment_model_id: null,
           serial_number: null,
           acquisition_date: moment().format('YYYY-MM-DD'),
           acquisition_date_menu: false,
@@ -441,7 +492,7 @@
         headers: [
           { text: 'Equipment Type', align: 'left', value: 'equipment_type' },
           { text: 'Manufacturer', align: 'center',value: 'manufacturer' },
-          { text: 'Model', align: 'center', value: 'model' },
+          { text: 'Model', align: 'center', value: 'equipment_model' },
           { text: 'Serial Number', align: 'center', value: 'serial_number' },
           { text: 'Acquired', align: 'center', value: 'acquisition_date' },
           { text: 'First Deployed', align: 'center', value: 'first_deploy_date' },
@@ -450,7 +501,6 @@
           { text: 'Classification', align: 'center', value: 'classification' },
           { text: 'Actions', align: 'center', value: 'actions', sortable: false },
         ],
-        equipments: [],
       },
       computed: {
         shouldClearEquipment() {
@@ -468,7 +518,8 @@
               funding_source_id: null,          
               manufacturer: null,
               manufacturer_id: null,
-              model: null,
+              equipment_model: null,
+              equipment_model_id: null,
               serial_number: null,
               acquisition_date: moment().format('YYYY-MM-DD'),
               acquisition_date_menu: false,
@@ -503,9 +554,11 @@
               this.manufacturers = res.data['manufacturers'];
               this.funding_sources = res.data['funding_sources'];
               this.stations = res.data['stations'];
+              this.stations.unshift({"name":"Office", "id":null}); // append the default office item
+              this.equipment_models = res.data['equipment_models'];
               this.equipment_classifications = res.data['equipment_classifications'];
             },
-          ).catch(error => {console.log(error);});
+          ).catch(error => {console.log(error);}).finally(()=> {this.loading = false;});
 
         },
         createEquipment(){
@@ -517,7 +570,7 @@
               'equipment_type': this.equipment.equipment_type_id,
               'manufacturer': this.equipment.manufacturer_id,
               'funding_source': this.equipment.funding_source_id,
-              'model': this.equipment.model,
+              'model': this.equipment.equipment_model_id,
               'serial_number': this.equipment.serial_number,
               'acquisition_date': this.equipment.acquisition_date,
               'first_deploy_date': this.equipment.first_deploy_date,
@@ -530,7 +583,8 @@
             },
           }) 
           .then(
-            res => {              
+            res => {  
+              this.snackbar = { show: true, message: 'Equipment Created', color: 'green' };           
           })  
           .catch((error) => {
             console.log("error", error.response);
@@ -538,7 +592,6 @@
             this.request_error = true;
           })
           .finally(() => {
-            this.loading = false;
             this.getEquipmentData();
           });
         },
@@ -552,7 +605,7 @@
               'equipment_type': this.equipment.equipment_type_id,
               'manufacturer': this.equipment.manufacturer_id,
               'funding_source': this.equipment.funding_source_id,
-              'model': this.equipment.model,
+              'model': this.equipment.equipment_model_id,
               'serial_number': this.equipment.serial_number,
               'acquisition_date': this.equipment.acquisition_date,
               'first_deploy_date': this.equipment.first_deploy_date,
@@ -565,7 +618,8 @@
             },
           })
           .then(
-            res => {             
+            res => {      
+              this.snackbar = { show: true, message: 'Equipment Updated', color: 'green' };            
           })
           .catch((error) => {
             console.log("error", error.response);
@@ -573,7 +627,6 @@
             this.request_error = true;
           })
           .finally(() => {
-            this.loading = false;
             this.getEquipmentData();
           });
         },
@@ -589,6 +642,7 @@
           .then(
             res => {
               this.getEquipmentData();
+              this.snackbar = { show: true, message: 'Equipment Deleted', color: 'green' };     
           })  
           .catch((error) => {
             console.log("error", error.response);

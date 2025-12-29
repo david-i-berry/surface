@@ -34,7 +34,7 @@ from django.contrib.messages.views import SuccessMessageMixin
 from django.core.cache import cache
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import connection
+from django.db import connection, IntegrityError
 from django.http import HttpResponse, JsonResponse, FileResponse, HttpResponseNotAllowed, HttpResponseBadRequest, Http404
 from django.utils.http import http_date
 from django.template import loader
@@ -84,7 +84,7 @@ from wx.tasks import fft_decompose, export_station_to_oscar, export_station_to_o
 import math
 import numpy as np
 
-from wx.models import Equipment, EquipmentType, Manufacturer, FundingSource, StationProfileEquipmentType
+from wx.models import Equipment, EquipmentType, EquipmentModel, Manufacturer, FundingSource, StationProfileEquipmentType
 from django.core.serializers import serialize
 from django.core.serializers.json import DjangoJSONEncoder
 from wx.models import MaintenanceReportEquipment
@@ -5249,202 +5249,326 @@ def get_equipment_location(equipment):
 
 @require_http_methods(["GET"])
 def get_equipment_inventory_data(request):
-    equipment_types = EquipmentType.objects.all()
-    manufacturers = Manufacturer.objects.all()
-    equipments = Equipment.objects.all().order_by('equipment_type', 'serial_number')
-    funding_sources = FundingSource.objects.all()
-    stations = Station.objects.all()
+    """
+    Returns all data required to render the Equipment Inventory page.
 
+    This endpoint intentionally returns BOTH:
+    1. Inventory data (actual equipment rows)
+    2. Lookup / metadata tables (types, models, manufacturers, etc.)
+
+    These are kept separate on purpose:
+    - Inventory data is optimized for performance
+    - Lookup data must include *unused* rows for dropdowns
+    """
+
+    # MAIN INVENTORY QUERY
+    # IMPORTANT:
+    # - select_related ONLY pulls related rows that are actually used
+    #   by existing Equipment records.
+    # - It does NOT replace separate queries for lookup tables.
+    #
+    equipments = (
+        Equipment.objects
+        .select_related(
+            "equipment_type",  
+            "model",           
+            "manufacturer",     
+            "funding_source",   
+            "location",         # FK → Location (nullable)
+        )
+        .order_by("equipment_type__name", "serial_number")
+    )
+
+    # This list will be serialized directly to JSON.
     equipment_list = []
+
+    # SERIALIZE EACH EQUIPMENT ROW
     for equipment in equipments:
-        try:
-            equipment_type = equipment_types.get(id=equipment.equipment_type_id)
-            funding_source = funding_sources.get(id=equipment.funding_source_id)
-            manufacturer = manufacturers.get(id=equipment.manufacturer_id)
-            station = get_equipment_location(equipment)
 
-            equipment_dict = {
-                'equipment_id': equipment.id,
-                'equipment_type': equipment_type.name,
-                'equipment_type_id': equipment_type.id,
-                'funding_source': funding_source.name,
-                'funding_source_id': funding_source.id,            
-                'manufacturer': manufacturer.name,
-                'manufacturer_id': manufacturer.id,
-                'model': equipment.model,
-                'serial_number': equipment.serial_number,
-                'acquisition_date': equipment.acquisition_date,
-                'first_deploy_date': equipment.first_deploy_date,
-                'last_calibration_date': equipment.last_calibration_date,
-                'next_calibration_date': equipment.next_calibration_date,
-                'decommission_date': equipment.decommission_date,
-                'last_deploy_date': equipment.last_deploy_date,
-                'location': f"{station.name} - {station.code}" if station else 'Office',
-                'location_id': station.id if station else None,
-                'classification': equipment_classification(equipment.classification),
-                'classification_id': equipment.classification,
-            }
-            equipment_list.append(equipment_dict)            
-        except ObjectDoesNotExist:
-            pass
+        equipment_list.append({
+            # Primary identifiers
+            "equipment_id": equipment.id,
 
+            # Equipment type (FK)
+            "equipment_type": equipment.equipment_type.name,
+            "equipment_type_id": equipment.equipment_type.id,
+
+            # Funding source (FK)
+            "funding_source": equipment.funding_source.name,
+            "funding_source_id": equipment.funding_source.id,
+
+            # Manufacturer (FK)
+            "manufacturer": equipment.manufacturer.name,
+            "manufacturer_id": equipment.manufacturer.id,
+
+            # Equipment model (FK). Models can be Null / None
+            "equipment_model_id": equipment.model.id if equipment.model else None,
+            "equipment_model": equipment.model.name if equipment.model else None,
+
+            # Equipment fields
+            "serial_number": equipment.serial_number,
+            "acquisition_date": equipment.acquisition_date,
+            "first_deploy_date": equipment.first_deploy_date,
+            "last_calibration_date": equipment.last_calibration_date,
+            "next_calibration_date": equipment.next_calibration_date,
+            "decommission_date": equipment.decommission_date,
+            "last_deploy_date": equipment.last_deploy_date,
+
+            # Location (nullable FK)
+            # If no location exists, we treat the equipment as being
+            # in the office.
+            "location": equipment.location.name if equipment.location else "Office",
+            "location_id": equipment.location_id if equipment.location else None,
+
+            # Classification
+            # classification is stored as a short code (e.g. 'F', 'P', 'N')
+            # equipment_classification() converts it into a human-readable label
+            "classification": equipment_classification(equipment.classification),
+            "classification_id": equipment.classification,
+        })
+
+    # STATIC / ENUM-LIKE DATA
+    # These classifications are not stored in a table and are used
+    # primarily for UI rendering (dropdowns, labels, etc.).
     equipment_classifications = [
-        {'name': 'Fully Functional', 'id': 'F'},
-        {'name': 'Partially Functional', 'id': 'P'},
-        {'name': 'Not Functional', 'id': 'N'},
+        {"name": "Fully Functional", "id": "F"},
+        {"name": "Partially Functional", "id": "P"},
+        {"name": "Not Functional", "id": "N"},
     ]
 
-    station_list = [{'name': f"{station.name} - {station.code}",
-                     'id': station.id} for station in stations]
-
+    # RESPONSE PAYLOAD
+    # IMPORTANT DESIGN NOTE:
+    # - Dropdowns must include unused rows
+    # - New equipment may reference currently-unused models/types
     response = {
-        'equipment': equipment_list,
-        'equipment_types': list(equipment_types.values()),
-        'manufacturers': list(manufacturers.values()),
-        'funding_sources': list(funding_sources.values()),
-        'stations': station_list,
-        'equipment_classifications': equipment_classifications,
+        # Inventory data (optimized via select_related)
+        "equipment": equipment_list,
+
+        # Lookup / metadata tables (complete datasets)
+        "equipment_types": list(EquipmentType.objects.values()),
+        "manufacturers": list(Manufacturer.objects.values()),
+        "funding_sources": list(FundingSource.objects.values()),
+        "equipment_models": list(EquipmentModel.objects.values()),
+
+        # Stations formatted specifically for UI display
+        "stations": [
+            {"name": f"{s.name} - {s.code}", "id": s.id}
+            for s in Station.objects.all()
+        ],
+
+        # Static classification list
+        "equipment_classifications": equipment_classifications,
     }
-    
+
     return JsonResponse(response, status=status.HTTP_200_OK)
+
 
 
 @require_http_methods(["POST"])
 def create_equipment(request):
-    equipment_type_id = request.GET.get('equipment_type', None)
-    manufacturer_id = request.GET.get('manufacturer', None)
-    funding_source_id = request.GET.get('funding_source', None)
-    model = request.GET.get('model', None)
-    serial_number = request.GET.get('serial_number', None)
-    acquisition_date = request.GET.get('acquisition_date', None)
-    first_deploy_date = request.GET.get('first_deploy_date', None)
-    last_calibration_date = request.GET.get('last_calibration_date', None)
-    next_calibration_date = request.GET.get('next_calibration_date', None)
-    decommission_date = request.GET.get('decommission_date', None)
-    location_id = request.GET.get('location', None)
-    classification = request.GET.get('classification', None)
-    last_deploy_date = request.GET.get('last_deploy_date', None)  
+    """
+    Creates a new Equipment record.
+    """
 
-    equipment_type = EquipmentType.objects.get(id=equipment_type_id)
-    manufacturer = Manufacturer.objects.get(id=manufacturer_id)   
-    funding_source = FundingSource.objects.get(id=funding_source_id)
+    # READ INPUT DATA
+    equipment_type_id = request.GET.get("equipment_type")
+    manufacturer_id = request.GET.get("manufacturer")
+    funding_source_id = request.GET.get("funding_source")
+    equipment_model_id = request.GET.get("model")
+    serial_number = request.GET.get("serial_number")
 
-    location = None
-    if location_id:
-        location = Station.objects.get(id=location_id)
+    acquisition_date = request.GET.get("acquisition_date")
+    first_deploy_date = request.GET.get("first_deploy_date")
+    last_calibration_date = request.GET.get("last_calibration_date")
+    next_calibration_date = request.GET.get("next_calibration_date")
+    decommission_date = request.GET.get("decommission_date")
+    last_deploy_date = request.GET.get("last_deploy_date")
 
-    try:
-        equipment = Equipment.objects.get(
-            equipment_type=equipment_type,
-            serial_number = serial_number,
+    location_id = request.GET.get("location")
+    classification = request.GET.get("classification")
+
+    # BASIC VALIDATION (MINIMUM REQUIRED FIELDS)
+    if not equipment_type_id or not serial_number:
+        return JsonResponse(
+            {"message": "equipment_type and serial_number are required"},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
-        message = 'Already exist an equipment of equipment type '
-        message += equipment_type.name
-        message += ' and serial number '
-        message += equipment.serial_number
-
-        response = {'message': message}
-
-        return JsonResponse(response, status=status.HTTP_400_BAD_REQUEST)   
-
-    except ObjectDoesNotExist:
-        now = datetime.datetime.now()
-
+    # CREATE EQUIPMENT
+    try:
         equipment = Equipment.objects.create(
-                created_at = now,
-                updated_at = now,
-                equipment_type = equipment_type,
-                manufacturer = manufacturer,
-                funding_source = funding_source,
-                model = model,
-                serial_number = serial_number,
-                acquisition_date = acquisition_date,
-                first_deploy_date = first_deploy_date,
-                last_calibration_date = last_calibration_date,
-                next_calibration_date = next_calibration_date,
-                decommission_date = decommission_date,
-                # location = location,
-                classification = classification,
-                last_deploy_date = last_deploy_date,
-            )
+            # ForeignKeys assigned by *_id to avoid extra queries
+            equipment_type_id=equipment_type_id,
+            manufacturer_id=manufacturer_id,
+            funding_source_id=funding_source_id,
+            model_id=equipment_model_id,
+            location_id=location_id,
 
-        response = {'equipment_id': equipment.id}
+            # Scalar fields
+            serial_number=serial_number,
+            acquisition_date=acquisition_date,
+            first_deploy_date=first_deploy_date,
+            last_calibration_date=last_calibration_date,
+            next_calibration_date=next_calibration_date,
+            decommission_date=decommission_date,
+            last_deploy_date=last_deploy_date,
+            classification=classification,
 
-    return JsonResponse(response, status=status.HTTP_200_OK)   
+            # Timestamps should ideally be handled by the model:
+            # created_at = auto_now_add
+            # updated_at = auto_now
+        )
+
+    except IntegrityError:
+        # DUPLICATE EQUIPMENT HANDLING
+        # If we reach here, the database rejected the insert due to a
+        # uniqueness violation.
+        # This is safer and faster than doing a pre-check SELECT.
+        return JsonResponse(
+            {
+                "message": (
+                    "An equipment with this equipment type and serial number "
+                    "already exists."
+                )
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # SUCCESS RESPONSE
+    return JsonResponse(
+        {"equipment_id": equipment.id},
+        status=status.HTTP_201_CREATED,
+    )
 
 
 @require_http_methods(["POST"])
 def update_equipment(request):
-    equipment_id = request.GET.get('equipment_id', None)
-    equipment_type_id = request.GET.get('equipment_type', None)
-    manufacturer_id = request.GET.get('manufacturer', None)
-    funding_source_id = request.GET.get('funding_source', None)
-    serial_number = request.GET.get('serial_number', None)
+    """
+    Updates an existing Equipment record.
+    """
 
-    equipment_type = EquipmentType.objects.get(id=equipment_type_id)
-    manufacturer = Manufacturer.objects.get(id=manufacturer_id)   
-    funding_source = FundingSource.objects.get(id=funding_source_id)
+    # READ INPUT DATA
+    equipment_id = request.GET.get("equipment_id")
+    equipment_type_id = request.GET.get("equipment_type")
+    equipment_model_id = request.GET.get("model")
+    manufacturer_id = request.GET.get("manufacturer")
+    funding_source_id = request.GET.get("funding_source")
+    serial_number = request.GET.get("serial_number")
+    location_id = request.GET.get("location")
 
-    try:
-        equipment = Equipment.objects.get(equipment_type=equipment_type, serial_number=serial_number)
+    # Optional date fields
+    acquisition_date = request.GET.get("acquisition_date")
+    first_deploy_date = request.GET.get("first_deploy_date")
+    last_calibration_date = request.GET.get("last_calibration_date")
+    next_calibration_date = request.GET.get("next_calibration_date")
+    decommission_date = request.GET.get("decommission_date")
+    last_deploy_date = request.GET.get("last_deploy_date")
+    classification = request.GET.get("classification")
 
-        if int(equipment_id) != equipment.id:
-            message = f"Could not update. Already exist an equipment of \
-                        equipment type {equipment_type.name} and serial \
-                        number {equipment.serial_number}"
+    # BASIC VALIDATION
+    if not equipment_id:
+        return JsonResponse(
+            {"message": "equipment_id is required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
-            response = {'message': message}
-
-            return JsonResponse(response, status=status.HTTP_400_BAD_REQUEST)
-    except ObjectDoesNotExist:
-        pass
-
+    # FETCH EQUIPMENT ONCE
+    # We retrieve the target row exactly once.
+    # If it does not exist, we fail immediately.
     try:
         equipment = Equipment.objects.get(id=equipment_id)
+    except Equipment.DoesNotExist:
+        return JsonResponse(
+            {"message": "Equipment not found"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
-        now = datetime.datetime.now()
+    # UPDATE FIELDS
+    # IMPORTANT:
+    # - We do NOT check for duplicate (equipment_type, serial_number)
+    # - The database enforces this via unique_together
+    # - If a conflict exists, save() will raise IntegrityError
+    equipment.equipment_type_id = equipment_type_id
+    equipment.manufacturer_id = manufacturer_id
+    equipment.funding_source_id = funding_source_id
+    equipment.model_id = equipment_model_id
+    equipment.location_id = location_id
 
-        equipment.updated_at = now
-        equipment.equipment_type = equipment_type
-        equipment.manufacturer = manufacturer
-        equipment.funding_source = funding_source         
-        equipment.serial_number = serial_number
-        equipment.model = request.GET.get('model', None)
-        equipment.acquisition_date = request.GET.get('acquisition_date', None)
-        equipment.first_deploy_date = request.GET.get('first_deploy_date', None)
-        equipment.last_calibration_date = request.GET.get('last_calibration_date', None)
-        equipment.next_calibration_date = request.GET.get('next_calibration_date', None)
-        equipment.decommission_date = request.GET.get('decommission_date', None)
-        equipment.classification = request.GET.get('classification', None)
-        equipment.last_deploy_date = request.GET.get('last_deploy_date', None)
+    equipment.serial_number = serial_number
+    equipment.acquisition_date = acquisition_date
+    equipment.first_deploy_date = first_deploy_date
+    equipment.last_calibration_date = last_calibration_date
+    equipment.next_calibration_date = next_calibration_date
+    equipment.decommission_date = decommission_date
+    equipment.last_deploy_date = last_deploy_date
+    equipment.classification = classification
+
+    # SAVE (DB ENFORCES UNIQUENESS)
+    try:
         equipment.save()
-        update_change_reason(equipment, f"Source of change: Front end")
 
+        # Audit / change tracking
+        update_change_reason(
+            equipment,
+            "Source of change: Front end"
+        )
 
-        response = {}
-        return JsonResponse(response, status=status.HTTP_200_OK)             
+    except IntegrityError:
+        # This happens if (equipment_type, serial_number)
+        # violates the unique_together constraint
+        return JsonResponse(
+            {
+                "message": (
+                    "Could not update. An equipment with this equipment type "
+                    "and serial number already exists."
+                )
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
-    except ObjectDoesNotExist:
-        message =  "Object not found"
-        response = {'message': message}
-        return JsonResponse(response, status=status.HTTP_400_BAD_REQUEST)   
-
-    response = {}
-    return JsonResponse(response, status=status.HTTP_200_OK) 
+    # SUCCESS RESPONSE
+    return JsonResponse(
+        {},
+        status=status.HTTP_200_OK,
+    )
 
 
 @require_http_methods(["POST"])
 def delete_equipment(request):
-    equipment_id = request.GET.get('equipment_id', None)
+    """
+    Deletes an Equipment record.
+    """
+
+    # READ INPUT DATA
+    equipment_id = request.GET.get("equipment_id")
+
+    # BASIC VALIDATION
+    if not equipment_id:
+        return JsonResponse(
+            {"message": "equipment_id is required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # FETCH & DELETE
+    # We intentionally do NOT wrap this in a broad try/except.
+    # If the object does not exist, we return a clear error.
     try:
         equipment = Equipment.objects.get(id=equipment_id)
-        equipment.delete()
-    except ObjectDoesNotExist:
-        pass
+    except Equipment.DoesNotExist:
+        return JsonResponse(
+            {"message": "Equipment not found"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
-    response = {}
-    return JsonResponse(response, status=status.HTTP_200_OK)
+    # Perform the delete.
+    equipment.delete()
+
+    # SUCCESS RESPONSE
+    # We return 200 OK with an empty body to match existing behavior.
+    return JsonResponse(
+        {},
+        status=status.HTTP_200_OK,
+    )
 
 
 class get_maintenance_reports(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
@@ -5565,7 +5689,7 @@ def get_maintenance_report_view(request, id, source): # Maintenance report view
         new_equipment = Equipment.objects.get(id=new_equipment_id)
         dictionary = {'condition': maintenance_report_station_equipment.condition,
                       'component_classification': maintenance_report_station_equipment.classification,
-                      'name': ' '.join([new_equipment.model, new_equipment.serial_number])
+                      'name': ' '.join([new_equipment.model.name, new_equipment.serial_number])
                      }
         maintenance_report_station_equipment_list.append(dictionary)
 
@@ -5717,11 +5841,11 @@ def get_maintenance_report_equipment_data(maintenance_report, equipment_type, eq
 
         if maintenancereport_equipment.old_equipment_id:
             equipment = Equipment.objects.get(id=maintenancereport_equipment.old_equipment_id)
-            equipment_data['old_equipment_name'] = ' '.join([equipment.model, equipment.serial_number]) 
+            equipment_data['old_equipment_name'] = ' '.join([equipment.model.name, equipment.serial_number]) 
 
         if maintenancereport_equipment.new_equipment_id:
             equipment = Equipment.objects.get(id=maintenancereport_equipment.new_equipment_id)
-            equipment_data['new_equipment_name'] = ' '.join([equipment.model, equipment.serial_number]) 
+            equipment_data['new_equipment_name'] = ' '.join([equipment.model.name, equipment.serial_number]) 
     except ObjectDoesNotExist:
         pass
 
@@ -5732,7 +5856,7 @@ def get_maintenance_report_equipment_data(maintenance_report, equipment_type, eq
 
 def get_available_equipments(equipment_type_id):
     equipments = Equipment.objects.filter(equipment_type_id=equipment_type_id)
-    available_equipments = [{'id': equipment.id, 'name': ' '.join([equipment.model, equipment.serial_number])}
+    available_equipments = [{'id': equipment.id, 'name': ' '.join([equipment.model.name, equipment.serial_number])}
         for equipment in equipments if get_equipment_location(equipment) is None]
 
     return available_equipments
@@ -5744,7 +5868,7 @@ def get_available_equipments(equipment_type_id, station):
     available_equipments = []
     for equipment in equipments:
         if is_equipment_available(equipment, station):
-            available_equipments.append({'id': equipment.id, 'name': ' '.join([equipment.model, equipment.serial_number])})
+            available_equipments.append({'id': equipment.id, 'name': ' '.join([equipment.model.name, equipment.serial_number])})
 
     return available_equipments
 

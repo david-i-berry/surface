@@ -1577,12 +1577,18 @@ class HFSummaryTask(BaseModel):
 class Manufacturer(BaseModel):
     name = models.CharField(max_length=64)
 
+    class Meta:
+        ordering = ['name']
+
     def __str__(self):
         return self.name
  
 
 class FundingSource(BaseModel):
     name = models.CharField(max_length=128)
+
+    class Meta:
+        ordering = ['name']
 
     def __str__(self):
         return self.name    
@@ -1596,10 +1602,24 @@ class EquipmentType(BaseModel):
     class Meta:
         verbose_name = "equipment type"
         verbose_name_plural = "equipment types"
+        ordering = ['name']
 
     def __str__(self):
         return self.name  
+    
 
+class EquipmentModel(BaseModel):
+    name = models.CharField(unique=True, max_length=256)
+    description = models.CharField(blank=True, null=True, max_length=256)
+
+    class Meta:
+        verbose_name = "equipment model"
+        verbose_name_plural = "equipment models"
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name  
+    
 
 class Equipment(BaseModel):
     class EquipmentClassification(models.TextChoices):
@@ -1609,8 +1629,9 @@ class Equipment(BaseModel):
 
     equipment_type = models.ForeignKey(EquipmentType, on_delete=models.DO_NOTHING)
     manufacturer = models.ForeignKey(Manufacturer, on_delete=models.DO_NOTHING)
+    location = models.ForeignKey(Station, null=True, blank=True, on_delete=models.SET_NULL)
     funding_source = models.ForeignKey(FundingSource, on_delete=models.DO_NOTHING)
-    model = models.CharField(max_length=64)
+    model = models.ForeignKey(EquipmentModel, null=True, blank=False, on_delete=models.SET_NULL)
     serial_number = models.CharField(max_length=64)
     acquisition_date = models.DateField()
     first_deploy_date = models.DateField(blank=True, null=True)
@@ -1626,8 +1647,14 @@ class Equipment(BaseModel):
         verbose_name = "equipment"
         verbose_name_plural = "equipment"
 
+    @property
+    def location_display(self):
+        return self.location.name if self.location else "Office"
+
     def __str__(self):
-        return ' '.join((self.equipment_type.name, self.model, self.serial_number))        
+        model_name = self.model.name if self.model else "Unknown Model"
+        return f"{self.equipment_type.name} {model_name} {self.serial_number}"
+   
 
 
 class VisitType(BaseModel):
