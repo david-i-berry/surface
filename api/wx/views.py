@@ -6970,7 +6970,8 @@ def get_agromet_products_sql_context(requestedData: dict, env: Environment) -> d
     elif product == 'Evapotranspiration':
         latitude = station.latitude
         aggregation = requestedData['aggregation']
-        context['aggregation_months'] = aggregation_months_dict[aggregation]        
+        # context['aggregation_months'] = aggregation_months_dict[aggregation]
+        context['aggregation_months'] = requestedData['months']
         context['latitude'] = latitude
         context['alpha'] = 0.0023 # FAO56 default coeficient value
         context['beta'] = 0.5 # FAO56 default coeficient value
@@ -7115,6 +7116,9 @@ def get_agromet_products_data(request):
     station = Station.objects.get(pk=requestedData['station_id'])
 
     is_hourly_station = station.is_automatic or station.code==pgia_code
+
+    if requestedData['product'] == 'Evapotranspiration':
+        requestedData['summary_type']=='Monthly'
 
     if requestedData['summary_type']=='Monthly':
         if is_hourly_station:

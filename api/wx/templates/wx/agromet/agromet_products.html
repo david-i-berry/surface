@@ -93,7 +93,22 @@
 						/>
 					</v-col>
 					<v-col cols="4" v-if="parameterLabels.aggregation && filters.is_seasonal">
-						<v-autocomplete
+						<v-autocomplete v-if="requestData.product==='Evapotranspiration'"
+							:label="parameterLabels.aggregation"
+							:items="months"
+							item-value='id'
+							item-text="name"							
+							v-model="requestData.months"
+							hint="*Required"
+							persistent-hint
+							multiple
+							clearable
+							chips
+							deletable-chips							
+							:rules="[rules.required]"
+						/>
+
+						<v-autocomplete v-if="requestData.product==='Wind Rose'"
 							:label="parameterLabels.aggregation"
 							:items="dataAggegationList"
 							v-model="requestData.aggregation"
@@ -137,7 +152,7 @@
 							v-model="requestData.endYear"
 							hint="*Required"
 							persistent-hint
-							:disabled="!requestData.startYear || ['Wind rose', 'Evapotranspiration'].includes(requestData.product)"
+								:disabled="!requestData.startYear || ['Wind rose', ].includes(requestData.product)"
 							:rules="[rules.required]"
 
 						/>
@@ -233,7 +248,7 @@
 							Request Data
 							<v-icon right>send</v-icon>
 						</v-btn>
-					</v-col
+					</v-col>
 				</v-row>					
 			</v-form>
 
@@ -475,7 +490,7 @@
 						for those stations the Penman-Monteith equation is also used, which requires TEMP, WNDPSD, SOLARRAD, RH, PRESSTN, along with day of year, station latitude, and elevation.',
 						'aggregation': {
 							value: null,
-							label: 'Aggregation',
+							label: 'Months',
 						},
 					},
 				},
@@ -558,7 +573,7 @@
 		},
 		watch: {
 			'requestData.startYear' (newStartYear, oldStartYear) {
-				if (['Wind rose', 'Evapotranspiration'].includes(this.requestData.product)){
+				if (['Wind rose',].includes(this.requestData.product)){
 					this.requestData.endYear = this.requestData.startYear
 				}
 				else{
@@ -593,7 +608,7 @@
 					this.parameterLabels.numericParam2 = this.elements[element][product].numeric_param_2?.label || null
 					this.parameterLabels.aggregation = this.elements[element][product].aggregation?.label || null
 
-					if (['Wind rose', 'Evapotranspiration'].includes(this.requestData.product)){
+					if (['Wind rose', ].includes(this.requestData.product)){
 						this.requestData.endYear = this.requestData.startYear
 					}
 
