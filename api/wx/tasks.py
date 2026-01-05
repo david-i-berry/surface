@@ -1310,7 +1310,7 @@ def save_flash_data(data_string):
     read_data_flash(data_string.encode('latin-1'))
 
 @shared_task
-def export_data(station_id, source, start_date, end_date, variable_ids, file_id, agg, displayUTC):
+def export_data(station_id, source, start_date, end_date, variable_ids, file_id, agg, aqc_checks, mqc_checks, displayUTC):
     try:
         logger.info(f'Exporting data (file "{file_id}")')
 
@@ -1424,6 +1424,23 @@ def export_data(station_id, source, start_date, end_date, variable_ids, file_id,
         elif source == 'raw_data':
             datetime_list.append(converted_end_date + timedelta(seconds=current_datafile.interval_in_seconds))
 
+        # quality control clause based on users request
+        quality_clause = ""
+
+        # if user request aqc data
+        if aqc_checks and mqc_checks:
+            quality_clause = """
+                AND data.quality_flag = 4
+                AND data.manual_flag = 4
+            """
+        elif aqc_checks:
+            quality_clause = """
+                AND data.quality_flag = 4
+            """
+        elif mqc_checks:
+            quality_clause = """
+                AND data.manual_flag = 4
+            """
 
         query_result = []
         for i in range(0, len(datetime_list) - 1):
@@ -1435,7 +1452,7 @@ def export_data(station_id, source, start_date, end_date, variable_ids, file_id,
 
                     # removing the offset addition from the query based on the truthines of displayUTC. Removed `+ interval '%(utc_offset)s minutes'`
                     if displayUTC:
-                        query_raw_data = '''
+                        query_raw_data = f'''
                             WITH processed_data AS (
                                 SELECT datetime
                                     ,var.id as variable_id
@@ -1445,6 +1462,7 @@ def export_data(station_id, source, start_date, end_date, variable_ids, file_id,
                                 WHERE data.datetime >= %(start_datetime)s
                                 AND data.datetime <= %(end_datetime)s
                                 AND data.station_id = %(station_id)s
+                                {quality_clause}
                             )
                             SELECT (generated_time) at time zone 'utc' as datetime
                                 ,variable.id
@@ -1455,7 +1473,7 @@ def export_data(station_id, source, start_date, end_date, variable_ids, file_id,
                         ''' 
                     # keeping the offset addition in the query based on the truthines of displayUTC.
                     else:
-                        query_raw_data = '''
+                        query_raw_data = f'''
                             WITH processed_data AS (
                                 SELECT datetime
                                     ,var.id as variable_id
@@ -1465,6 +1483,7 @@ def export_data(station_id, source, start_date, end_date, variable_ids, file_id,
                                 WHERE data.datetime >= %(start_datetime)s
                                 AND data.datetime <= %(end_datetime)s
                                 AND data.station_id = %(station_id)s
+                                {quality_clause}
                             )
                             SELECT (generated_time + interval '%(utc_offset)s minutes') at time zone 'utc' as datetime
                                 ,variable.id
@@ -1476,7 +1495,7 @@ def export_data(station_id, source, start_date, end_date, variable_ids, file_id,
 
                     logging.info(query_raw_data, {'utc_offset': station.utc_offset_minutes, 'variable_ids': variable_ids,
                           'start_datetime': current_start_datetime, 'end_datetime': current_end_datetime,
-                          'station_id': station_id, 'data_interval': current_datafile.interval_in_seconds})
+                          'station_id': station_id, 'data_interval': current_datafile.interval_in_seconds, 'quality_clause': quality_clause})
 
 
                     cursor.execute(query_raw_data, {'utc_offset': station.utc_offset_minutes, 'variable_ids': variable_ids,

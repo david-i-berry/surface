@@ -277,6 +277,15 @@
 
           <!-- Row 6 -->
           <v-row dense justify="start">
+            <!-- Togglable switch to determine whether the output should be in local time of utc time -->
+            <v-col class="text-center" cols="auto" v-if="source.source === 'hourly_summary' || source.source === 'raw_data'">
+              <v-switch
+                inset
+                v-model="displayUTC"
+                label="Coordinated Universal Time (UTC)"
+              ></v-switch>
+            </v-col>
+
             <!-- Export aqc validated -->
             <v-col class="text-center" cols="auto" v-if="source.source === 'raw_data'">
               <v-switch
@@ -290,19 +299,10 @@
             <v-col class="text-center" cols="auto" v-if="source.source === 'raw_data'">
               <v-switch
                 inset
-                v-model="export_manual"
+                v-model="export_mqc"
                 label="Export Manual Validated Data"
               ></v-switch>
             </v-col>    
-
-            <!-- Togglable switch to determine whether the output should be in local time of utc time -->
-            <v-col class="text-center" cols="auto" v-if="source.source === 'hourly_summary' || source.source === 'raw_data'">
-              <v-switch
-                inset
-                v-model="displayUTC"
-                label="Coordinated Universal Time (UTC)"
-              ></v-switch>
-            </v-col>
           </v-row>
 
           <!-- Action Buttons -->
@@ -593,7 +593,7 @@
         station: [],
         displayUTC: false,
         export_aqc: true,
-        export_manual: false,
+        export_mqc: false,
         stations: [
           {% for station in station_list %}
           { value: {{ station.id }},
@@ -800,6 +800,8 @@
             variables: this.variables.map(v => v.value),
             data_interval: this.dataInterval,
             aggregation: this.aggregation.map(a => a.value),
+            aqc_checks: this.export_aqc,
+            mqc_checks: this.export_mqc,
             displayUTC: this.displayUTC // determine whether or not the timestamps in the final output will be in UTC.
           }).then(response => {
             // update the table

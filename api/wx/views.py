@@ -134,7 +134,11 @@ def ScheduleDataExport(request):
 
     aggregation = json_body['aggregation'] # sets which column in the db will be used when the source is a summary. 
 
-    displayUTC = json_body['displayUTC'] # determins wheter an offset will be applied based on the truthines of displayUTC
+    displayUTC = json_body['displayUTC'] # determines whether an offset will be applied based on the truthines of displayUTC
+
+    aqc_checks = json_body['aqc_checks'] # determines whether the output should only consist of data which pass aqc checks
+    
+    mqc_checks = json_body['mqc_checks'] # determines whether the output should only consist of data which pass mqc checks
 
     # If source is raw_data, this will be set to none
     if data_source == 'raw_data':
@@ -186,7 +190,7 @@ def ScheduleDataExport(request):
                         variable = Variable.objects.get(pk=variable_id)
                         DataFileVariable.objects.create(datafile=newfile, variable=variable)
 
-                    tasks.export_data.delay(station_id, data_source, start_date, end_date, variable_ids, newfile.id, agg, displayUTC)
+                    tasks.export_data.delay(station_id, data_source, start_date, end_date, variable_ids, newfile.id, agg, aqc_checks, mqc_checks, displayUTC)
                     created_data_file_ids.append(newfile.id)
                 except Exception as err:
                     # if an error occuers udpate the datafile ready_at option whilst leaving ready = false
@@ -205,7 +209,7 @@ def ScheduleDataExport(request):
                     variable = Variable.objects.get(pk=variable_id)
                     DataFileVariable.objects.create(datafile=newfile, variable=variable)
 
-                tasks.export_data.delay(station_id, data_source, start_date, end_date, variable_ids, newfile.id, aggregation, displayUTC)
+                tasks.export_data.delay(station_id, data_source, start_date, end_date, variable_ids, newfile.id, aggregation, aqc_checks, mqc_checks, displayUTC)
                 created_data_file_ids.append(newfile.id)
             except Exception as err:
                 # if an error occuers udpate the datafile ready_at option whilst leaving ready = false
