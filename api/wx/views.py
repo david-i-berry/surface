@@ -5289,17 +5289,17 @@ def get_equipment_inventory_data(request):
             # Primary identifiers
             "equipment_id": equipment.id,
 
-            # Equipment type (FK)
-            "equipment_type": equipment.equipment_type.name,
-            "equipment_type_id": equipment.equipment_type.id,
+            # Equipment type (FK). equipment type can be Null / None
+            "equipment_type": equipment.equipment_type.name if equipment.equipment_type else None,
+            "equipment_type_id": equipment.equipment_type.id if equipment.equipment_type else None,
 
-            # Funding source (FK)
-            "funding_source": equipment.funding_source.name,
-            "funding_source_id": equipment.funding_source.id,
+            # Funding source (FK). Funding source can be Null / None
+            "funding_source": equipment.funding_source.name if equipment.funding_source else None,
+            "funding_source_id": equipment.funding_source.id if equipment.funding_source else None,
 
-            # Manufacturer (FK)
-            "manufacturer": equipment.manufacturer.name,
-            "manufacturer_id": equipment.manufacturer.id,
+            # Manufacturer (FK). Manufacturer can be Null / None
+            "manufacturer": equipment.manufacturer.name if equipment.manufacturer else None,
+            "manufacturer_id": equipment.manufacturer.id if equipment.manufacturer else None,
 
             # Equipment model (FK). Models can be Null / None
             "equipment_model_id": equipment.model.id if equipment.model else None,
