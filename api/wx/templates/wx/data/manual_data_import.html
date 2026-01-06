@@ -19,7 +19,7 @@
                     <i class="material-icons-outlined">cloud_upload</i><br>
                     <span style="color: rgb(64, 130, 246); font-weight: bold;">Choose file</span> or <b>drag here</b><br>
                     Supported file type(s): <span style="color: #1D6F42;">XLSX</span><br>
-                    <span style="color: red;">Size limit: 2.00 MB per file, up to 4 file(s) with total file size not exceeding 8.00 MB</span>
+                    <span style="color: red;">Upload limit: Up to 4 file(s) with total file size not exceeding 15.00 MB</span>
                   </p>
 
                   <p v-if="isSaving" style="font-size: small;">
@@ -33,6 +33,7 @@
                     <v-switch
                         v-model="overrideData"
                         label="Override Data on Conflict"
+                        inset
                     ></v-switch>
                   </v-col>
                 </v-row>
@@ -41,7 +42,6 @@
                   <!-- Reset Button -->
                   <v-col class="text-center" cols="auto">
                       <v-btn
-                        small
                         outlined
                         @click="reset"
                         color="secondary"
@@ -55,7 +55,6 @@
                   <!-- Upload Button -->
                   <v-col class="text-center" cols="auto">
                     <v-btn
-                      small
                       outlined
                       color="primary"
                       :disabled="!showBtn"
@@ -72,6 +71,7 @@
                       <v-icon
                         outlined
                         color="warning"
+                        large
                       >
                         info
                       </v-icon> 
@@ -206,7 +206,7 @@
                         <span class="text-end"
                           >&nbsp;&nbsp;&nbsp;[[ item.month ]]<br
                         /></span>
-                        <!-- overide on conflict -->
+                        <!-- override on conflict -->
                         <span class="subtitle-1 font-weight-bold">On Conflict Override Data:</span
                         ><br />
                         <span class="text-end"
