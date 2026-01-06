@@ -1017,18 +1017,46 @@ def CheckManualImportView(request):
 
             # Loop through the sheet names in the file 
             for sheet in excel_sheet_names:
-                # if a station exists 
-                if Station.objects.filter(name=str(sheet)).exists():
-                    continue #  continue on with the loop
-                # check if a statioin with that alias exist if the regular stsation name doesn't
-                elif Station.objects.filter(alias_name=str(sheet)).exists():
-                    continue #  continue on with the loop
-                else:
-                    missing_stations.append(str(sheet)) # add sheet name (station name) to the missing stations list
+                
+                sheet = sheet.strip() # removing any trailing or leading whitespace
+
+                # Check for an exact match on the station's primary name.
+                # We require EXACTLY ONE match.
+                name_count = Station.objects.filter(
+                    name=sheet,
+                    is_automatic=False
+                ).count()
+
+                # If exactly one station matches by name, this sheet name
+                # can be safely resolved to a single station.
+                # Continue processing the next sheet.
+                if name_count == 1:
+                    continue
+
+
+                # If no unique match was found using the primary station name,
+                # attempt the same check using the station's alias name.
+                alias_count = Station.objects.filter(
+                    alias_name=sheet,
+                    is_automatic=False
+                ).count()
+
+                # If exactly one station matches by alias,
+                # the station is considered valid and unambiguous.
+                # Continue processing the next sheet.
+                if alias_count == 1:
+                    continue
+
+                # zero OR multiple matches then invalid
+                missing_stations.append(sheet)
                     
             if missing_stations:
                 os.remove(file_path) # delete the file
-                non_existent_stations.append(f"File [{file_name}] contains station(s) which do not exist. Please correct the mistake and re-upload: {', '.join(missing_stations)}")
+                non_existent_stations.append(f"""
+                                             File [{file_name}] contains one or more stations that are invalid.
+                                             Stations must be existing, manual, and uniquely identifiable. 
+                                             Please correct the mistake and re-upload: {', '.join(missing_stations)}
+                                        """)
 
                 continue # skip to the next execution
 
