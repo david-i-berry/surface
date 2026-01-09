@@ -6638,6 +6638,7 @@ def get_agromet_summary_data(request):
             'is_daily_data': request.GET.get('is_daily_data'),
             'summary_type': request.GET.get('summary_type'),
             'months': request.GET.get('months'),
+            'month': request.GET.get('month'),
             'interval': request.GET.get('interval'),
             'validate_data': request.GET.get('validate_data').lower() == 'true',
             'max_hour_pct': request.GET.get('max_hour_pct'),
@@ -6669,6 +6670,7 @@ def get_agromet_summary_data(request):
         'start_year': requestedData['start_year'],
         'end_year': requestedData['end_year'],
         'months': requestedData['months'],
+        'month': requestedData['month'],
         'max_hour_pct': float(requestedData['max_hour_pct']),
         'max_day_pct': float(requestedData['max_day_pct']),
         'max_day_gap': float(requestedData['max_day_gap'])
@@ -6690,6 +6692,10 @@ def get_agromet_summary_data(request):
                 template_name = 'monthly_10d_daily_valid.sql' if requestedData['validate_data'] else 'monthly_10d_daily_raw.sql'            
             elif requestedData['interval'] == '1 month':
                 template_name = 'monthly_1m_daily_valid.sql' if requestedData['validate_data'] else 'monthly_1m_daily_raw.sql'            
+            elif requestedData['interval'] == '3 months':
+                template_name = 'monthly_3m_daily_valid.sql' if requestedData['validate_data'] else 'monthly_3m_daily_raw.sql'
+            elif requestedData['interval'] == '6 months':
+                template_name = 'monthly_6m_daily_valid.sql' if requestedData['validate_data'] else 'monthly_6m_daily_raw.sql'                
     else:
         if requestedData['summary_type'] == 'Seasonal':
             template_name = 'seasonal_hourly_valid.sql' if requestedData['validate_data'] else 'seasonal_hourly_raw.sql'
@@ -6700,7 +6706,10 @@ def get_agromet_summary_data(request):
                 template_name = 'monthly_10d_hourly_valid.sql' if requestedData['validate_data'] else 'monthly_10d_hourly_raw.sql'            
             elif requestedData['interval'] == '1 month':
                 template_name = 'monthly_1m_hourly_valid.sql' if requestedData['validate_data'] else 'monthly_1m_hourly_raw.sql'
-
+            elif requestedData['interval'] == '3 months':
+                template_name = 'monthly_3m_hourly_valid.sql' if requestedData['validate_data'] else 'monthly_3m_hourly_raw.sql'
+            elif requestedData['interval'] == '6 months':
+                template_name = 'monthly_6m_hourly_valid.sql' if requestedData['validate_data'] else 'monthly_6m_hourly_raw.sql'                
     template = env.get_template(template_name)
     query = template.render(context)
 
