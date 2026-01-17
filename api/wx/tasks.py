@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import socket
+import uuid
 import subprocess
 from datetime import datetime, timedelta, timezone, date
 import calendar
@@ -18,12 +19,17 @@ import urllib3
 from minio import Minio
 
 import math, cmath
+from matplotlib.transforms import Bbox
+from metpy.interpolate import interpolate_to_grid
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.styles import Alignment, Font, Border, Side
 import cronex
 import dateutil.parser
 import pandas
+from geopandas import geopandas
+import cv2
+import matplotlib.pyplot as plt
 import psycopg2
 import pytz
 import requests
@@ -4852,3 +4858,351 @@ def aquacrop_gen_daily_data():
                     cursor.execute(sql_query_aut)
     except Exception as e:
         logger.error(f'Error on aquacrop_gen_daily_data: {repr(e)}')
+
+
+# fetch interpolation data
+@shared_task
+def fetch_interpolation_data_task(
+    *,
+    start_datetime,
+    end_datetime,
+    variable_id,
+    agg="instant",
+    source="raw_data",
+    quality_flags=None
+):
+    """
+    Fetches and aggregates climate interpolation data.
+    Returns a Python dict (Celery-safe).
+    """
+
+    where_query = ""
+
+    # RAW DATA SOURCE LOGIC
+    if source == "raw_data":
+        dt_query = "datetime"
+        value_query = "measured"
+        source_query = "raw_data"
+
+        if quality_flags:
+            try:
+                [int(qf) for qf in quality_flags.split(',')]
+            except ValueError:
+                raise ValueError("Invalid quality_flags value.")
+
+            where_query = (
+                f" measured != {settings.MISSING_VALUE} "
+                f"AND quality_flag IN ({quality_flags}) AND "
+            )
+        else:
+            where_query = f" measured != {settings.MISSING_VALUE} AND "
+
+    # SUMMARY DATA SOURCES
+    else:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT sampling_operation_id
+                FROM wx_variable
+                WHERE id=%(variable_id)s
+            """, params={'variable_id': variable_id})
+            sampling_operation = cursor.fetchone()[0]
+
+        if sampling_operation in [6, 7]:
+            value_query = "sum_value"
+        elif sampling_operation == 3:
+            value_query = "min_value"
+        elif sampling_operation == 4:
+            value_query = "max_value"
+        else:
+            value_query = "avg_value"
+
+        if source == "hourly":
+            dt_query = "datetime"
+            source_query = "hourly_summary"
+        elif source == "daily":
+            dt_query = "day"
+            source_query = "daily_summary"
+        elif source == "monthly":
+            dt_query = "date"
+            source_query = "monthly_summary"
+        elif source == "yearly":
+            dt_query = "date"
+            source_query = "yearly_summary"
+
+    # TIME FILTERING
+    if agg == "instant":
+        where_query += (
+            "variable_id=%(variable_id)s AND "
+            + dt_query + "=%(datetime)s"
+        )
+        params = {
+            'datetime': start_datetime,
+            'variable_id': variable_id
+        }
+    else:
+        where_query += (
+            "variable_id=%(variable_id)s AND "
+            + dt_query + " >= %(start_datetime)s AND "
+            + dt_query + " <= %(end_datetime)s"
+        )
+        params = {
+            'start_datetime': start_datetime,
+            'end_datetime': end_datetime,
+            'variable_id': variable_id
+        }
+
+    # QUERY EXECUTION
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT
+                a.station_id,
+                b.name,
+                b.code,
+                b.latitude,
+                b.longitude,
+                a.""" + value_query + """ AS measured
+            FROM """ + source_query + """ a
+            INNER JOIN wx_station b ON a.station_id=b.id
+            WHERE """ + where_query,
+            params=params
+        )
+        raw_data = cursor.fetchall()
+
+    data = []
+
+    for row in raw_data:
+        data.append({
+            'station_id': row[0],
+            'name': row[1],
+            'code': row[2],
+            'latitude': row[3],
+            'longitude': row[4],
+            'measured': row[5],
+        })
+
+    # AGGREGATION
+    if agg != "instant" and raw_data:
+        df = pd.json_normalize(data)
+        data = json.loads(
+            df.groupby(
+                ['station_id', 'name', 'code', 'longitude', 'latitude']
+            )
+            .agg(agg)
+            .reset_index()
+            .sort_values('name')
+            .to_json(orient="records")
+        )
+
+    return {"data": data}
+
+
+
+# fetch interpolation image
+@shared_task
+def fetch_interpolation_img_task(
+    start_datetime,
+    end_datetime,
+    variable_id,
+    cmap,
+    hres,
+    minimum_neighbors,
+    search_radius,
+    agg,
+    source,
+    vmin,
+    vmax,
+    quality_flags,
+    stands_llat,
+    stands_llon,
+    stands_ulat,
+    stands_ulon
+):
+    
+    stations_df = pd.read_sql_query("""
+        SELECT id,name,alias_name,code,latitude,longitude
+        FROM wx_station
+        WHERE longitude!=0
+        """,
+                                    con=connection
+                                    )
+    
+    stations = geopandas.GeoDataFrame(
+        stations_df, 
+        geometry=geopandas.points_from_xy(stations_df.longitude, stations_df.latitude)
+    )
+    
+    stations.crs = 'epsg:4326'
+
+    where_query = ""
+    if source == "raw_data":
+        dt_query = "datetime"
+        value_query = "measured"
+        source_query = "raw_data"
+        if quality_flags:
+            try:
+                [int(qf) for qf in quality_flags.split(',')]
+            except ValueError:
+                raise ValueError("Invalid quality_flags value.")
+
+            where_query = f" measured != {settings.MISSING_VALUE} AND quality_flag IN ({quality_flags}) AND "
+        else:
+            where_query = f" measured != {settings.MISSING_VALUE} AND "
+    else:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT sampling_operation_id
+                FROM wx_variable
+                WHERE id=%(variable_id)s
+                """,
+                           params={'variable_id': variable_id}
+                           )
+            sampling_operation = cursor.fetchone()[0]
+
+        if sampling_operation in [6, 7]:
+            value_query = "sum_value"
+        elif sampling_operation == 3:
+            value_query = "min_value"
+        elif sampling_operation == 4:
+            value_query = "max_value"
+        else:
+            value_query = "avg_value"
+
+        if source == "hourly":
+            dt_query = "datetime"
+            source_query = "hourly_summary"
+
+        elif source == "daily":
+            dt_query = "day"
+            source_query = "daily_summary"
+
+        elif source == "monthly":
+            dt_query = "date"
+            source_query = "monthly_summary"
+
+        elif source == "yearly":
+            dt_query = "date"
+            source_query = "yearly_summary"
+
+    if agg == "instant":
+        where_query += "variable_id=%(variable_id)s AND " + dt_query + "=%(datetime)s"
+        params = {'datetime': start_datetime, 'variable_id': variable_id}
+    else:
+        where_query += "variable_id=%(variable_id)s AND " + dt_query + " >= %(start_datetime)s AND " + dt_query + " <= %(end_datetime)s"
+        params = {'start_datetime': start_datetime, 'end_datetime': end_datetime, 'variable_id': variable_id}
+
+    climate_data = pd.read_sql_query(
+        "SELECT station_id,variable_id," + dt_query + "," + value_query + """
+        FROM """ + source_query + """
+        WHERE """ + where_query + "",
+        params=params,
+        con=connection
+    )
+
+    if len(climate_data) == 0:
+        return {"data":"/static/images/no-interpolated-data.png"}
+
+    df_merged = pd.merge(left=climate_data, right=stations, how='left', left_on='station_id', right_on='id')
+    df_climate = df_merged[["station_id", dt_query, "longitude", "latitude", value_query]]
+
+    if agg != "instant":
+        df_climate = (
+            df_climate
+            .groupby(['station_id', 'longitude', 'latitude'], as_index=False)
+            .agg({value_query: agg})
+        )
+
+    gx, gy, img = interpolate_to_grid(
+        df_climate["longitude"],
+        df_climate["latitude"],
+        df_climate[value_query],
+        interp_type='cressman',
+        minimum_neighbors=int(minimum_neighbors),
+        hres=float(hres),
+        search_radius=float(search_radius),
+        boundary_coords={'west': stands_llon, 'east': stands_ulon, 'south': stands_llat, 'north': stands_ulat}
+    )
+
+    fig = plt.figure(frameon=False)
+    ax = plt.Axes(fig, [0., 0., 1., 1.])
+    ax.set_axis_off()
+    fig.add_axes(ax)
+    ax.imshow(img, origin='lower', cmap=cmap, vmin=vmin, vmax=vmax)
+    fname = str(uuid.uuid4())
+    fig.savefig("/surface/static/images/spatial_img/" + fname + ".png", dpi='figure', format='png', transparent=True,
+                bbox_inches=Bbox.from_bounds(2, 0, 2.333, 4.013))
+
+    image1 = cv2.imread("/surface/static/images/spatial_img/" + fname + ".png", cv2.IMREAD_UNCHANGED)
+    image2 = cv2.imread(settings.SPATIAL_ANALYSIS_SHAPE_FILE_PATH, cv2.IMREAD_UNCHANGED)
+    image1 = cv2.resize(image1, dsize=(image2.shape[1], image2.shape[0]))
+    for i in range(image1.shape[0]):
+        for j in range(image1.shape[1]):
+            image1[i][j][3] = image2[i][j][3]
+    cv2.imwrite("/surface/static/images/spatial_img/" + fname + "-output.png", image1)
+
+    return {"data":f"/static/images/spatial_img/{fname}-output.png"}
+
+
+# fetch interpolation image after custom value has been added
+@shared_task
+def fetch_mod_interpolation_img_task(
+    stands_llat,
+    stands_llon,
+    stands_ulat,
+    stands_ulon,
+    parameters,
+    vmin,
+    vmax,
+    json_body_data
+):
+
+    df_climate = pd.json_normalize(json_body_data)
+
+    try:
+        df_climate = df_climate[["station_id", "longitude", "latitude", "measured"]]
+    except KeyError:
+        return {"data":"/static/images/no-interpolated-data.png"}
+
+    gx, gy, img = interpolate_to_grid(
+        df_climate["longitude"],
+        df_climate["latitude"],
+        df_climate["measured"],
+        interp_type='cressman',
+        minimum_neighbors=int(parameters["minimum_neighbors"]),
+        hres=float(parameters["hres"]),
+        search_radius=float(parameters["search_radius"]),
+        boundary_coords={'west': stands_llon, 'east': stands_ulon, 'south': stands_llat, 'north': stands_ulat}
+    )
+
+    fig = plt.figure(frameon=False)
+    ax = plt.Axes(fig, [0., 0., 1., 1.])
+    ax.set_axis_off()
+    fig.add_axes(ax)
+    ax.imshow(img, origin='lower', cmap=parameters["cmap"]["value"], vmin=vmin, vmax=vmax)
+    
+    fname = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ_") + str(uuid.uuid4())
+
+    fig.savefig("/surface/static/images/spatial_img/" + fname + ".png", dpi='figure', format='png', transparent=True,
+                bbox_inches=Bbox.from_bounds(2, 0, 2.333, 4.013))
+    
+    image1 = cv2.imread("/surface/static/images/spatial_img/" + fname + ".png", cv2.IMREAD_UNCHANGED)
+    image2 = cv2.imread(settings.SPATIAL_ANALYSIS_SHAPE_FILE_PATH, cv2.IMREAD_UNCHANGED)
+    image1 = cv2.resize(image1, dsize=(image2.shape[1], image2.shape[0]))
+
+    for i in range(image1.shape[0]):
+        for j in range(image1.shape[1]):
+            image1[i][j][3] = image2[i][j][3]
+
+    cv2.imwrite("/surface/static/images/spatial_img/" + fname + "-output.png", image1)
+
+    return {"data":f"/static/images/spatial_img/{fname}-output.png"}
+
+
+@shared_task
+def interpolation_img_cleanup():
+    try:
+        for filename in os.listdir('/surface/static/images/spatial_img/'):
+            os.remove('/surface/static/images/spatial_img/' + filename)
+    except Exception as e:
+        # Log an error message if the clean up task fails
+        logger.error("Interpolation image clean up task failed!")
+        logger.exception(f"Error: {e}")  # Log the full exception traceback for debugging

@@ -92,8 +92,8 @@ urlpatterns = [
     path('wx/spatial_analysis/image', views.GetInterpolationImage, name='spatial-analysis-image'),
     path('wx/spatial_analysis/data', views.GetInterpolationData, name='spatial-analysis-data'),
     path('wx/spatial_analysis/interpolate_data', views.InterpolatePostData, name='spatial-analysis-interpolate_data'),
-    path('wx/spatial_analysis/get_image', views.GetImage, name='spatial-analysis-get-image'),
     path('wx/spatial_analysis/color_bar', views.GetColorMapBar, name='spatial-analysis-color-bar'),
+    
     path('coming-soon', views.ComingSoonView.as_view(), name='coming-soon'),
     path('not-auth', views.NotAuthView.as_view(), name='not-auth'),
     path('coming-soon-qc', views.ComingSoonView.as_view(), name='coming-soon-qc'),

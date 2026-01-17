@@ -81,6 +81,11 @@ app.conf.beat_schedule = {
         'task': 'wx.tasks.wis2publish_task',
         'schedule': 60
     },
+    ## delete stale interpolation images in static/image/spatial_img    
+    'interpolation_image_cleanup': {
+        'task': 'wx.tasks.interpolation_img_cleanup',
+        'schedule': 3600
+    },
 }
 
 app.conf.timezone = 'UTC'

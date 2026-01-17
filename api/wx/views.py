@@ -473,259 +473,44 @@ def DeleteDataFile(request):
 
 
 def GetInterpolationData(request):
-    start_datetime = request.GET.get('start_datetime', None)
-    end_datetime = request.GET.get('end_datetime', None)
-    variable_id = request.GET.get('variable_id', None)
-    agg = request.GET.get('agg', "instant")
-    source = request.GET.get('source', "raw_data")
-    quality_flags = request.GET.get('quality_flags', None)
+    params = {
+        'start_datetime': request.GET.get('start_datetime'),
+        'end_datetime': request.GET.get('end_datetime'),
+        'variable_id': request.GET.get('variable_id'),
+        'agg': request.GET.get('agg', 'instant'),
+        'source': request.GET.get('source', 'raw_data'),
+        'quality_flags': request.GET.get('quality_flags'),
+    }
 
-    where_query = ""
-    if source == "raw_data":
-        dt_query = "datetime"
-        value_query = "measured"
-        source_query = "raw_data"
-        if quality_flags:
-            try:
-                [int(qf) for qf in quality_flags.split(',')]
-            except ValueError:
-                return JsonResponse({"message": "Invalid quality_flags value."}, status=status.HTTP_400_BAD_REQUEST)
-            where_query = f" measured != {settings.MISSING_VALUE} AND quality_flag IN ({quality_flags}) AND "
-        else:
-            where_query = f" measured != {settings.MISSING_VALUE} AND "
-    else:
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT sampling_operation_id
-                FROM wx_variable
-                WHERE id=%(variable_id)s
-                """,
-                           params={'variable_id': variable_id}
-                           )
-            sampling_operation = cursor.fetchone()[0]
+    task = tasks.fetch_interpolation_data_task.delay(**params)
 
-        if sampling_operation in [6, 7]:
-            value_query = "sum_value"
-        elif sampling_operation == 3:
-            value_query = "min_value"
-        elif sampling_operation == 4:
-            value_query = "max_value"
-        else:
-            value_query = "avg_value"
-
-        if source == "hourly":
-            dt_query = "datetime"
-            source_query = "hourly_summary"
-
-        elif source == "daily":
-            dt_query = "day"
-            source_query = "daily_summary"
-
-        elif source == "monthly":
-            dt_query = "date"
-            source_query = "monthly_summary"
-
-        elif source == "yearly":
-            dt_query = "date"
-            source_query = "yearly_summary"
-
-    if agg == "instant":
-        where_query += "variable_id=%(variable_id)s AND " + dt_query + "=%(datetime)s"
-        params = {'datetime': start_datetime, 'variable_id': variable_id}
-    else:
-        where_query += "variable_id=%(variable_id)s AND " + dt_query + " >= %(start_datetime)s AND " + dt_query + " <= %(end_datetime)s"
-        params = {'start_datetime': start_datetime, 'end_datetime': end_datetime, 'variable_id': variable_id}
-
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT a.station_id,b.name,b.code,b.latitude,b.longitude,a.""" + value_query + """ as measured
-            FROM """ + source_query + """ a INNER JOIN wx_station b ON a.station_id=b.id
-            WHERE """ + where_query + "",
-                       params=params
-                       )
-        climate_data = {}
-        # if agg == "instant":
-        raw_data = cursor.fetchall()
-        climate_data['data'] = []
-        for item in raw_data:
-            climate_data['data'].append({
-                'station_id': item[0],
-                'name': item[1],
-                'code': item[2],
-                'latitude': item[3],
-                'longitude': item[4],
-                'measured': item[5],
-            })
-
-    if agg != "instant" and len(raw_data) > 0:
-        columns = ['station_id', 'name', 'code', 'latitude', 'longitude', 'measured']
-        df_climate = json_normalize([
-            dict(zip(columns, row))
-            for row in raw_data
-        ])
-
-        climate_data['data'] = json.loads(
-            df_climate.groupby(['station_id', 'name', 'code', 'longitude', 'latitude']).agg(
-                agg).reset_index().sort_values('name').to_json(orient="records"))
-
-    return JsonResponse(climate_data)
+    return JsonResponse({"task_id": task.id})
 
 
 def GetInterpolationImage(request):
-    start_datetime = request.GET.get('start_datetime', None)
-    end_datetime = request.GET.get('end_datetime', None)
-    variable_id = request.GET.get('variable_id', None)
-    cmap = request.GET.get('cmap', 'Spectral_r')
-    hres = request.GET.get('hres', 0.01)
-    minimum_neighbors = request.GET.get('minimum_neighbors', 1)
-    search_radius = request.GET.get('search_radius', 0.7)
-    agg = request.GET.get('agg', "instant")
-    source = request.GET.get('source', "raw_data")
-    vmin = request.GET.get('vmin', 0)
-    vmax = request.GET.get('vmax', 30)
-    quality_flags = request.GET.get('quality_flags', None)
 
-    stations_df = pd.read_sql_query("""
-        SELECT id,name,alias_name,code,latitude,longitude
-        FROM wx_station
-        WHERE longitude!=0
-        """,
-                                    con=connection
-                                    )
-    stations = geopandas.GeoDataFrame(
-        stations_df, 
-        geometry=geopandas.points_from_xy(stations_df.longitude, stations_df.latitude)
-    )
-    
-    stations.crs = 'epsg:4326'
+    params = {
+        'start_datetime': request.GET.get('start_datetime', None),
+        'end_datetime': request.GET.get('end_datetime', None),
+        'variable_id': request.GET.get('variable_id', None),
+        'cmap': request.GET.get('cmap', 'Spectral_r'),
+        'hres': request.GET.get('hres', 0.01),
+        'minimum_neighbors': request.GET.get('minimum_neighbors', 1),
+        'search_radius': request.GET.get('search_radius', 0.7),
+        'agg': request.GET.get('agg', "instant"),
+        'source': request.GET.get('source', "raw_data"),
+        'vmin': request.GET.get('vmin', 0),
+        'vmax': request.GET.get('vmax', 30),
+        'quality_flags': request.GET.get('quality_flags', None),
+        'stands_llat': settings.SPATIAL_ANALYSIS_INITIAL_LATITUDE,
+        'stands_llon': settings.SPATIAL_ANALYSIS_INITIAL_LONGITUDE,
+        'stands_ulat': settings.SPATIAL_ANALYSIS_FINAL_LATITUDE,
+        'stands_ulon': settings.SPATIAL_ANALYSIS_FINAL_LONGITUDE,
+    }
 
-    stands_llat = settings.SPATIAL_ANALYSIS_INITIAL_LATITUDE
-    stands_llon = settings.SPATIAL_ANALYSIS_INITIAL_LONGITUDE
-    stands_ulat = settings.SPATIAL_ANALYSIS_FINAL_LATITUDE
-    stands_ulon = settings.SPATIAL_ANALYSIS_FINAL_LONGITUDE
+    task = tasks.fetch_interpolation_img_task.delay(**params)
 
-    where_query = ""
-    if source == "raw_data":
-        dt_query = "datetime"
-        value_query = "measured"
-        source_query = "raw_data"
-        if quality_flags:
-            try:
-                [int(qf) for qf in quality_flags.split(',')]
-            except ValueError:
-                return JsonResponse({"message": "Invalid quality_flags value."}, status=status.HTTP_400_BAD_REQUEST)
-            where_query = f" measured != {settings.MISSING_VALUE} AND quality_flag IN ({quality_flags}) AND "
-        else:
-            where_query = f" measured != {settings.MISSING_VALUE} AND "
-    else:
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT sampling_operation_id
-                FROM wx_variable
-                WHERE id=%(variable_id)s
-                """,
-                           params={'variable_id': variable_id}
-                           )
-            sampling_operation = cursor.fetchone()[0]
-
-        if sampling_operation in [6, 7]:
-            value_query = "sum_value"
-        elif sampling_operation == 3:
-            value_query = "min_value"
-        elif sampling_operation == 4:
-            value_query = "max_value"
-        else:
-            value_query = "avg_value"
-
-        if source == "hourly":
-            dt_query = "datetime"
-            source_query = "hourly_summary"
-
-        elif source == "daily":
-            dt_query = "day"
-            source_query = "daily_summary"
-
-        elif source == "monthly":
-            dt_query = "date"
-            source_query = "monthly_summary"
-
-        elif source == "yearly":
-            dt_query = "date"
-            source_query = "yearly_summary"
-
-    if agg == "instant":
-        where_query += "variable_id=%(variable_id)s AND " + dt_query + "=%(datetime)s"
-        params = {'datetime': start_datetime, 'variable_id': variable_id}
-    else:
-        where_query += "variable_id=%(variable_id)s AND " + dt_query + " >= %(start_datetime)s AND " + dt_query + " <= %(end_datetime)s"
-        params = {'start_datetime': start_datetime, 'end_datetime': end_datetime, 'variable_id': variable_id}
-
-    climate_data = pd.read_sql_query(
-        "SELECT station_id,variable_id," + dt_query + "," + value_query + """
-        FROM """ + source_query + """
-        WHERE """ + where_query + "",
-        params=params,
-        con=connection
-    )
-
-    if len(climate_data) == 0:
-        with open("/surface/static/images/no-interpolated-data.png", "rb") as f:
-            img_data = f.read()
-
-        return HttpResponse(img_data, content_type="image/jpeg")
-
-    df_merged = pd.merge(left=climate_data, right=stations, how='left', left_on='station_id', right_on='id')
-    df_climate = df_merged[["station_id", dt_query, "longitude", "latitude", value_query]]
-
-    if agg != "instant":
-        df_climate = (
-            df_climate
-            .groupby(['station_id', 'longitude', 'latitude'], as_index=False)
-            .agg({value_query: agg})
-        )
-
-    gx, gy, img = interpolate_to_grid(
-        df_climate["longitude"],
-        df_climate["latitude"],
-        df_climate[value_query],
-        interp_type='cressman',
-        minimum_neighbors=int(minimum_neighbors),
-        hres=float(hres),
-        search_radius=float(search_radius),
-        boundary_coords={'west': stands_llon, 'east': stands_ulon, 'south': stands_llat, 'north': stands_ulat}
-    )
-
-    fig = plt.figure(frameon=False)
-    ax = plt.Axes(fig, [0., 0., 1., 1.])
-    ax.set_axis_off()
-    fig.add_axes(ax)
-    ax.imshow(img, origin='lower', cmap=cmap, vmin=vmin, vmax=vmax)
-    fname = str(uuid.uuid4())
-    fig.savefig("/surface/static/images/" + fname + ".png", dpi='figure', format='png', transparent=True,
-                bbox_inches=Bbox.from_bounds(2, 0, 2.333, 4.013))
-
-    # delete later
-    logger.warning(f"This is the value of 'fname': {fname}")
-    print(f"This is the value of 'fname': {fname}")
-    # delete later
-
-    image1 = cv2.imread("/surface/static/images/" + fname + ".png", cv2.IMREAD_UNCHANGED)
-    image2 = cv2.imread(settings.SPATIAL_ANALYSIS_SHAPE_FILE_PATH, cv2.IMREAD_UNCHANGED)
-    image1 = cv2.resize(image1, dsize=(image2.shape[1], image2.shape[0]))
-    for i in range(image1.shape[0]):
-        for j in range(image1.shape[1]):
-            image1[i][j][3] = image2[i][j][3]
-    cv2.imwrite("/surface/static/images/" + fname + "-output.png", image1)
-
-    with open("/surface/static/images/" + fname + "-output.png", "rb") as f:
-        img_data = f.read()
-
-    os.remove("/surface/static/images/" + fname + ".png")
-    os.remove("/surface/static/images/" + fname + "-output.png")
-
-    logger.warning(f"This is the value of 'fname': {fname}")
-
-    return HttpResponse(img_data, content_type="image/jpeg")
+    return JsonResponse({"task_id": task.id})
 
 
 def GetColorMapBar(request):
@@ -786,70 +571,24 @@ def InterpolatePostData(request):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
-    stands_llat = settings.SPATIAL_ANALYSIS_INITIAL_LATITUDE
-    stands_llon = settings.SPATIAL_ANALYSIS_INITIAL_LONGITUDE
-    stands_ulat = settings.SPATIAL_ANALYSIS_FINAL_LATITUDE
-    stands_ulon = settings.SPATIAL_ANALYSIS_FINAL_LONGITUDE
-
     json_body = json.loads(request.body)
-    parameters = json_body['parameters']
-    vmin = json_body['vmin']
-    vmax = json_body['vmax']
-    df_climate = json_normalize(json_body['data'])
-    try:
-        df_climate = df_climate[["station_id", "longitude", "latitude", "measured"]]
-    except KeyError:
-        return HttpResponse("no-interpolated-data.png")
 
-    gx, gy, img = interpolate_to_grid(
-        df_climate["longitude"],
-        df_climate["latitude"],
-        df_climate["measured"],
-        interp_type='cressman',
-        minimum_neighbors=int(parameters["minimum_neighbors"]),
-        hres=float(parameters["hres"]),
-        search_radius=float(parameters["search_radius"]),
-        boundary_coords={'west': stands_llon, 'east': stands_ulon, 'south': stands_llat, 'north': stands_ulat}
-    )
+    params = {
+        'stands_llat': settings.SPATIAL_ANALYSIS_INITIAL_LATITUDE,
+        'stands_llon': settings.SPATIAL_ANALYSIS_INITIAL_LONGITUDE,
+        'stands_ulat': settings.SPATIAL_ANALYSIS_FINAL_LATITUDE,
+        'stands_ulon': settings.SPATIAL_ANALYSIS_FINAL_LONGITUDE,
+        'parameters': json_body['parameters'],
+        'vmin': json_body['vmin'],
+        'vmax': json_body['vmax'],
+        'json_body_data': json_body['data'],
+    }
 
-    fig = plt.figure(frameon=False)
-    ax = plt.Axes(fig, [0., 0., 1., 1.])
-    ax.set_axis_off()
-    fig.add_axes(ax)
-    ax.imshow(img, origin='lower', cmap=parameters["cmap"]["value"], vmin=vmin, vmax=vmax)
-    for filename in os.listdir('/surface/static/images'):
-        try:
-            if datetime.datetime.now() - datetime.datetime.strptime(filename.split('_')[0],
-                                                                    "%Y-%m-%dT%H:%M:%SZ") > datetime.timedelta(
-                minutes=5):
-                os.remove('/surface/static/images/' + filename)
-        except ValueError:
-            continue
-    fname = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ_") + str(uuid.uuid4())
-    fig.savefig("/surface/static/images/" + fname + ".png", dpi='figure', format='png', transparent=True,
-                bbox_inches=Bbox.from_bounds(2, 0, 2.333, 4.013))
-    image1 = cv2.imread("/surface/static/images/" + fname + ".png", cv2.IMREAD_UNCHANGED)
-    image2 = cv2.imread(settings.SPATIAL_ANALYSIS_SHAPE_FILE_PATH, cv2.IMREAD_UNCHANGED)
-    image1 = cv2.resize(image1, dsize=(image2.shape[1], image2.shape[0]))
-    for i in range(image1.shape[0]):
-        for j in range(image1.shape[1]):
-            image1[i][j][3] = image2[i][j][3]
-    cv2.imwrite("/surface/static/images/" + fname + "-output.png", image1)
+    task = tasks.fetch_mod_interpolation_img_task.delay(**params)
 
-    return HttpResponse(fname + "-output.png")
+    return JsonResponse({"task_id": task.id})
+    
 
-
-@permission_classes([IsAuthenticated])
-def GetImage(request):
-    image = request.GET.get('image', None)
-    try:
-        with open("/surface/static/images/" + image, "rb") as f:
-            return HttpResponse(f.read(), content_type="image/jpeg")
-    except IOError:
-        red = Image.new('RGBA', (1, 1), (255, 0, 0, 0))
-        response = HttpResponse(content_type="image/jpeg")
-        red.save(response, "JPEG")
-        return response
 
 @permission_classes([IsAuthenticated])
 def DataCaptureView(request):
