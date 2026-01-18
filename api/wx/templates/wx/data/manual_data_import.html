@@ -19,7 +19,7 @@
                     <i class="material-icons-outlined">cloud_upload</i><br>
                     <span style="color: rgb(64, 130, 246); font-weight: bold;">Choose file</span> or <b>drag here</b><br>
                     Supported file type(s): <span style="color: #1D6F42;">XLSX</span><br>
-                    <span style="color: red;">Upload limit: Up to 4 file(s) with total file size not exceeding 15.00 MB</span>
+                    <span style="color: red;">Upload limit: Total file size not exceeding 15.00 MB</span>
                   </p>
 
                   <p v-if="isSaving" style="font-size: small;">
@@ -29,7 +29,7 @@
 
                 <v-row dense justify="start" class="mb-3">
                   <!-- Override Data on Conflict selector -->
-                  <v-col cols="6">
+                  <v-col cols="4">
                     <v-switch
                         v-model="overrideData"
                         label="Override Data on Conflict"
@@ -344,12 +344,12 @@
 
           filesChange(fieldName, fileList) {
             // only allow 4 files at any given point
-            if ((fileList.length + this.uploadedFiles.length) > 4) {
-              this.request_error = true;
-              this.request_error_message = 'Maximum of 4 files allowed. Anything above the maximum ammount should be transfered in groups of 4 or via ftp!';
-
-              return;
-            }
+            // if ((fileList.length + this.uploadedFiles.length) > 4) {
+            //   this.request_error = true;
+            //   this.request_error_message = 'Maximum of 4 files allowed. Anything above the maximum ammount should be transfered in groups of 4 or via ftp!';
+            //
+            //   return;
+            // }
 
             // handle file changes
             const formData = new FormData();

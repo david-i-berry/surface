@@ -788,7 +788,7 @@ def CheckManualImportView(request):
 
                 # zero OR multiple matches then invalid
                 missing_stations.append(sheet)
-                    
+
             if missing_stations:
                 os.remove(file_path) # delete the file
                 non_existent_stations.append(f"""
@@ -800,7 +800,7 @@ def CheckManualImportView(request):
                 continue # skip to the next execution
 
             file_size = round(os.stat(file_path).st_size / (1024*1024), 4)
-            
+
             uploaded_files[file_name] = file_size # Store file name and size (size in MB)
 
         return JsonResponse({"uploaded_files": uploaded_files, 
