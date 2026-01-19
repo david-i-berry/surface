@@ -311,6 +311,7 @@
             <v-col class="text-center" cols="auto">
               <v-btn
                 @click="exportCSV()"
+                color="primary"
                 :disabled="variables.length == 0 || station.length == 0"
               >
                 Export
@@ -321,17 +322,17 @@
             <!-- Combine and Dowload .XLSX -->
             <v-col class="text-center" cols="auto">
               <v-btn
-              @click="convertCombineXLSX"
-              :disabled="showCombineXLSX()"
-            >
-              <template>
-                Combine and Download .XLSX
-                <i class="material-icons right">download</i>
-              </template>
-            </v-btn>
-            
-            
+                color="success"
+                @click="convertCombineXLSX"
+                :disabled="showCombineXLSX()"
+              >
+                <template>
+                  Combine and Download .XLSX
+                  <i class="material-icons right">download</i>
+                </template>
+              </v-btn>    
             </v-col>    
+
           </v-row>
         </form>
 
@@ -591,6 +592,7 @@
         })(),
         loading: false,
         station: [],
+        searchStations: '',
         displayUTC: false,
         export_aqc: true,
         export_mqc: false,
@@ -614,6 +616,8 @@
           { text: "Id", value: "id", align: "left"},
           { text: "Station", value: "station", align: "left"},
           { text: "Prepared by", value: "prepared_by", align: "left"},
+          { text: "AQC Checks", value: "aqc_checks", align: "left"},
+          { text: "MQC Checks", value: "mqc_checks", align: "left"},
           { text: "Requested at", value: "request_date", align: "left"},
           { text: "Ready at", value: "ready_date", align: "left"},
           { text: "Status", value: "status.text", align: "left"},
@@ -624,6 +628,8 @@
         combine_documents_headers: [
           { text: "Id", value: "id", align: "left"},
           { text: "Prepared by", value: "prepared_by", align: "left"},
+          { text: "AQC Checks", value: "aqc_checks", align: "left"},
+          { text: "MQC Checks", value: "mqc_checks", align: "left"},
           { text: "Requested at", value: "request_date", align: "left"},
           { text: "Ready at", value: "ready_date", align: "left"},
           { text: "Status", value: "status.text", align: "left"},
@@ -790,7 +796,6 @@
           let start_datetime = moment(`${this.initial_date} ${this.initial_time}`)
           let end_datetime = moment(`${this.final_date} ${this.final_time}`)
 
-
           axios.post("schedule/", {
             multiple: true,
             stations: this.station.map(s => s.value),
@@ -811,7 +816,7 @@
           }).catch(err => {
             this.loading = false;
             this.request_error = true;
-            this.request_error_message = err.response.data.message;
+            this.request_error_message = err.message;
           })
         },
         updateTable() {
@@ -863,6 +868,8 @@
             variables: this.variables.map(v => v.value),
             data_interval: this.dataInterval,
             aggregation: this.aggregation.map(a => a.value),
+            aqc_checks: this.export_aqc,
+            mqc_checks: this.export_mqc,
             displayUTC: this.displayUTC // determine whether or not the timestamps in the final output will be in UTC.
           }).then(response => {
             // update the table combine xlsx table
@@ -871,7 +878,7 @@
           }).catch(err => {
             this.loading = false;
             this.request_error = true;
-            this.request_error_message = err.response.data.message;
+            this.request_error_message = err.message;
           })
         },
         updateCombineTable() {
