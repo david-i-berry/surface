@@ -1316,7 +1316,7 @@ def save_flash_data(data_string):
     read_data_flash(data_string.encode('latin-1'))
 
 @shared_task
-def export_data(station_id, source, start_date, end_date, variable_ids, file_id, agg, displayUTC):
+def export_data(station_id, source, start_date, end_date, variable_ids, file_id, agg, aqc_checks, mqc_checks, displayUTC):
     try:
         logger.info(f'Exporting data (file "{file_id}")')
 
@@ -1430,6 +1430,23 @@ def export_data(station_id, source, start_date, end_date, variable_ids, file_id,
         elif source == 'raw_data':
             datetime_list.append(converted_end_date + timedelta(seconds=current_datafile.interval_in_seconds))
 
+        # quality control clause based on users request
+        quality_clause = ""
+
+        # if user request aqc data
+        if aqc_checks and mqc_checks:
+            quality_clause = """
+                AND data.quality_flag = 4
+                AND data.manual_flag = 4
+            """
+        elif aqc_checks:
+            quality_clause = """
+                AND data.quality_flag = 4
+            """
+        elif mqc_checks:
+            quality_clause = """
+                AND data.manual_flag = 4
+            """
 
         query_result = []
         for i in range(0, len(datetime_list) - 1):
@@ -1441,7 +1458,7 @@ def export_data(station_id, source, start_date, end_date, variable_ids, file_id,
 
                     # removing the offset addition from the query based on the truthines of displayUTC. Removed `+ interval '%(utc_offset)s minutes'`
                     if displayUTC:
-                        query_raw_data = '''
+                        query_raw_data = f'''
                             WITH processed_data AS (
                                 SELECT datetime
                                     ,var.id as variable_id
@@ -1451,6 +1468,7 @@ def export_data(station_id, source, start_date, end_date, variable_ids, file_id,
                                 WHERE data.datetime >= %(start_datetime)s
                                 AND data.datetime <= %(end_datetime)s
                                 AND data.station_id = %(station_id)s
+                                {quality_clause}
                             )
                             SELECT (generated_time) at time zone 'utc' as datetime
                                 ,variable.id
@@ -1461,7 +1479,7 @@ def export_data(station_id, source, start_date, end_date, variable_ids, file_id,
                         ''' 
                     # keeping the offset addition in the query based on the truthines of displayUTC.
                     else:
-                        query_raw_data = '''
+                        query_raw_data = f'''
                             WITH processed_data AS (
                                 SELECT datetime
                                     ,var.id as variable_id
@@ -1471,6 +1489,7 @@ def export_data(station_id, source, start_date, end_date, variable_ids, file_id,
                                 WHERE data.datetime >= %(start_datetime)s
                                 AND data.datetime <= %(end_datetime)s
                                 AND data.station_id = %(station_id)s
+                                {quality_clause}
                             )
                             SELECT (generated_time + interval '%(utc_offset)s minutes') at time zone 'utc' as datetime
                                 ,variable.id
@@ -1697,6 +1716,8 @@ def export_data(station_id, source, start_date, end_date, variable_ids, file_id,
             f.write(f'Description:{variable_names_string}\n')
             f.write(f'Latitude:{station.latitude}\n')
             f.write(f'Longitude:{station.longitude}\n')
+            f.write(f'Passed AQC Checks: {current_datafile.aqc_checks}\n')
+            f.write(f'Passed MQC Checks: {current_datafile.mqc_checks}\n')
             f.write(f'Date of completion:{date_of_completion.astimezone(timezone_offset).strftime("%Y-%m-%d %H:%M:%S")}\n')
             f.write(f'Prepared by:{current_datafile.prepared_by}\n')
             f.write(f'Start date:{start_date_header}, End date:{end_date_header}\n\n')
@@ -1821,7 +1842,7 @@ def convert_csv_xlsx(file_path, file_station, file_id):
 
 # combine .xlsx files into a single .xlsx file
 @shared_task
-def combine_xlsx_files(station_ids, data_source, start_date, end_date, variable_ids, aggregation, displayUTC, data_interval_seconds, prepared_by, data_source_description, entry_id):
+def combine_xlsx_files(station_ids, data_source, start_date, end_date, variable_ids, aggregation, displayUTC, data_interval_seconds, prepared_by, data_source_description, aqc_checks, mqc_checks, entry_id):
     # grab the current combine xlsx data file entry
     current_datafile = CombineDataFile.objects.get(pk=entry_id)
 
@@ -1840,9 +1861,9 @@ def combine_xlsx_files(station_ids, data_source, start_date, end_date, variable_
             if aggregation:
                 for agg in aggregation:
 
-                    export_data_df.append(export_data_xlsx(station_id, data_source, start_date, end_date, variable_ids, agg, displayUTC, data_interval_seconds))
+                    export_data_df.append(export_data_xlsx(station_id, data_source, start_date, end_date, variable_ids, agg, aqc_checks, mqc_checks, displayUTC, data_interval_seconds))
             else:
-                export_data_df.append(export_data_xlsx(station_id, data_source, start_date, end_date, variable_ids, aggregation, displayUTC, data_interval_seconds))
+                export_data_df.append(export_data_xlsx(station_id, data_source, start_date, end_date, variable_ids, aggregation, aqc_checks, mqc_checks, displayUTC, data_interval_seconds))
 
             # Getting the columns in common between dataframs pertaining to a specific station
             if data_source in ['raw_data', 'hourly_summary']:
@@ -1980,16 +2001,18 @@ def combine_xlsx_files(station_ids, data_source, start_date, end_date, variable_
             cell = sheet.cell(row=3, column=1, value=f'Description:{variable_names_string}')
             cell = sheet.cell(row=4, column=1, value=f'Latitude:{station.latitude}')
             cell = sheet.cell(row=5, column=1, value=f'Longitude:{station.longitude}')
-            cell = sheet.cell(row=6, column=1, value=f'Date of completion:{date_of_completion.astimezone(timezone_offset).strftime("%Y-%m-%d %H:%M:%S")}')
-            cell = sheet.cell(row=7, column=1, value=f'Prepared by:{prepared_by}')
+            cell = sheet.cell(row=6, column=1, value=f'Passed AQC Checks:{aqc_checks}')
+            cell = sheet.cell(row=7, column=1, value=f'Passed MQC Checks:{mqc_checks}')
+            cell = sheet.cell(row=8, column=1, value=f'Date of completion:{date_of_completion.astimezone(timezone_offset).strftime("%Y-%m-%d %H:%M:%S")}')
+            cell = sheet.cell(row=9, column=1, value=f'Prepared by:{prepared_by}')
 
             if displayUTC and data_source in ['raw_data','hourly_summary']:
-                cell = sheet.cell(row=9, column=1, value=f'Dates are displayed in UTC')
-                cell = sheet.cell(row=10, column=1, value=f'Start date:{start_date}, End date:{end_date}')
+                cell = sheet.cell(row=11, column=1, value=f'Dates are displayed in UTC')
+                cell = sheet.cell(row=12, column=1, value=f'Start date:{start_date}, End date:{end_date}')
             else:
                 updated_start_date = pytz.UTC.localize(datetime.strptime(start_date, '%Y-%m-%d %H:%M:%S'))
                 updated_end_date = pytz.UTC.localize(datetime.strptime(end_date, '%Y-%m-%d %H:%M:%S'))
-                cell = sheet.cell(row=9, column=1, value=f'Start date:{updated_start_date.astimezone(timezone_offset).strftime("%Y-%m-%d %H:%M:%S")}, End date:{updated_end_date.astimezone(timezone_offset).strftime("%Y-%m-%d %H:%M:%S")}')
+                cell = sheet.cell(row=11, column=1, value=f'Start date:{updated_start_date.astimezone(timezone_offset).strftime("%Y-%m-%d %H:%M:%S")}, End date:{updated_end_date.astimezone(timezone_offset).strftime("%Y-%m-%d %H:%M:%S")}')
 
         # Save the workbook
         combined_workbook.save(output_file)
@@ -2010,7 +2033,7 @@ def combine_xlsx_files(station_ids, data_source, start_date, end_date, variable_
 
 
 # returns the data frame for each query ran in order to facilitate combining the files later
-def export_data_xlsx(station_id, source, start_date, end_date, variable_ids, agg, displayUTC, data_interval_seconds):
+def export_data_xlsx(station_id, source, start_date, end_date, variable_ids, agg, aqc_checks, mqc_checks, displayUTC, data_interval_seconds):
 
     timezone_offset = pytz.timezone(settings.TIMEZONE_NAME)
     start_date_utc = pytz.UTC.localize(datetime.strptime(start_date, '%Y-%m-%d %H:%M:%S'))
@@ -2121,6 +2144,24 @@ def export_data_xlsx(station_id, source, start_date, end_date, variable_ids, agg
         elif source == 'raw_data':
             datetime_list.append(converted_end_date + timedelta(seconds=data_interval_seconds))
 
+        # quality control clause based on users request
+        quality_clause = ""
+
+        # if user request aqc data
+        if aqc_checks and mqc_checks:
+            quality_clause = """
+                AND data.quality_flag = 4
+                AND data.manual_flag = 4
+            """
+        elif aqc_checks:
+            quality_clause = """
+                AND data.quality_flag = 4
+            """
+        elif mqc_checks:
+            quality_clause = """
+                AND data.manual_flag = 4
+            """
+
 
         query_result = []
         for i in range(0, len(datetime_list) - 1):
@@ -2132,7 +2173,7 @@ def export_data_xlsx(station_id, source, start_date, end_date, variable_ids, agg
 
                     # removing the offset addition from the query based on the truthines of displayUTC. Removed `+ interval '%(utc_offset)s minutes'`
                     if displayUTC:
-                        query_raw_data = '''
+                        query_raw_data = f'''
                             WITH processed_data AS (
                                 SELECT datetime
                                     ,var.id as variable_id
@@ -2142,6 +2183,7 @@ def export_data_xlsx(station_id, source, start_date, end_date, variable_ids, agg
                                 WHERE data.datetime >= %(start_datetime)s
                                 AND data.datetime <= %(end_datetime)s
                                 AND data.station_id = %(station_id)s
+                                {quality_clause}
                             )
                             SELECT (generated_time) at time zone 'utc' as datetime
                                 ,variable.id
@@ -2152,7 +2194,7 @@ def export_data_xlsx(station_id, source, start_date, end_date, variable_ids, agg
                         ''' 
                     # keeping the offset addition in the query based on the truthines of displayUTC.
                     else:
-                        query_raw_data = '''
+                        query_raw_data = f'''
                             WITH processed_data AS (
                                 SELECT datetime
                                     ,var.id as variable_id
@@ -2162,6 +2204,7 @@ def export_data_xlsx(station_id, source, start_date, end_date, variable_ids, agg
                                 WHERE data.datetime >= %(start_datetime)s
                                 AND data.datetime <= %(end_datetime)s
                                 AND data.station_id = %(station_id)s
+                                {quality_clause}
                             )
                             SELECT (generated_time + interval '%(utc_offset)s minutes') at time zone 'utc' as datetime
                                 ,variable.id

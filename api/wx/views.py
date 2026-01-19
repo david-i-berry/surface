@@ -134,7 +134,11 @@ def ScheduleDataExport(request):
 
     aggregation = json_body['aggregation'] # sets which column in the db will be used when the source is a summary. 
 
-    displayUTC = json_body['displayUTC'] # determins wheter an offset will be applied based on the truthines of displayUTC
+    displayUTC = json_body['displayUTC'] # determines whether an offset will be applied based on the truthines of displayUTC
+
+    aqc_checks = json_body['aqc_checks'] # determines whether the output should only consist of data which pass aqc checks
+    
+    mqc_checks = json_body['mqc_checks'] # determines whether the output should only consist of data which pass mqc checks
 
     # If source is raw_data, this will be set to none
     if data_source == 'raw_data':
@@ -176,9 +180,15 @@ def ScheduleDataExport(request):
     for station_id in station_ids:
         if aggregation:
             for agg in aggregation:
-                newfile = DataFile.objects.create(ready=False, initial_date=start_date_utc, final_date=end_date_utc,
-                                                source=data_source_description, prepared_by=prepared_by,
-                                                interval_in_seconds=data_interval_seconds)
+                newfile = DataFile.objects.create(ready=False, 
+                                                  initial_date=start_date_utc, 
+                                                  final_date=end_date_utc,
+                                                  source=data_source_description, 
+                                                  prepared_by=prepared_by,
+                                                  interval_in_seconds=data_interval_seconds,
+                                                  aqc_checks = aqc_checks,
+                                                  mqc_checks = mqc_checks)
+                
                 DataFileStation.objects.create(datafile=newfile, station_id=station_id)
 
                 try:
@@ -186,7 +196,7 @@ def ScheduleDataExport(request):
                         variable = Variable.objects.get(pk=variable_id)
                         DataFileVariable.objects.create(datafile=newfile, variable=variable)
 
-                    tasks.export_data.delay(station_id, data_source, start_date, end_date, variable_ids, newfile.id, agg, displayUTC)
+                    tasks.export_data.delay(station_id, data_source, start_date, end_date, variable_ids, newfile.id, agg, aqc_checks, mqc_checks, displayUTC)
                     created_data_file_ids.append(newfile.id)
                 except Exception as err:
                     # if an error occuers udpate the datafile ready_at option whilst leaving ready = false
@@ -195,9 +205,16 @@ def ScheduleDataExport(request):
                     # this prevents a possible error state from mascarading as a "processing" status
                     newfile.ready_at = current_utc_datetime
         else:
-            newfile = DataFile.objects.create(ready=False, initial_date=start_date_utc, final_date=end_date_utc,
-                                            source=data_source_description, prepared_by=prepared_by,
-                                            interval_in_seconds=data_interval_seconds)
+            newfile = DataFile.objects.create(ready=False, 
+                                              initial_date=start_date_utc, 
+                                              final_date=end_date_utc,
+                                              source=data_source_description, 
+                                              prepared_by=prepared_by,
+                                              interval_in_seconds=data_interval_seconds,
+                                              aqc_checks = aqc_checks,
+                                              mqc_checks = mqc_checks
+                                            )
+            
             DataFileStation.objects.create(datafile=newfile, station_id=station_id)
 
             try:
@@ -205,7 +222,7 @@ def ScheduleDataExport(request):
                     variable = Variable.objects.get(pk=variable_id)
                     DataFileVariable.objects.create(datafile=newfile, variable=variable)
 
-                tasks.export_data.delay(station_id, data_source, start_date, end_date, variable_ids, newfile.id, aggregation, displayUTC)
+                tasks.export_data.delay(station_id, data_source, start_date, end_date, variable_ids, newfile.id, aggregation, aqc_checks, mqc_checks, displayUTC)
                 created_data_file_ids.append(newfile.id)
             except Exception as err:
                 # if an error occuers udpate the datafile ready_at option whilst leaving ready = false
@@ -243,6 +260,8 @@ def DataExportFiles(request):
             'station': current_station_name,
             'variables': [],
             'status': file_status,
+            'aqc_checks': df['aqc_checks'],
+            'mqc_checks': df['mqc_checks'],
             'initial_date': df['initial_date'],
             'final_date': df['final_date'],
             'source': {'text': df['source'],
@@ -332,6 +351,10 @@ def CombineFilesXLSX(request):
 
         displayUTC = json_body['displayUTC'] # determins wheter an offset will be applied based on the truthines of displayUTC
 
+        aqc_checks = json_body['aqc_checks'] # determines whether the output should only consist of data which pass aqc checks
+        
+        mqc_checks = json_body['mqc_checks'] # determines whether the output should only consist of data which pass mqc checks
+
         # If source is raw_data, aggregation will be set to none
         if data_source == 'raw_data':
             aggregation = ""
@@ -369,13 +392,20 @@ def CombineFilesXLSX(request):
             variable_ids_string += str(y) + "_"
 
         # add this file entry to the combine data file model
-        new_entry = CombineDataFile.objects.create(ready=False, initial_date=start_date_utc, final_date=end_date_utc,
-                                                        source=data_source_description, prepared_by=prepared_by,
-                                                        stations_ids=station_ids_string, variable_ids=variable_ids_string, aggregation="  ".join(aggregation).upper())
+        new_entry = CombineDataFile.objects.create(ready=False, 
+                                                   initial_date=start_date_utc, 
+                                                   final_date=end_date_utc,
+                                                   source=data_source_description, 
+                                                   prepared_by=prepared_by,
+                                                   stations_ids=station_ids_string, 
+                                                   variable_ids=variable_ids_string, 
+                                                   aggregation="  ".join(aggregation).upper(),                                                  
+                                                   aqc_checks=aqc_checks,
+                                                   mqc_checks=mqc_checks)
 
         # send the MAIN task unto celery
-        combine_task = tasks.combine_xlsx_files.delay(station_ids, data_source, start_date, end_date, variable_ids, aggregation, displayUTC, data_interval_seconds, prepared_by, data_source_description, new_entry.id)
-        print(f'BTW THIS IS THE NEW_ENTRY ID::::::::{new_entry.id}')
+        combine_task = tasks.combine_xlsx_files.delay(station_ids, data_source, start_date, end_date, variable_ids, aggregation, displayUTC, data_interval_seconds, prepared_by, data_source_description, aqc_checks, mqc_checks, new_entry.id)
+
         return JsonResponse({'data': new_entry.id}, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f'An error occured while attempting to schedule combine task. Error = {e}')
@@ -426,6 +456,8 @@ def combineDataExportFiles(request):
                 'request_date': df['created_at'],
                 'ready_date': df['ready_at'],
                 'station': current_station_names_list,
+                'aqc_checks': df['aqc_checks'],
+                'mqc_checks': df['mqc_checks'],
                 'variables': variable_list,
                 'status': file_status,
                 'initial_date': df['initial_date'],
