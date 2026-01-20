@@ -29,12 +29,13 @@ from django.contrib import messages
 from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth import get_user_model
 from wx.mixins import WxPermissionRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.cache import cache
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import connection
+from django.db import connection, transaction
 from django.http import HttpResponse, JsonResponse, FileResponse, HttpResponseNotAllowed, HttpResponseBadRequest, Http404
 from django.utils.http import http_date
 from django.template import loader
@@ -111,6 +112,9 @@ import requests
 import re
 
 logger = logging.getLogger('surface.urls')
+
+# get user models
+User = get_user_model()
 
 # CONSTANT to be used in datetime to milliseconds conversion
 EPOCH = datetime_constructor(1970, 1, 1, tzinfo=timezone.utc)
@@ -11614,7 +11618,7 @@ class GroupsInfo(views.APIView):
 
         return Response(groups_data)
 
-
+# retrive the all users info
 class UsersGroupsInfo(views.APIView):
     permission_classes = (IsAuthenticated, IsSuperUser)
 
@@ -11652,3 +11656,27 @@ class UsersGroupsInfo(views.APIView):
         ]
 
         return Response(users_groups_data)
+
+# update users info
+class UpdateUserRoles(views.APIView):
+    permission_classes = (IsAuthenticated, IsSuperUser)
+
+    def patch(self, request, user_id):
+        roles = request.data.get("roles", [])
+
+        if not isinstance(roles, list) or not all(isinstance(x, int) for x in roles):
+            return Response({"message": "roles must be a list of integers"}, status=400)
+
+        # transaction atomic ensure that everything with the with block is successfull otherwise it roles back the changes made
+        # this matters as we are delting all old roles and then updating
+        with transaction.atomic():
+            # delete existing roles
+            User.groups.through.objects.filter(user_id=user_id).delete()
+
+            # insert new roles
+            through_objs = [
+                User.groups.through(user_id=user_id, group_id=gid) for gid in roles
+            ]
+            User.groups.through.objects.bulk_create(through_objs)
+
+        return Response({"message": "ok"})

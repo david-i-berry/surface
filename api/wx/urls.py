@@ -187,6 +187,7 @@ urlpatterns = [
 
     path('api/groups/', views.GroupsInfo.as_view(), name="groups-info"),
     path('api/users_groups/', views.UsersGroupsInfo.as_view(), name="users-groups-info"),
+    path("api/users/<int:user_id>/roles/", views.UpdateUserRoles.as_view(), name="users-groups-update"),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

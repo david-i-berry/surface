@@ -19,7 +19,7 @@
         <v-btn
           outlined
           class="mr-3"
-          :color="activeTab === 0 ? 'primary' : 'grey'"
+          :color="activeTab === 0 ? 'purple' : 'grey'"
           @click="activeTab = 0"
         >
           Users & Roles
@@ -27,7 +27,7 @@
 
         <v-btn
           outlined
-          :color="activeTab === 1 ? 'purple' : 'grey'"
+          :color="activeTab === 1 ? 'orange' : 'grey'"
           @click="activeTab = 1"
         >
           Group Permissions
@@ -82,7 +82,6 @@
                   <!-- edit btn -->
                   <v-btn 
                     icon 
-                    v-on="on" 
                     @click="openRoleModal(item)"
                   >
                     <v-icon small>edit</v-icon>
@@ -105,6 +104,8 @@
                 <v-select
                   v-model="editedRoles"
                   :items="groups"
+                  item-text="name"
+                  item-value="id"
                   label="Roles"
                   multiple
                   chips
@@ -112,11 +113,31 @@
                 ></v-select>
               </v-card-text>
 
+              <!-- action buttons -->
               <v-card-actions>
                 <v-spacer></v-spacer>
-                <v-btn text @click="closeModal">Cancel</v-btn>
-                <v-btn color="primary" text @click="saveRoles">Save</v-btn>
+
+                <!-- disable button -->
+                <v-btn 
+                  color="error"
+                  @click="closeModal" 
+                  :disabled="loading.saveRoles"
+                >
+                  Cancel
+                </v-btn>
+
+                <!-- save roles button -->
+                <v-btn 
+                  color="success" 
+                  @click="saveRoles"   
+                  :loading="loading.saveRoles"
+                  :disabled="loading.saveRoles"
+                >
+                  Save
+                </v-btn>
+
               </v-card-actions>
+
             </v-card>
           </v-dialog>
 
@@ -139,7 +160,7 @@
                 <v-list dense>
                   <v-list-item
                     v-for="group in groups"
-                    :key="group.name"
+                    :key="group.id"
                     @click="attemptGroupSwitch(group.name)"
                     :class="{
                       'grey lighten-3': selectedGroup === group.name,
@@ -197,7 +218,6 @@
 
                   <v-card-text>
 
-                    <!-- your expansion panels stay EXACTLY the same here -->
                     <v-expansion-panels multiple>
                       <v-expansion-panel
                         v-for="group in permissionGroups"
@@ -236,20 +256,19 @@
 
                   </v-card-text>
 
+                  <!-- action buttons -->
                   <v-card-actions>
                     <v-spacer></v-spacer>
 
                     <v-btn
-                      text
-                      color="secondary"
+                      color="primary"
                       @click="resetGroupPermissions"
                     >
                       Reset
                     </v-btn>
 
                     <v-btn
-                      color="primary"
-                      text
+                      color="success"
                       @click="saveGroupPermissions"
                     >
                       Save
@@ -295,6 +314,7 @@
         
         switchingGroup: false,
         
+        // header for the users tabel
         headers: [
           { text: "First Name", value: "first_name" },
           { text: "Last Name", value: "last_name" },
@@ -304,17 +324,19 @@
           { text: 'Actions', value: 'actions' }
         ],
         
-        users: [],
-        
-        availableRoles: ["Admin", "Editor", "Viewer", "Reporter"],
-        
-        dialog: false,
-        
+        users: [], // holds all users
+
         selectedUser: null,
+
+        groups: [], // holds all groups
+
+        selectedGroup: null,
+        
+        dialog: false, // dialog pop up control for changing user role
+
+        selectedGroup: null,
         
         editedRoles: [],
-        
-        groups: [],
         
         permissionGroups: [
           {
@@ -349,29 +371,90 @@
           Reporter: ["station_read", "wave_data_read"],
         },
         
-        selectedGroup: null,
-        
         editedGroupPermissionsMap: {},
 
-        snackbar: { show: false, message: '', color: '' },
+        // control for page loader
+        loading: {
+          users: false,
+          saveRoles: false,
+        },
+
+        saveError: null,
+
+        snackbar: { show: false, message: '', color: '' }, // notification snack bar
       };
     },
-    methods: {    
+    methods: {          
+
       openRoleModal(user) {
         this.selectedUser = user;
-        this.editedRoles = [...user.roles];
+        this.editedRoles = Array.isArray(user.roles) ? [...user.roles] : []; // Defensive: ensure roles is an array; shallow copy it so edits don't mutate user.roles directly
+        this.saveError = null;
         this.dialog = true;
       },
-      
-      saveRoles() {
-        this.selectedUser.roles = [...this.editedRoles];
-        this.closeModal();
+
+      async saveRoles() {
+        if (!this.selectedUser) return;
+
+        this.loading.saveRoles = true;
+        this.saveError = null;
+
+        const userId = this.selectedUser.id;
+
+        try {
+          const res = await fetch(`/api/users/${userId}/roles/`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": this.getCookie("csrftoken"), // auth purposes
+            },
+            body: JSON.stringify({ roles: this.editedRoles }),
+          });
+
+          if (!res.ok) {
+            // attempt to parse server error
+            let msg = "Failed to update roles.";
+
+            try {
+              const data = await res.json();
+              msg = data?.message || data?.detail || msg;
+            } 
+            catch (e) {}
+
+            throw new Error(msg);
+          }
+
+          // reload users from backend
+          await this.fetchUserInfo();
+
+          // close
+          this.closeModal();
+
+          this.snackbar = { show: true, message: "Roles updated successfully", color: "green" };
+        } 
+        catch (err) {
+          console.error(err);
+          this.saveError = err.message || "Failed to update roles.";
+          this.snackbar = { show: true, message: this.saveError, color: "red" };
+        } 
+        finally {
+          this.loading.saveRoles = false;
+        }
       },
-      
+
       closeModal() {
         this.dialog = false;
         this.selectedUser = null;
         this.editedRoles = [];
+        this.saveError = null;
+      },
+
+      // (only needed if using Django session auth + CSRF)
+      getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(";").shift();
+        return null;
       },
 
       resetGroupPermissions() {
@@ -426,6 +509,8 @@
 
       // fetch user details and groups (Roles) user is a part off
       fetchUserInfo() {
+        this.loading.users = true;
+
         fetch("/api/users_groups/")
           .then(res => res.json())
           .then(data => {
