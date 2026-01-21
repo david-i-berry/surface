@@ -33,6 +33,7 @@ import matplotlib.pyplot as plt
 import psycopg2
 import pytz
 import requests
+import re
 import subprocess
 import wx.export_surface_oscar as exso
 from celery import shared_task
@@ -2655,21 +2656,15 @@ def ingest_manual_station_files(data_file_id_list):
 
             stations_list = '       '.join(source.sheet_names) # combining stations list into a long sting
 
-            # column names
-            column_names = ['day', 'PRECIP', 'TEMPMAX', 'TEMPMIN', 'TEMPAVG', 'WNDMIL', 'WINDRUN', 'SUNSHNHR', 'EVAPINI', 'EVAPRES', 'EVAPPAN', 'TEMP', 'TEMPWB', 'TSOIL1', 'TSOIL4', 'DYTHND', 'DYFOG', 'DYHAIL', 'DYGAIL', 'TOTRAD', 'RH@TMAX', 'RHMAX', 'RHMIN',]
+            header_block = source.parse(source.sheet_names[0], header=None, nrows=5, na_filter=False)
 
-            # getting the month information from sheet 1
-            sheet_raw_data = source.parse(
-                source.sheet_names[0],
-                skipfooter=2,
-                na_filter=False,
-                names=column_names,
-                usecols='A:W'
-            )
-
-            if not sheet_raw_data.empty:
-                header = sheet_raw_data[0:1]
-                sheet_month = header['WINDRUN'][0].replace('MONTH: ', '').strip()
+            sheet_month = None
+            for v in header_block.to_numpy().ravel():
+                if isinstance(v, str) and "MONTH:" in v:
+                    m = re.search(r"MONTH:\s*([A-Za-z]+)", v)
+                    if m:
+                        sheet_month = m.group(1)
+                        break
 
             
             # update the manual station data file object

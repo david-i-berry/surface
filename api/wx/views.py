@@ -697,7 +697,7 @@ class ManualDataImportView(LoginRequiredMixin, WxPermissionRequiredMixin, Templa
         return super().dispatch(request, *args, **kwargs)
     
 
-# retrieves manual data files
+# retrieves manual data files metadata
 @api_view(('GET',))
 def ManualDataFiles(request):
     files = []
