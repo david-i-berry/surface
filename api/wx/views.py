@@ -86,7 +86,7 @@ from wx.tasks import fft_decompose, export_station_to_oscar, export_station_to_o
 import math
 import numpy as np
 
-from wx.models import Equipment, EquipmentType, Manufacturer, FundingSource, StationProfileEquipmentType
+from wx.models import Equipment, EquipmentType, EquipmentModel, Manufacturer, FundingSource, StationProfileEquipmentType
 from django.core.serializers import serialize
 from django.core.serializers.json import DjangoJSONEncoder
 from wx.models import MaintenanceReportEquipment
@@ -139,7 +139,11 @@ def ScheduleDataExport(request):
 
     aggregation = json_body['aggregation'] # sets which column in the db will be used when the source is a summary. 
 
-    displayUTC = json_body['displayUTC'] # determins wheter an offset will be applied based on the truthines of displayUTC
+    displayUTC = json_body['displayUTC'] # determines whether an offset will be applied based on the truthines of displayUTC
+
+    aqc_checks = json_body['aqc_checks'] # determines whether the output should only consist of data which pass aqc checks
+    
+    mqc_checks = json_body['mqc_checks'] # determines whether the output should only consist of data which pass mqc checks
 
     # If source is raw_data, this will be set to none
     if data_source == 'raw_data':
@@ -181,9 +185,15 @@ def ScheduleDataExport(request):
     for station_id in station_ids:
         if aggregation:
             for agg in aggregation:
-                newfile = DataFile.objects.create(ready=False, initial_date=start_date_utc, final_date=end_date_utc,
-                                                source=data_source_description, prepared_by=prepared_by,
-                                                interval_in_seconds=data_interval_seconds)
+                newfile = DataFile.objects.create(ready=False, 
+                                                  initial_date=start_date_utc, 
+                                                  final_date=end_date_utc,
+                                                  source=data_source_description, 
+                                                  prepared_by=prepared_by,
+                                                  interval_in_seconds=data_interval_seconds,
+                                                  aqc_checks = aqc_checks,
+                                                  mqc_checks = mqc_checks)
+                
                 DataFileStation.objects.create(datafile=newfile, station_id=station_id)
 
                 try:
@@ -191,7 +201,7 @@ def ScheduleDataExport(request):
                         variable = Variable.objects.get(pk=variable_id)
                         DataFileVariable.objects.create(datafile=newfile, variable=variable)
 
-                    tasks.export_data.delay(station_id, data_source, start_date, end_date, variable_ids, newfile.id, agg, displayUTC)
+                    tasks.export_data.delay(station_id, data_source, start_date, end_date, variable_ids, newfile.id, agg, aqc_checks, mqc_checks, displayUTC)
                     created_data_file_ids.append(newfile.id)
                 except Exception as err:
                     # if an error occuers udpate the datafile ready_at option whilst leaving ready = false
@@ -200,9 +210,16 @@ def ScheduleDataExport(request):
                     # this prevents a possible error state from mascarading as a "processing" status
                     newfile.ready_at = current_utc_datetime
         else:
-            newfile = DataFile.objects.create(ready=False, initial_date=start_date_utc, final_date=end_date_utc,
-                                            source=data_source_description, prepared_by=prepared_by,
-                                            interval_in_seconds=data_interval_seconds)
+            newfile = DataFile.objects.create(ready=False, 
+                                              initial_date=start_date_utc, 
+                                              final_date=end_date_utc,
+                                              source=data_source_description, 
+                                              prepared_by=prepared_by,
+                                              interval_in_seconds=data_interval_seconds,
+                                              aqc_checks = aqc_checks,
+                                              mqc_checks = mqc_checks
+                                            )
+            
             DataFileStation.objects.create(datafile=newfile, station_id=station_id)
 
             try:
@@ -210,7 +227,7 @@ def ScheduleDataExport(request):
                     variable = Variable.objects.get(pk=variable_id)
                     DataFileVariable.objects.create(datafile=newfile, variable=variable)
 
-                tasks.export_data.delay(station_id, data_source, start_date, end_date, variable_ids, newfile.id, aggregation, displayUTC)
+                tasks.export_data.delay(station_id, data_source, start_date, end_date, variable_ids, newfile.id, aggregation, aqc_checks, mqc_checks, displayUTC)
                 created_data_file_ids.append(newfile.id)
             except Exception as err:
                 # if an error occuers udpate the datafile ready_at option whilst leaving ready = false
@@ -248,6 +265,8 @@ def DataExportFiles(request):
             'station': current_station_name,
             'variables': [],
             'status': file_status,
+            'aqc_checks': df['aqc_checks'],
+            'mqc_checks': df['mqc_checks'],
             'initial_date': df['initial_date'],
             'final_date': df['final_date'],
             'source': {'text': df['source'],
@@ -337,6 +356,10 @@ def CombineFilesXLSX(request):
 
         displayUTC = json_body['displayUTC'] # determins wheter an offset will be applied based on the truthines of displayUTC
 
+        aqc_checks = json_body['aqc_checks'] # determines whether the output should only consist of data which pass aqc checks
+        
+        mqc_checks = json_body['mqc_checks'] # determines whether the output should only consist of data which pass mqc checks
+
         # If source is raw_data, aggregation will be set to none
         if data_source == 'raw_data':
             aggregation = ""
@@ -374,13 +397,20 @@ def CombineFilesXLSX(request):
             variable_ids_string += str(y) + "_"
 
         # add this file entry to the combine data file model
-        new_entry = CombineDataFile.objects.create(ready=False, initial_date=start_date_utc, final_date=end_date_utc,
-                                                        source=data_source_description, prepared_by=prepared_by,
-                                                        stations_ids=station_ids_string, variable_ids=variable_ids_string, aggregation="  ".join(aggregation).upper())
+        new_entry = CombineDataFile.objects.create(ready=False, 
+                                                   initial_date=start_date_utc, 
+                                                   final_date=end_date_utc,
+                                                   source=data_source_description, 
+                                                   prepared_by=prepared_by,
+                                                   stations_ids=station_ids_string, 
+                                                   variable_ids=variable_ids_string, 
+                                                   aggregation="  ".join(aggregation).upper(),                                                  
+                                                   aqc_checks=aqc_checks,
+                                                   mqc_checks=mqc_checks)
 
         # send the MAIN task unto celery
-        combine_task = tasks.combine_xlsx_files.delay(station_ids, data_source, start_date, end_date, variable_ids, aggregation, displayUTC, data_interval_seconds, prepared_by, data_source_description, new_entry.id)
-        print(f'BTW THIS IS THE NEW_ENTRY ID::::::::{new_entry.id}')
+        combine_task = tasks.combine_xlsx_files.delay(station_ids, data_source, start_date, end_date, variable_ids, aggregation, displayUTC, data_interval_seconds, prepared_by, data_source_description, aqc_checks, mqc_checks, new_entry.id)
+
         return JsonResponse({'data': new_entry.id}, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f'An error occured while attempting to schedule combine task. Error = {e}')
@@ -431,6 +461,8 @@ def combineDataExportFiles(request):
                 'request_date': df['created_at'],
                 'ready_date': df['ready_at'],
                 'station': current_station_names_list,
+                'aqc_checks': df['aqc_checks'],
+                'mqc_checks': df['mqc_checks'],
                 'variables': variable_list,
                 'status': file_status,
                 'initial_date': df['initial_date'],
@@ -478,255 +510,44 @@ def DeleteDataFile(request):
 
 
 def GetInterpolationData(request):
-    start_datetime = request.GET.get('start_datetime', None)
-    end_datetime = request.GET.get('end_datetime', None)
-    variable_id = request.GET.get('variable_id', None)
-    agg = request.GET.get('agg', "instant")
-    source = request.GET.get('source', "raw_data")
-    quality_flags = request.GET.get('quality_flags', None)
+    params = {
+        'start_datetime': request.GET.get('start_datetime'),
+        'end_datetime': request.GET.get('end_datetime'),
+        'variable_id': request.GET.get('variable_id'),
+        'agg': request.GET.get('agg', 'instant'),
+        'source': request.GET.get('source', 'raw_data'),
+        'quality_flags': request.GET.get('quality_flags'),
+    }
 
-    where_query = ""
-    if source == "raw_data":
-        dt_query = "datetime"
-        value_query = "measured"
-        source_query = "raw_data"
-        if quality_flags:
-            try:
-                [int(qf) for qf in quality_flags.split(',')]
-            except ValueError:
-                return JsonResponse({"message": "Invalid quality_flags value."}, status=status.HTTP_400_BAD_REQUEST)
-            where_query = f" measured != {settings.MISSING_VALUE} AND quality_flag IN ({quality_flags}) AND "
-        else:
-            where_query = f" measured != {settings.MISSING_VALUE} AND "
-    else:
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT sampling_operation_id
-                FROM wx_variable
-                WHERE id=%(variable_id)s
-                """,
-                           params={'variable_id': variable_id}
-                           )
-            sampling_operation = cursor.fetchone()[0]
+    task = tasks.fetch_interpolation_data_task.delay(**params)
 
-        if sampling_operation in [6, 7]:
-            value_query = "sum_value"
-        elif sampling_operation == 3:
-            value_query = "min_value"
-        elif sampling_operation == 4:
-            value_query = "max_value"
-        else:
-            value_query = "avg_value"
-
-        if source == "hourly":
-            dt_query = "datetime"
-            source_query = "hourly_summary"
-
-        elif source == "daily":
-            dt_query = "day"
-            source_query = "daily_summary"
-
-        elif source == "monthly":
-            dt_query = "date"
-            source_query = "monthly_summary"
-
-        elif source == "yearly":
-            dt_query = "date"
-            source_query = "yearly_summary"
-
-    if agg == "instant":
-        where_query += "variable_id=%(variable_id)s AND " + dt_query + "=%(datetime)s"
-        params = {'datetime': start_datetime, 'variable_id': variable_id}
-    else:
-        where_query += "variable_id=%(variable_id)s AND " + dt_query + " >= %(start_datetime)s AND " + dt_query + " <= %(end_datetime)s"
-        params = {'start_datetime': start_datetime, 'end_datetime': end_datetime, 'variable_id': variable_id}
-
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT a.station_id,b.name,b.code,b.latitude,b.longitude,a.""" + value_query + """ as measured
-            FROM """ + source_query + """ a INNER JOIN wx_station b ON a.station_id=b.id
-            WHERE """ + where_query + "",
-                       params=params
-                       )
-        climate_data = {}
-        # if agg == "instant":
-        raw_data = cursor.fetchall()
-        climate_data['data'] = []
-        for item in raw_data:
-            climate_data['data'].append({
-                'station_id': item[0],
-                'name': item[1],
-                'code': item[2],
-                'latitude': item[3],
-                'longitude': item[4],
-                'measured': item[5],
-            })
-
-    if agg != "instant" and len(raw_data) > 0:
-        columns = ['station_id', 'name', 'code', 'latitude', 'longitude', 'measured']
-        df_climate = json_normalize([
-            dict(zip(columns, row))
-            for row in raw_data
-        ])
-
-        climate_data['data'] = json.loads(
-            df_climate.groupby(['station_id', 'name', 'code', 'longitude', 'latitude']).agg(
-                agg).reset_index().sort_values('name').to_json(orient="records"))
-
-    return JsonResponse(climate_data)
+    return JsonResponse({"task_id": task.id})
 
 
 def GetInterpolationImage(request):
-    start_datetime = request.GET.get('start_datetime', None)
-    end_datetime = request.GET.get('end_datetime', None)
-    variable_id = request.GET.get('variable_id', None)
-    cmap = request.GET.get('cmap', 'Spectral_r')
-    hres = request.GET.get('hres', 0.01)
-    minimum_neighbors = request.GET.get('minimum_neighbors', 1)
-    search_radius = request.GET.get('search_radius', 0.7)
-    agg = request.GET.get('agg', "instant")
-    source = request.GET.get('source', "raw_data")
-    vmin = request.GET.get('vmin', 0)
-    vmax = request.GET.get('vmax', 30)
-    quality_flags = request.GET.get('quality_flags', None)
 
-    stations_df = pd.read_sql_query("""
-        SELECT id,name,alias_name,code,latitude,longitude
-        FROM wx_station
-        WHERE longitude!=0
-        """,
-                                    con=connection
-                                    )
-    stations = geopandas.GeoDataFrame(
-        stations_df, 
-        geometry=geopandas.points_from_xy(stations_df.longitude, stations_df.latitude)
-    )
-    
-    stations.crs = 'epsg:4326'
+    params = {
+        'start_datetime': request.GET.get('start_datetime', None),
+        'end_datetime': request.GET.get('end_datetime', None),
+        'variable_id': request.GET.get('variable_id', None),
+        'cmap': request.GET.get('cmap', 'Spectral_r'),
+        'hres': request.GET.get('hres', 0.01),
+        'minimum_neighbors': request.GET.get('minimum_neighbors', 1),
+        'search_radius': request.GET.get('search_radius', 0.7),
+        'agg': request.GET.get('agg', "instant"),
+        'source': request.GET.get('source', "raw_data"),
+        'vmin': request.GET.get('vmin', 0),
+        'vmax': request.GET.get('vmax', 30),
+        'quality_flags': request.GET.get('quality_flags', None),
+        'stands_llat': settings.SPATIAL_ANALYSIS_INITIAL_LATITUDE,
+        'stands_llon': settings.SPATIAL_ANALYSIS_INITIAL_LONGITUDE,
+        'stands_ulat': settings.SPATIAL_ANALYSIS_FINAL_LATITUDE,
+        'stands_ulon': settings.SPATIAL_ANALYSIS_FINAL_LONGITUDE,
+    }
 
-    stands_llat = settings.SPATIAL_ANALYSIS_INITIAL_LATITUDE
-    stands_llon = settings.SPATIAL_ANALYSIS_INITIAL_LONGITUDE
-    stands_ulat = settings.SPATIAL_ANALYSIS_FINAL_LATITUDE
-    stands_ulon = settings.SPATIAL_ANALYSIS_FINAL_LONGITUDE
+    task = tasks.fetch_interpolation_img_task.delay(**params)
 
-    where_query = ""
-    if source == "raw_data":
-        dt_query = "datetime"
-        value_query = "measured"
-        source_query = "raw_data"
-        if quality_flags:
-            try:
-                [int(qf) for qf in quality_flags.split(',')]
-            except ValueError:
-                return JsonResponse({"message": "Invalid quality_flags value."}, status=status.HTTP_400_BAD_REQUEST)
-            where_query = f" measured != {settings.MISSING_VALUE} AND quality_flag IN ({quality_flags}) AND "
-        else:
-            where_query = f" measured != {settings.MISSING_VALUE} AND "
-    else:
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT sampling_operation_id
-                FROM wx_variable
-                WHERE id=%(variable_id)s
-                """,
-                           params={'variable_id': variable_id}
-                           )
-            sampling_operation = cursor.fetchone()[0]
-
-        if sampling_operation in [6, 7]:
-            value_query = "sum_value"
-        elif sampling_operation == 3:
-            value_query = "min_value"
-        elif sampling_operation == 4:
-            value_query = "max_value"
-        else:
-            value_query = "avg_value"
-
-        if source == "hourly":
-            dt_query = "datetime"
-            source_query = "hourly_summary"
-
-        elif source == "daily":
-            dt_query = "day"
-            source_query = "daily_summary"
-
-        elif source == "monthly":
-            dt_query = "date"
-            source_query = "monthly_summary"
-
-        elif source == "yearly":
-            dt_query = "date"
-            source_query = "yearly_summary"
-
-    if agg == "instant":
-        where_query += "variable_id=%(variable_id)s AND " + dt_query + "=%(datetime)s"
-        params = {'datetime': start_datetime, 'variable_id': variable_id}
-    else:
-        where_query += "variable_id=%(variable_id)s AND " + dt_query + " >= %(start_datetime)s AND " + dt_query + " <= %(end_datetime)s"
-        params = {'start_datetime': start_datetime, 'end_datetime': end_datetime, 'variable_id': variable_id}
-
-    climate_data = pd.read_sql_query(
-        "SELECT station_id,variable_id," + dt_query + "," + value_query + """
-        FROM """ + source_query + """
-        WHERE """ + where_query + "",
-        params=params,
-        con=connection
-    )
-
-    if len(climate_data) == 0:
-        with open("/surface/static/images/no-interpolated-data.png", "rb") as f:
-            img_data = f.read()
-
-        return HttpResponse(img_data, content_type="image/jpeg")
-
-    df_merged = pd.merge(left=climate_data, right=stations, how='left', left_on='station_id', right_on='id')
-    df_climate = df_merged[["station_id", dt_query, "longitude", "latitude", value_query]]
-
-    if agg != "instant":
-        df_climate = df_climate.groupby(['station_id', 'longitude', 'latitude']).agg(agg).reset_index()
-
-    gx, gy, img = interpolate_to_grid(
-        df_climate["longitude"],
-        df_climate["latitude"],
-        df_climate[value_query],
-        interp_type='cressman',
-        minimum_neighbors=int(minimum_neighbors),
-        hres=float(hres),
-        search_radius=float(search_radius),
-        boundary_coords={'west': stands_llon, 'east': stands_ulon, 'south': stands_llat, 'north': stands_ulat}
-    )
-
-    fig = plt.figure(frameon=False)
-    ax = plt.Axes(fig, [0., 0., 1., 1.])
-    ax.set_axis_off()
-    fig.add_axes(ax)
-    ax.imshow(img, origin='lower', cmap=cmap, vmin=vmin, vmax=vmax)
-    fname = str(uuid.uuid4())
-    fig.savefig("/surface/static/images/" + fname + ".png", dpi='figure', format='png', transparent=True,
-                bbox_inches=Bbox.from_bounds(2, 0, 2.333, 4.013))
-
-    # delete later
-    logger.warning(f"This is the value of 'fname': {fname}")
-    print(f"This is the value of 'fname': {fname}")
-    # delete later
-
-    image1 = cv2.imread("/surface/static/images/" + fname + ".png", cv2.IMREAD_UNCHANGED)
-    image2 = cv2.imread(settings.SPATIAL_ANALYSIS_SHAPE_FILE_PATH, cv2.IMREAD_UNCHANGED)
-    image1 = cv2.resize(image1, dsize=(image2.shape[1], image2.shape[0]))
-    for i in range(image1.shape[0]):
-        for j in range(image1.shape[1]):
-            image1[i][j][3] = image2[i][j][3]
-    cv2.imwrite("/surface/static/images/" + fname + "-output.png", image1)
-
-    with open("/surface/static/images/" + fname + "-output.png", "rb") as f:
-        img_data = f.read()
-
-    os.remove("/surface/static/images/" + fname + ".png")
-    os.remove("/surface/static/images/" + fname + "-output.png")
-
-    logger.warning(f"This is the value of 'fname': {fname}")
-
-    return HttpResponse(img_data, content_type="image/jpeg")
+    return JsonResponse({"task_id": task.id})
 
 
 def GetColorMapBar(request):
@@ -787,70 +608,24 @@ def InterpolatePostData(request):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
-    stands_llat = settings.SPATIAL_ANALYSIS_INITIAL_LATITUDE
-    stands_llon = settings.SPATIAL_ANALYSIS_INITIAL_LONGITUDE
-    stands_ulat = settings.SPATIAL_ANALYSIS_FINAL_LATITUDE
-    stands_ulon = settings.SPATIAL_ANALYSIS_FINAL_LONGITUDE
-
     json_body = json.loads(request.body)
-    parameters = json_body['parameters']
-    vmin = json_body['vmin']
-    vmax = json_body['vmax']
-    df_climate = json_normalize(json_body['data'])
-    try:
-        df_climate = df_climate[["station_id", "longitude", "latitude", "measured"]]
-    except KeyError:
-        return HttpResponse("no-interpolated-data.png")
 
-    gx, gy, img = interpolate_to_grid(
-        df_climate["longitude"],
-        df_climate["latitude"],
-        df_climate["measured"],
-        interp_type='cressman',
-        minimum_neighbors=int(parameters["minimum_neighbors"]),
-        hres=float(parameters["hres"]),
-        search_radius=float(parameters["search_radius"]),
-        boundary_coords={'west': stands_llon, 'east': stands_ulon, 'south': stands_llat, 'north': stands_ulat}
-    )
+    params = {
+        'stands_llat': settings.SPATIAL_ANALYSIS_INITIAL_LATITUDE,
+        'stands_llon': settings.SPATIAL_ANALYSIS_INITIAL_LONGITUDE,
+        'stands_ulat': settings.SPATIAL_ANALYSIS_FINAL_LATITUDE,
+        'stands_ulon': settings.SPATIAL_ANALYSIS_FINAL_LONGITUDE,
+        'parameters': json_body['parameters'],
+        'vmin': json_body['vmin'],
+        'vmax': json_body['vmax'],
+        'json_body_data': json_body['data'],
+    }
 
-    fig = plt.figure(frameon=False)
-    ax = plt.Axes(fig, [0., 0., 1., 1.])
-    ax.set_axis_off()
-    fig.add_axes(ax)
-    ax.imshow(img, origin='lower', cmap=parameters["cmap"]["value"], vmin=vmin, vmax=vmax)
-    for filename in os.listdir('/surface/static/images'):
-        try:
-            if datetime.datetime.now() - datetime.datetime.strptime(filename.split('_')[0],
-                                                                    "%Y-%m-%dT%H:%M:%SZ") > datetime.timedelta(
-                minutes=5):
-                os.remove('/surface/static/images/' + filename)
-        except ValueError:
-            continue
-    fname = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ_") + str(uuid.uuid4())
-    fig.savefig("/surface/static/images/" + fname + ".png", dpi='figure', format='png', transparent=True,
-                bbox_inches=Bbox.from_bounds(2, 0, 2.333, 4.013))
-    image1 = cv2.imread("/surface/static/images/" + fname + ".png", cv2.IMREAD_UNCHANGED)
-    image2 = cv2.imread(settings.SPATIAL_ANALYSIS_SHAPE_FILE_PATH, cv2.IMREAD_UNCHANGED)
-    image1 = cv2.resize(image1, dsize=(image2.shape[1], image2.shape[0]))
-    for i in range(image1.shape[0]):
-        for j in range(image1.shape[1]):
-            image1[i][j][3] = image2[i][j][3]
-    cv2.imwrite("/surface/static/images/" + fname + "-output.png", image1)
+    task = tasks.fetch_mod_interpolation_img_task.delay(**params)
 
-    return HttpResponse(fname + "-output.png")
+    return JsonResponse({"task_id": task.id})
+    
 
-
-@permission_classes([IsAuthenticated])
-def GetImage(request):
-    image = request.GET.get('image', None)
-    try:
-        with open("/surface/static/images/" + image, "rb") as f:
-            return HttpResponse(f.read(), content_type="image/jpeg")
-    except IOError:
-        red = Image.new('RGBA', (1, 1), (255, 0, 0, 0))
-        response = HttpResponse(content_type="image/jpeg")
-        red.save(response, "JPEG")
-        return response
 
 
 class DataExportView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
@@ -911,7 +686,7 @@ class ManualDataImportView(WxPermissionRequiredMixin, LoginRequiredMixin, Templa
         return super().dispatch(request, *args, **kwargs)
     
 
-# retrieves manual data files
+# retrieves manual data files metadata
 @api_view(('GET',))
 @wx_permission_required("manual-data-import", "read")
 def ManualDataFiles(request):
@@ -1005,23 +780,51 @@ def CheckManualImportView(request):
 
             # Loop through the sheet names in the file 
             for sheet in excel_sheet_names:
-                # if a station exists 
-                if Station.objects.filter(name=str(sheet)).exists():
-                    continue #  continue on with the loop
-                # check if a statioin with that alias exist if the regular stsation name doesn't
-                elif Station.objects.filter(alias_name=str(sheet)).exists():
-                    continue #  continue on with the loop
-                else:
-                    missing_stations.append(str(sheet)) # add sheet name (station name) to the missing stations list
-                    
+                
+                sheet = sheet.strip() # removing any trailing or leading whitespace
+
+                # Check for an exact match on the station's primary name.
+                # We require EXACTLY ONE match.
+                name_count = Station.objects.filter(
+                    name=sheet,
+                    is_automatic=False
+                ).count()
+
+                # If exactly one station matches by name, this sheet name
+                # can be safely resolved to a single station.
+                # Continue processing the next sheet.
+                if name_count == 1:
+                    continue
+
+
+                # If no unique match was found using the primary station name,
+                # attempt the same check using the station's alias name.
+                alias_count = Station.objects.filter(
+                    alias_name=sheet,
+                    is_automatic=False
+                ).count()
+
+                # If exactly one station matches by alias,
+                # the station is considered valid and unambiguous.
+                # Continue processing the next sheet.
+                if alias_count == 1:
+                    continue
+
+                # zero OR multiple matches then invalid
+                missing_stations.append(sheet)
+
             if missing_stations:
                 os.remove(file_path) # delete the file
-                non_existent_stations.append(f"File [{file_name}] contains station(s) which do not exist. Please correct the mistake and re-upload: {', '.join(missing_stations)}")
+                non_existent_stations.append(f"""
+                                             File [{file_name}] contains one or more stations that are invalid.
+                                             Stations must be existing, manual, and uniquely identifiable. 
+                                             Please correct the mistake and re-upload: {', '.join(missing_stations)}
+                                        """)
 
                 continue # skip to the next execution
 
             file_size = round(os.stat(file_path).st_size / (1024*1024), 4)
-            
+
             uploaded_files[file_name] = file_size # Store file name and size (size in MB)
 
         return JsonResponse({"uploaded_files": uploaded_files, 
@@ -5224,202 +5027,326 @@ def get_equipment_location(equipment):
 
 @require_http_methods(["GET"])
 def get_equipment_inventory_data(request):
-    equipment_types = EquipmentType.objects.all()
-    manufacturers = Manufacturer.objects.all()
-    equipments = Equipment.objects.all().order_by('equipment_type', 'serial_number')
-    funding_sources = FundingSource.objects.all()
-    stations = Station.objects.all()
+    """
+    Returns all data required to render the Equipment Inventory page.
 
+    This endpoint intentionally returns BOTH:
+    1. Inventory data (actual equipment rows)
+    2. Lookup / metadata tables (types, models, manufacturers, etc.)
+
+    These are kept separate on purpose:
+    - Inventory data is optimized for performance
+    - Lookup data must include *unused* rows for dropdowns
+    """
+
+    # MAIN INVENTORY QUERY
+    # IMPORTANT:
+    # - select_related ONLY pulls related rows that are actually used
+    #   by existing Equipment records.
+    # - It does NOT replace separate queries for lookup tables.
+    #
+    equipments = (
+        Equipment.objects
+        .select_related(
+            "equipment_type",  
+            "model",           
+            "manufacturer",     
+            "funding_source",   
+            "location",         # FK → Location (nullable)
+        )
+        .order_by("equipment_type__name", "serial_number")
+    )
+
+    # This list will be serialized directly to JSON.
     equipment_list = []
+
+    # SERIALIZE EACH EQUIPMENT ROW
     for equipment in equipments:
-        try:
-            equipment_type = equipment_types.get(id=equipment.equipment_type_id)
-            funding_source = funding_sources.get(id=equipment.funding_source_id)
-            manufacturer = manufacturers.get(id=equipment.manufacturer_id)
-            station = get_equipment_location(equipment)
 
-            equipment_dict = {
-                'equipment_id': equipment.id,
-                'equipment_type': equipment_type.name,
-                'equipment_type_id': equipment_type.id,
-                'funding_source': funding_source.name,
-                'funding_source_id': funding_source.id,            
-                'manufacturer': manufacturer.name,
-                'manufacturer_id': manufacturer.id,
-                'model': equipment.model,
-                'serial_number': equipment.serial_number,
-                'acquisition_date': equipment.acquisition_date,
-                'first_deploy_date': equipment.first_deploy_date,
-                'last_calibration_date': equipment.last_calibration_date,
-                'next_calibration_date': equipment.next_calibration_date,
-                'decommission_date': equipment.decommission_date,
-                'last_deploy_date': equipment.last_deploy_date,
-                'location': f"{station.name} - {station.code}" if station else 'Office',
-                'location_id': station.id if station else None,
-                'classification': equipment_classification(equipment.classification),
-                'classification_id': equipment.classification,
-            }
-            equipment_list.append(equipment_dict)            
-        except ObjectDoesNotExist:
-            pass
+        equipment_list.append({
+            # Primary identifiers
+            "equipment_id": equipment.id,
 
+            # Equipment type (FK). equipment type can be Null / None
+            "equipment_type": equipment.equipment_type.name if equipment.equipment_type else None,
+            "equipment_type_id": equipment.equipment_type.id if equipment.equipment_type else None,
+
+            # Funding source (FK). Funding source can be Null / None
+            "funding_source": equipment.funding_source.name if equipment.funding_source else None,
+            "funding_source_id": equipment.funding_source.id if equipment.funding_source else None,
+
+            # Manufacturer (FK). Manufacturer can be Null / None
+            "manufacturer": equipment.manufacturer.name if equipment.manufacturer else None,
+            "manufacturer_id": equipment.manufacturer.id if equipment.manufacturer else None,
+
+            # Equipment model (FK). Models can be Null / None
+            "equipment_model_id": equipment.model.id if equipment.model else None,
+            "equipment_model": equipment.model.name if equipment.model else None,
+
+            # Equipment fields
+            "serial_number": equipment.serial_number,
+            "acquisition_date": equipment.acquisition_date,
+            "first_deploy_date": equipment.first_deploy_date,
+            "last_calibration_date": equipment.last_calibration_date,
+            "next_calibration_date": equipment.next_calibration_date,
+            "decommission_date": equipment.decommission_date,
+            "last_deploy_date": equipment.last_deploy_date,
+
+            # Location (nullable FK)
+            # If no location exists, we treat the equipment as being
+            # in the office.
+            "location": equipment.location.name if equipment.location else "Office",
+            "location_id": equipment.location_id if equipment.location else None,
+
+            # Classification
+            # classification is stored as a short code (e.g. 'F', 'P', 'N')
+            # equipment_classification() converts it into a human-readable label
+            "classification": equipment_classification(equipment.classification),
+            "classification_id": equipment.classification,
+        })
+
+    # STATIC / ENUM-LIKE DATA
+    # These classifications are not stored in a table and are used
+    # primarily for UI rendering (dropdowns, labels, etc.).
     equipment_classifications = [
-        {'name': 'Fully Functional', 'id': 'F'},
-        {'name': 'Partially Functional', 'id': 'P'},
-        {'name': 'Not Functional', 'id': 'N'},
+        {"name": "Fully Functional", "id": "F"},
+        {"name": "Partially Functional", "id": "P"},
+        {"name": "Not Functional", "id": "N"},
     ]
 
-    station_list = [{'name': f"{station.name} - {station.code}",
-                     'id': station.id} for station in stations]
-
+    # RESPONSE PAYLOAD
+    # IMPORTANT DESIGN NOTE:
+    # - Dropdowns must include unused rows
+    # - New equipment may reference currently-unused models/types
     response = {
-        'equipment': equipment_list,
-        'equipment_types': list(equipment_types.values()),
-        'manufacturers': list(manufacturers.values()),
-        'funding_sources': list(funding_sources.values()),
-        'stations': station_list,
-        'equipment_classifications': equipment_classifications,
+        # Inventory data (optimized via select_related)
+        "equipment": equipment_list,
+
+        # Lookup / metadata tables (complete datasets)
+        "equipment_types": list(EquipmentType.objects.values()),
+        "manufacturers": list(Manufacturer.objects.values()),
+        "funding_sources": list(FundingSource.objects.values()),
+        "equipment_models": list(EquipmentModel.objects.values()),
+
+        # Stations formatted specifically for UI display
+        "stations": [
+            {"name": f"{s.name} - {s.code}", "id": s.id}
+            for s in Station.objects.all()
+        ],
+
+        # Static classification list
+        "equipment_classifications": equipment_classifications,
     }
-    
+
     return JsonResponse(response, status=status.HTTP_200_OK)
+
 
 
 @require_http_methods(["POST"])
 def create_equipment(request):
-    equipment_type_id = request.GET.get('equipment_type', None)
-    manufacturer_id = request.GET.get('manufacturer', None)
-    funding_source_id = request.GET.get('funding_source', None)
-    model = request.GET.get('model', None)
-    serial_number = request.GET.get('serial_number', None)
-    acquisition_date = request.GET.get('acquisition_date', None)
-    first_deploy_date = request.GET.get('first_deploy_date', None)
-    last_calibration_date = request.GET.get('last_calibration_date', None)
-    next_calibration_date = request.GET.get('next_calibration_date', None)
-    decommission_date = request.GET.get('decommission_date', None)
-    location_id = request.GET.get('location', None)
-    classification = request.GET.get('classification', None)
-    last_deploy_date = request.GET.get('last_deploy_date', None)  
+    """
+    Creates a new Equipment record.
+    """
 
-    equipment_type = EquipmentType.objects.get(id=equipment_type_id)
-    manufacturer = Manufacturer.objects.get(id=manufacturer_id)   
-    funding_source = FundingSource.objects.get(id=funding_source_id)
+    # READ INPUT DATA
+    equipment_type_id = request.GET.get("equipment_type")
+    manufacturer_id = request.GET.get("manufacturer")
+    funding_source_id = request.GET.get("funding_source")
+    equipment_model_id = request.GET.get("model")
+    serial_number = request.GET.get("serial_number")
 
-    location = None
-    if location_id:
-        location = Station.objects.get(id=location_id)
+    acquisition_date = request.GET.get("acquisition_date")
+    first_deploy_date = request.GET.get("first_deploy_date")
+    last_calibration_date = request.GET.get("last_calibration_date")
+    next_calibration_date = request.GET.get("next_calibration_date")
+    decommission_date = request.GET.get("decommission_date")
+    last_deploy_date = request.GET.get("last_deploy_date")
 
-    try:
-        equipment = Equipment.objects.get(
-            equipment_type=equipment_type,
-            serial_number = serial_number,
+    location_id = request.GET.get("location")
+    classification = request.GET.get("classification")
+
+    # BASIC VALIDATION (MINIMUM REQUIRED FIELDS)
+    if not equipment_type_id or not serial_number:
+        return JsonResponse(
+            {"message": "equipment_type and serial_number are required"},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
-        message = 'Already exist an equipment of equipment type '
-        message += equipment_type.name
-        message += ' and serial number '
-        message += equipment.serial_number
-
-        response = {'message': message}
-
-        return JsonResponse(response, status=status.HTTP_400_BAD_REQUEST)   
-
-    except ObjectDoesNotExist:
-        now = datetime.datetime.now()
-
+    # CREATE EQUIPMENT
+    try:
         equipment = Equipment.objects.create(
-                created_at = now,
-                updated_at = now,
-                equipment_type = equipment_type,
-                manufacturer = manufacturer,
-                funding_source = funding_source,
-                model = model,
-                serial_number = serial_number,
-                acquisition_date = acquisition_date,
-                first_deploy_date = first_deploy_date,
-                last_calibration_date = last_calibration_date,
-                next_calibration_date = next_calibration_date,
-                decommission_date = decommission_date,
-                # location = location,
-                classification = classification,
-                last_deploy_date = last_deploy_date,
-            )
+            # ForeignKeys assigned by *_id to avoid extra queries
+            equipment_type_id=equipment_type_id,
+            manufacturer_id=manufacturer_id,
+            funding_source_id=funding_source_id,
+            model_id=equipment_model_id,
+            location_id=location_id,
 
-        response = {'equipment_id': equipment.id}
+            # Scalar fields
+            serial_number=serial_number,
+            acquisition_date=acquisition_date,
+            first_deploy_date=first_deploy_date,
+            last_calibration_date=last_calibration_date,
+            next_calibration_date=next_calibration_date,
+            decommission_date=decommission_date,
+            last_deploy_date=last_deploy_date,
+            classification=classification,
 
-    return JsonResponse(response, status=status.HTTP_200_OK)   
+            # Timestamps should ideally be handled by the model:
+            # created_at = auto_now_add
+            # updated_at = auto_now
+        )
+
+    except IntegrityError:
+        # DUPLICATE EQUIPMENT HANDLING
+        # If we reach here, the database rejected the insert due to a
+        # uniqueness violation.
+        # This is safer and faster than doing a pre-check SELECT.
+        return JsonResponse(
+            {
+                "message": (
+                    "An equipment with this equipment type and serial number "
+                    "already exists."
+                )
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # SUCCESS RESPONSE
+    return JsonResponse(
+        {"equipment_id": equipment.id},
+        status=status.HTTP_201_CREATED,
+    )
 
 
 @require_http_methods(["POST"])
 def update_equipment(request):
-    equipment_id = request.GET.get('equipment_id', None)
-    equipment_type_id = request.GET.get('equipment_type', None)
-    manufacturer_id = request.GET.get('manufacturer', None)
-    funding_source_id = request.GET.get('funding_source', None)
-    serial_number = request.GET.get('serial_number', None)
+    """
+    Updates an existing Equipment record.
+    """
 
-    equipment_type = EquipmentType.objects.get(id=equipment_type_id)
-    manufacturer = Manufacturer.objects.get(id=manufacturer_id)   
-    funding_source = FundingSource.objects.get(id=funding_source_id)
+    # READ INPUT DATA
+    equipment_id = request.GET.get("equipment_id")
+    equipment_type_id = request.GET.get("equipment_type")
+    equipment_model_id = request.GET.get("model")
+    manufacturer_id = request.GET.get("manufacturer")
+    funding_source_id = request.GET.get("funding_source")
+    serial_number = request.GET.get("serial_number")
+    location_id = request.GET.get("location")
 
-    try:
-        equipment = Equipment.objects.get(equipment_type=equipment_type, serial_number=serial_number)
+    # Optional date fields
+    acquisition_date = request.GET.get("acquisition_date")
+    first_deploy_date = request.GET.get("first_deploy_date")
+    last_calibration_date = request.GET.get("last_calibration_date")
+    next_calibration_date = request.GET.get("next_calibration_date")
+    decommission_date = request.GET.get("decommission_date")
+    last_deploy_date = request.GET.get("last_deploy_date")
+    classification = request.GET.get("classification")
 
-        if int(equipment_id) != equipment.id:
-            message = f"Could not update. Already exist an equipment of \
-                        equipment type {equipment_type.name} and serial \
-                        number {equipment.serial_number}"
+    # BASIC VALIDATION
+    if not equipment_id:
+        return JsonResponse(
+            {"message": "equipment_id is required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
-            response = {'message': message}
-
-            return JsonResponse(response, status=status.HTTP_400_BAD_REQUEST)
-    except ObjectDoesNotExist:
-        pass
-
+    # FETCH EQUIPMENT ONCE
+    # We retrieve the target row exactly once.
+    # If it does not exist, we fail immediately.
     try:
         equipment = Equipment.objects.get(id=equipment_id)
+    except Equipment.DoesNotExist:
+        return JsonResponse(
+            {"message": "Equipment not found"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
-        now = datetime.datetime.now()
+    # UPDATE FIELDS
+    # IMPORTANT:
+    # - We do NOT check for duplicate (equipment_type, serial_number)
+    # - The database enforces this via unique_together
+    # - If a conflict exists, save() will raise IntegrityError
+    equipment.equipment_type_id = equipment_type_id
+    equipment.manufacturer_id = manufacturer_id
+    equipment.funding_source_id = funding_source_id
+    equipment.model_id = equipment_model_id
+    equipment.location_id = location_id
 
-        equipment.updated_at = now
-        equipment.equipment_type = equipment_type
-        equipment.manufacturer = manufacturer
-        equipment.funding_source = funding_source         
-        equipment.serial_number = serial_number
-        equipment.model = request.GET.get('model', None)
-        equipment.acquisition_date = request.GET.get('acquisition_date', None)
-        equipment.first_deploy_date = request.GET.get('first_deploy_date', None)
-        equipment.last_calibration_date = request.GET.get('last_calibration_date', None)
-        equipment.next_calibration_date = request.GET.get('next_calibration_date', None)
-        equipment.decommission_date = request.GET.get('decommission_date', None)
-        equipment.classification = request.GET.get('classification', None)
-        equipment.last_deploy_date = request.GET.get('last_deploy_date', None)
+    equipment.serial_number = serial_number
+    equipment.acquisition_date = acquisition_date
+    equipment.first_deploy_date = first_deploy_date
+    equipment.last_calibration_date = last_calibration_date
+    equipment.next_calibration_date = next_calibration_date
+    equipment.decommission_date = decommission_date
+    equipment.last_deploy_date = last_deploy_date
+    equipment.classification = classification
+
+    # SAVE (DB ENFORCES UNIQUENESS)
+    try:
         equipment.save()
-        update_change_reason(equipment, f"Source of change: Front end")
 
+        # Audit / change tracking
+        update_change_reason(
+            equipment,
+            "Source of change: Front end"
+        )
 
-        response = {}
-        return JsonResponse(response, status=status.HTTP_200_OK)             
+    except IntegrityError:
+        # This happens if (equipment_type, serial_number)
+        # violates the unique_together constraint
+        return JsonResponse(
+            {
+                "message": (
+                    "Could not update. An equipment with this equipment type "
+                    "and serial number already exists."
+                )
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
-    except ObjectDoesNotExist:
-        message =  "Object not found"
-        response = {'message': message}
-        return JsonResponse(response, status=status.HTTP_400_BAD_REQUEST)   
-
-    response = {}
-    return JsonResponse(response, status=status.HTTP_200_OK) 
+    # SUCCESS RESPONSE
+    return JsonResponse(
+        {},
+        status=status.HTTP_200_OK,
+    )
 
 
 @require_http_methods(["POST"])
 def delete_equipment(request):
-    equipment_id = request.GET.get('equipment_id', None)
+    """
+    Deletes an Equipment record.
+    """
+
+    # READ INPUT DATA
+    equipment_id = request.GET.get("equipment_id")
+
+    # BASIC VALIDATION
+    if not equipment_id:
+        return JsonResponse(
+            {"message": "equipment_id is required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # FETCH & DELETE
+    # We intentionally do NOT wrap this in a broad try/except.
+    # If the object does not exist, we return a clear error.
     try:
         equipment = Equipment.objects.get(id=equipment_id)
-        equipment.delete()
-    except ObjectDoesNotExist:
-        pass
+    except Equipment.DoesNotExist:
+        return JsonResponse(
+            {"message": "Equipment not found"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
-    response = {}
-    return JsonResponse(response, status=status.HTTP_200_OK)
+    # Perform the delete.
+    equipment.delete()
+
+    # SUCCESS RESPONSE
+    # We return 200 OK with an empty body to match existing behavior.
+    return JsonResponse(
+        {},
+        status=status.HTTP_200_OK,
+    )
 
 
 class get_maintenance_reports(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
@@ -5540,7 +5467,7 @@ def get_maintenance_report_view(request, id, source): # Maintenance report view
         new_equipment = Equipment.objects.get(id=new_equipment_id)
         dictionary = {'condition': maintenance_report_station_equipment.condition,
                       'component_classification': maintenance_report_station_equipment.classification,
-                      'name': ' '.join([new_equipment.model, new_equipment.serial_number])
+                      'name': ' '.join([new_equipment.model.name, new_equipment.serial_number])
                      }
         maintenance_report_station_equipment_list.append(dictionary)
 
@@ -5692,11 +5619,11 @@ def get_maintenance_report_equipment_data(maintenance_report, equipment_type, eq
 
         if maintenancereport_equipment.old_equipment_id:
             equipment = Equipment.objects.get(id=maintenancereport_equipment.old_equipment_id)
-            equipment_data['old_equipment_name'] = ' '.join([equipment.model, equipment.serial_number]) 
+            equipment_data['old_equipment_name'] = ' '.join([equipment.model.name, equipment.serial_number]) 
 
         if maintenancereport_equipment.new_equipment_id:
             equipment = Equipment.objects.get(id=maintenancereport_equipment.new_equipment_id)
-            equipment_data['new_equipment_name'] = ' '.join([equipment.model, equipment.serial_number]) 
+            equipment_data['new_equipment_name'] = ' '.join([equipment.model.name, equipment.serial_number]) 
     except ObjectDoesNotExist:
         pass
 
@@ -5707,7 +5634,7 @@ def get_maintenance_report_equipment_data(maintenance_report, equipment_type, eq
 
 def get_available_equipments(equipment_type_id):
     equipments = Equipment.objects.filter(equipment_type_id=equipment_type_id)
-    available_equipments = [{'id': equipment.id, 'name': ' '.join([equipment.model, equipment.serial_number])}
+    available_equipments = [{'id': equipment.id, 'name': ' '.join([equipment.model.name, equipment.serial_number])}
         for equipment in equipments if get_equipment_location(equipment) is None]
 
     return available_equipments
@@ -5719,7 +5646,7 @@ def get_available_equipments(equipment_type_id, station):
     available_equipments = []
     for equipment in equipments:
         if is_equipment_available(equipment, station):
-            available_equipments.append({'id': equipment.id, 'name': ' '.join([equipment.model, equipment.serial_number])})
+            available_equipments.append({'id': equipment.id, 'name': ' '.join([equipment.model.name, equipment.serial_number])})
 
     return available_equipments
 
@@ -8316,8 +8243,10 @@ def synop_pressure_calc(request):
 
             value = pressure_data[station_name]['data'][0]['value']  
 
-            # return the absolute value as the pressure difference
-            pressure_difference = round((value - pressure_value), 1) if pressure_value != -99.9 and value != -99.9 else -99.9
+            # return the pressure difference
+            # "value" is the pressure from 24 hrs ago
+            # "pressure_value" is the current pressure
+            pressure_difference = round((pressure_value - value), 1) if pressure_value != -99.9 and value != -99.9 else -99.9
         else:
             pressure_difference = 'no data'
 

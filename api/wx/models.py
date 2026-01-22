@@ -968,6 +968,8 @@ class CombineDataFile(BaseModel):
     ready = models.BooleanField(default=False)
     initial_date = models.DateTimeField(null=True, blank=True)
     final_date = models.DateTimeField(null=True, blank=True)
+    aqc_checks = models.BooleanField(null=False, blank=False, default=False) # automatic quality control (aqc)
+    mqc_checks = models.BooleanField(null=False, blank=False, default=False) # manual quality control (mqc)
     source = models.CharField(max_length=30, null=False, blank=False, default="Raw data")
     lines = models.IntegerField(null=True, blank=True, default=None)
     prepared_by = models.CharField(max_length=256, null=True, blank=True)
@@ -983,6 +985,8 @@ class DataFile(BaseModel):
     ready = models.BooleanField(default=False)
     initial_date = models.DateTimeField(null=True, blank=True)
     final_date = models.DateTimeField(null=True, blank=True)
+    aqc_checks = models.BooleanField(null=False, blank=False, default=False) # automatic quality control (aqc)
+    mqc_checks = models.BooleanField(null=False, blank=False, default=False) # manual quality control (mqc)
     source = models.CharField(max_length=30, null=False, blank=False, default="Raw data")
     lines = models.IntegerField(null=True, blank=True, default=None)
     prepared_by = models.CharField(max_length=256, null=True, blank=True)
@@ -1575,7 +1579,10 @@ class HFSummaryTask(BaseModel):
 
 
 class Manufacturer(BaseModel):
-    name = models.CharField(max_length=64)
+    name = models.CharField(unique=True, max_length=64)
+
+    class Meta:
+        ordering = ['name']
 
     def __str__(self):
         return self.name
@@ -1584,22 +1591,39 @@ class Manufacturer(BaseModel):
 class FundingSource(BaseModel):
     name = models.CharField(max_length=128)
 
+    class Meta:
+        ordering = ['name']
+
     def __str__(self):
         return self.name    
 
 
 class EquipmentType(BaseModel):
-    name = models.CharField(max_length=64)
+    name = models.CharField(unique=True, max_length=64)
     description = models.CharField(max_length=256)
     report_template = RichTextField(blank=True, null=True)
 
     class Meta:
         verbose_name = "equipment type"
         verbose_name_plural = "equipment types"
+        ordering = ['name']
 
     def __str__(self):
         return self.name  
+    
 
+class EquipmentModel(BaseModel):
+    name = models.CharField(unique=True, max_length=256)
+    description = models.CharField(blank=True, null=True, max_length=256)
+
+    class Meta:
+        verbose_name = "equipment model"
+        verbose_name_plural = "equipment models"
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name  
+    
 
 class Equipment(BaseModel):
     class EquipmentClassification(models.TextChoices):
@@ -1607,10 +1631,11 @@ class Equipment(BaseModel):
         PARTIALLY_FUNCTIONAL = 'P', gettext_lazy('Partially Functional')
         NOT_FUNCTIONAL = 'N', gettext_lazy('Not Functional')
 
-    equipment_type = models.ForeignKey(EquipmentType, on_delete=models.DO_NOTHING)
-    manufacturer = models.ForeignKey(Manufacturer, on_delete=models.DO_NOTHING)
-    funding_source = models.ForeignKey(FundingSource, on_delete=models.DO_NOTHING)
-    model = models.CharField(max_length=64)
+    equipment_type = models.ForeignKey(EquipmentType, null=True, blank=False, on_delete=models.SET_NULL)
+    manufacturer = models.ForeignKey(Manufacturer, null=True, blank=False, on_delete=models.SET_NULL)
+    location = models.ForeignKey(Station, null=True, blank=True, on_delete=models.SET_NULL)
+    funding_source = models.ForeignKey(FundingSource, null=True, blank=False, on_delete=models.SET_NULL)
+    model = models.ForeignKey(EquipmentModel, null=True, blank=False, on_delete=models.SET_NULL)
     serial_number = models.CharField(max_length=64)
     acquisition_date = models.DateField()
     first_deploy_date = models.DateField(blank=True, null=True)
@@ -1626,8 +1651,14 @@ class Equipment(BaseModel):
         verbose_name = "equipment"
         verbose_name_plural = "equipment"
 
+    @property
+    def location_display(self):
+        return self.location.name if self.location else "Office"
+
     def __str__(self):
-        return ' '.join((self.equipment_type.name, self.model, self.serial_number))        
+        model_name = self.model.name if self.model else "Unknown Model"
+        return f"{self.equipment_type.name} {model_name} {self.serial_number}"
+   
 
 
 class VisitType(BaseModel):

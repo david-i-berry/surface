@@ -68,6 +68,7 @@ urlpatterns = [
     path('wx/data/manual-import/remove-file/', views.RemoveManualDataFile, name='remove-manual-data-file'),
     path('wx/data/manual-import/upload-files/', views.UploadManualDataFile, name='upload-manual-data-file'),
     path('wx/data/manual-import/data-files/', views.ManualDataFiles, name='manual-data-files'),
+    
     path('wx/data/export/', views.DataExportView.as_view(), name='data-export'),
     path('wx/data/export/files/', views.DataExportFiles, name='data-export-files'),
     path('wx/data/export/download/', views.DownloadDataFile, name='data-export-download'),
@@ -89,8 +90,8 @@ urlpatterns = [
     path('wx/spatial_analysis/image', views.GetInterpolationImage, name='spatial-analysis-image'),
     path('wx/spatial_analysis/data', views.GetInterpolationData, name='spatial-analysis-data'),
     path('wx/spatial_analysis/interpolate_data', views.InterpolatePostData, name='spatial-analysis-interpolate_data'),
-    path('wx/spatial_analysis/get_image', views.GetImage, name='spatial-analysis-get-image'),
     path('wx/spatial_analysis/color_bar', views.GetColorMapBar, name='spatial-analysis-color-bar'),
+    
     path('coming-soon', views.ComingSoonView.as_view(), name='coming-soon'),
     path('not-auth', views.NotAuthView.as_view(), name='not-auth'),
     path('coming-soon-qc', views.ComingSoonView.as_view(), name='coming-soon-qc'),

@@ -493,8 +493,8 @@ class EquipmentAdmin(SimpleHistoryAdmin):
             return format_html(fields)
         return None
     
-    list_display = ("equipment_type", "manufacturer", "model", "serial_number", "acquisition_date", "first_deploy_date", "last_calibration_date")
-    search_fields = ("equipment_type", "manufacturer", "model", "serial_number", "acquisition_date", "first_deploy_date", "last_calibration_date")
+    list_display = ("equipment_type", "manufacturer", "model", "serial_number", "acquisition_date", "first_deploy_date", "last_calibration_date", "location",)
+    search_fields = ("equipment_type__name", "manufacturer__name", "model__name", "serial_number", "location__name")
     history_list_display = ["changed_fields","list_changes"]
 
     def save_model(self, request, obj, form, change):
@@ -514,6 +514,11 @@ class CropAdmin(admin.ModelAdmin):
 # @admin.register(models.Soil)
 # class SoilAdmin(admin.ModelAdmin):
 #     list_display = ("soil_type",)
+
+@admin.register(models.EquipmentModel)
+class EquipmentModelAdmin(admin.ModelAdmin):
+    list_display = ("name",)
+    search_fields = ("name",)
     
 @admin.register(models.WxPermissionPages)
 class WxPermissionPagesAdmin(admin.ModelAdmin):

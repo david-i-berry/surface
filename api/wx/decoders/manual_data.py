@@ -103,7 +103,10 @@ def parse_line(line, station_id, month_datetime, utc_offset):
     return records_list
 
 def find_station_by_name(station_name):
-    station = None   
+    station = None  
+    
+    station_name = station_name.strip() # removing any trailing or leading whitespace
+
     try:
         station = Station.objects.get(name=station_name, is_automatic=False)
     except (ObjectDoesNotExist, MultipleObjectsReturned) as e:

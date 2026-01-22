@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import socket
+import uuid
 import subprocess
 from datetime import datetime, timedelta, timezone, date
 import calendar
@@ -18,15 +19,21 @@ import urllib3
 from minio import Minio
 
 import math, cmath
+from matplotlib.transforms import Bbox
+from metpy.interpolate import interpolate_to_grid
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.styles import Alignment, Font, Border, Side
 import cronex
 import dateutil.parser
 import pandas
+from geopandas import geopandas
+import cv2
+import matplotlib.pyplot as plt
 import psycopg2
 import pytz
 import requests
+import re
 import subprocess
 import wx.export_surface_oscar as exso
 from celery import shared_task
@@ -1310,7 +1317,7 @@ def save_flash_data(data_string):
     read_data_flash(data_string.encode('latin-1'))
 
 @shared_task
-def export_data(station_id, source, start_date, end_date, variable_ids, file_id, agg, displayUTC):
+def export_data(station_id, source, start_date, end_date, variable_ids, file_id, agg, aqc_checks, mqc_checks, displayUTC):
     try:
         logger.info(f'Exporting data (file "{file_id}")')
 
@@ -1424,6 +1431,23 @@ def export_data(station_id, source, start_date, end_date, variable_ids, file_id,
         elif source == 'raw_data':
             datetime_list.append(converted_end_date + timedelta(seconds=current_datafile.interval_in_seconds))
 
+        # quality control clause based on users request
+        quality_clause = ""
+
+        # if user request aqc data
+        if aqc_checks and mqc_checks:
+            quality_clause = """
+                AND data.quality_flag = 4
+                AND data.manual_flag = 4
+            """
+        elif aqc_checks:
+            quality_clause = """
+                AND data.quality_flag = 4
+            """
+        elif mqc_checks:
+            quality_clause = """
+                AND data.manual_flag = 4
+            """
 
         query_result = []
         for i in range(0, len(datetime_list) - 1):
@@ -1435,7 +1459,7 @@ def export_data(station_id, source, start_date, end_date, variable_ids, file_id,
 
                     # removing the offset addition from the query based on the truthines of displayUTC. Removed `+ interval '%(utc_offset)s minutes'`
                     if displayUTC:
-                        query_raw_data = '''
+                        query_raw_data = f'''
                             WITH processed_data AS (
                                 SELECT datetime
                                     ,var.id as variable_id
@@ -1445,6 +1469,7 @@ def export_data(station_id, source, start_date, end_date, variable_ids, file_id,
                                 WHERE data.datetime >= %(start_datetime)s
                                 AND data.datetime <= %(end_datetime)s
                                 AND data.station_id = %(station_id)s
+                                {quality_clause}
                             )
                             SELECT (generated_time) at time zone 'utc' as datetime
                                 ,variable.id
@@ -1455,7 +1480,7 @@ def export_data(station_id, source, start_date, end_date, variable_ids, file_id,
                         ''' 
                     # keeping the offset addition in the query based on the truthines of displayUTC.
                     else:
-                        query_raw_data = '''
+                        query_raw_data = f'''
                             WITH processed_data AS (
                                 SELECT datetime
                                     ,var.id as variable_id
@@ -1465,6 +1490,7 @@ def export_data(station_id, source, start_date, end_date, variable_ids, file_id,
                                 WHERE data.datetime >= %(start_datetime)s
                                 AND data.datetime <= %(end_datetime)s
                                 AND data.station_id = %(station_id)s
+                                {quality_clause}
                             )
                             SELECT (generated_time + interval '%(utc_offset)s minutes') at time zone 'utc' as datetime
                                 ,variable.id
@@ -1691,6 +1717,8 @@ def export_data(station_id, source, start_date, end_date, variable_ids, file_id,
             f.write(f'Description:{variable_names_string}\n')
             f.write(f'Latitude:{station.latitude}\n')
             f.write(f'Longitude:{station.longitude}\n')
+            f.write(f'Passed AQC Checks: {current_datafile.aqc_checks}\n')
+            f.write(f'Passed MQC Checks: {current_datafile.mqc_checks}\n')
             f.write(f'Date of completion:{date_of_completion.astimezone(timezone_offset).strftime("%Y-%m-%d %H:%M:%S")}\n')
             f.write(f'Prepared by:{current_datafile.prepared_by}\n')
             f.write(f'Start date:{start_date_header}, End date:{end_date_header}\n\n')
@@ -1815,7 +1843,7 @@ def convert_csv_xlsx(file_path, file_station, file_id):
 
 # combine .xlsx files into a single .xlsx file
 @shared_task
-def combine_xlsx_files(station_ids, data_source, start_date, end_date, variable_ids, aggregation, displayUTC, data_interval_seconds, prepared_by, data_source_description, entry_id):
+def combine_xlsx_files(station_ids, data_source, start_date, end_date, variable_ids, aggregation, displayUTC, data_interval_seconds, prepared_by, data_source_description, aqc_checks, mqc_checks, entry_id):
     # grab the current combine xlsx data file entry
     current_datafile = CombineDataFile.objects.get(pk=entry_id)
 
@@ -1834,9 +1862,9 @@ def combine_xlsx_files(station_ids, data_source, start_date, end_date, variable_
             if aggregation:
                 for agg in aggregation:
 
-                    export_data_df.append(export_data_xlsx(station_id, data_source, start_date, end_date, variable_ids, agg, displayUTC, data_interval_seconds))
+                    export_data_df.append(export_data_xlsx(station_id, data_source, start_date, end_date, variable_ids, agg, aqc_checks, mqc_checks, displayUTC, data_interval_seconds))
             else:
-                export_data_df.append(export_data_xlsx(station_id, data_source, start_date, end_date, variable_ids, aggregation, displayUTC, data_interval_seconds))
+                export_data_df.append(export_data_xlsx(station_id, data_source, start_date, end_date, variable_ids, aggregation, aqc_checks, mqc_checks, displayUTC, data_interval_seconds))
 
             # Getting the columns in common between dataframs pertaining to a specific station
             if data_source in ['raw_data', 'hourly_summary']:
@@ -1974,16 +2002,18 @@ def combine_xlsx_files(station_ids, data_source, start_date, end_date, variable_
             cell = sheet.cell(row=3, column=1, value=f'Description:{variable_names_string}')
             cell = sheet.cell(row=4, column=1, value=f'Latitude:{station.latitude}')
             cell = sheet.cell(row=5, column=1, value=f'Longitude:{station.longitude}')
-            cell = sheet.cell(row=6, column=1, value=f'Date of completion:{date_of_completion.astimezone(timezone_offset).strftime("%Y-%m-%d %H:%M:%S")}')
-            cell = sheet.cell(row=7, column=1, value=f'Prepared by:{prepared_by}')
+            cell = sheet.cell(row=6, column=1, value=f'Passed AQC Checks:{aqc_checks}')
+            cell = sheet.cell(row=7, column=1, value=f'Passed MQC Checks:{mqc_checks}')
+            cell = sheet.cell(row=8, column=1, value=f'Date of completion:{date_of_completion.astimezone(timezone_offset).strftime("%Y-%m-%d %H:%M:%S")}')
+            cell = sheet.cell(row=9, column=1, value=f'Prepared by:{prepared_by}')
 
             if displayUTC and data_source in ['raw_data','hourly_summary']:
-                cell = sheet.cell(row=9, column=1, value=f'Dates are displayed in UTC')
-                cell = sheet.cell(row=10, column=1, value=f'Start date:{start_date}, End date:{end_date}')
+                cell = sheet.cell(row=11, column=1, value=f'Dates are displayed in UTC')
+                cell = sheet.cell(row=12, column=1, value=f'Start date:{start_date}, End date:{end_date}')
             else:
                 updated_start_date = pytz.UTC.localize(datetime.strptime(start_date, '%Y-%m-%d %H:%M:%S'))
                 updated_end_date = pytz.UTC.localize(datetime.strptime(end_date, '%Y-%m-%d %H:%M:%S'))
-                cell = sheet.cell(row=9, column=1, value=f'Start date:{updated_start_date.astimezone(timezone_offset).strftime("%Y-%m-%d %H:%M:%S")}, End date:{updated_end_date.astimezone(timezone_offset).strftime("%Y-%m-%d %H:%M:%S")}')
+                cell = sheet.cell(row=11, column=1, value=f'Start date:{updated_start_date.astimezone(timezone_offset).strftime("%Y-%m-%d %H:%M:%S")}, End date:{updated_end_date.astimezone(timezone_offset).strftime("%Y-%m-%d %H:%M:%S")}')
 
         # Save the workbook
         combined_workbook.save(output_file)
@@ -2004,7 +2034,7 @@ def combine_xlsx_files(station_ids, data_source, start_date, end_date, variable_
 
 
 # returns the data frame for each query ran in order to facilitate combining the files later
-def export_data_xlsx(station_id, source, start_date, end_date, variable_ids, agg, displayUTC, data_interval_seconds):
+def export_data_xlsx(station_id, source, start_date, end_date, variable_ids, agg, aqc_checks, mqc_checks, displayUTC, data_interval_seconds):
 
     timezone_offset = pytz.timezone(settings.TIMEZONE_NAME)
     start_date_utc = pytz.UTC.localize(datetime.strptime(start_date, '%Y-%m-%d %H:%M:%S'))
@@ -2115,6 +2145,24 @@ def export_data_xlsx(station_id, source, start_date, end_date, variable_ids, agg
         elif source == 'raw_data':
             datetime_list.append(converted_end_date + timedelta(seconds=data_interval_seconds))
 
+        # quality control clause based on users request
+        quality_clause = ""
+
+        # if user request aqc data
+        if aqc_checks and mqc_checks:
+            quality_clause = """
+                AND data.quality_flag = 4
+                AND data.manual_flag = 4
+            """
+        elif aqc_checks:
+            quality_clause = """
+                AND data.quality_flag = 4
+            """
+        elif mqc_checks:
+            quality_clause = """
+                AND data.manual_flag = 4
+            """
+
 
         query_result = []
         for i in range(0, len(datetime_list) - 1):
@@ -2126,7 +2174,7 @@ def export_data_xlsx(station_id, source, start_date, end_date, variable_ids, agg
 
                     # removing the offset addition from the query based on the truthines of displayUTC. Removed `+ interval '%(utc_offset)s minutes'`
                     if displayUTC:
-                        query_raw_data = '''
+                        query_raw_data = f'''
                             WITH processed_data AS (
                                 SELECT datetime
                                     ,var.id as variable_id
@@ -2136,6 +2184,7 @@ def export_data_xlsx(station_id, source, start_date, end_date, variable_ids, agg
                                 WHERE data.datetime >= %(start_datetime)s
                                 AND data.datetime <= %(end_datetime)s
                                 AND data.station_id = %(station_id)s
+                                {quality_clause}
                             )
                             SELECT (generated_time) at time zone 'utc' as datetime
                                 ,variable.id
@@ -2146,7 +2195,7 @@ def export_data_xlsx(station_id, source, start_date, end_date, variable_ids, agg
                         ''' 
                     # keeping the offset addition in the query based on the truthines of displayUTC.
                     else:
-                        query_raw_data = '''
+                        query_raw_data = f'''
                             WITH processed_data AS (
                                 SELECT datetime
                                     ,var.id as variable_id
@@ -2156,6 +2205,7 @@ def export_data_xlsx(station_id, source, start_date, end_date, variable_ids, agg
                                 WHERE data.datetime >= %(start_datetime)s
                                 AND data.datetime <= %(end_datetime)s
                                 AND data.station_id = %(station_id)s
+                                {quality_clause}
                             )
                             SELECT (generated_time + interval '%(utc_offset)s minutes') at time zone 'utc' as datetime
                                 ,variable.id
@@ -2606,21 +2656,15 @@ def ingest_manual_station_files(data_file_id_list):
 
             stations_list = '       '.join(source.sheet_names) # combining stations list into a long sting
 
-            # column names
-            column_names = ['day', 'PRECIP', 'TEMPMAX', 'TEMPMIN', 'TEMPAVG', 'WNDMIL', 'WINDRUN', 'SUNSHNHR', 'EVAPINI', 'EVAPRES', 'EVAPPAN', 'TEMP', 'TEMPWB', 'TSOIL1', 'TSOIL4', 'DYTHND', 'DYFOG', 'DYHAIL', 'DYGAIL', 'TOTRAD', 'RH@TMAX', 'RHMAX', 'RHMIN',]
+            header_block = source.parse(source.sheet_names[0], header=None, nrows=5, na_filter=False)
 
-            # getting the month information from sheet 1
-            sheet_raw_data = source.parse(
-                source.sheet_names[0],
-                skipfooter=2,
-                na_filter=False,
-                names=column_names,
-                usecols='A:W'
-            )
-
-            if not sheet_raw_data.empty:
-                header = sheet_raw_data[0:1]
-                sheet_month = header['WINDRUN'][0].replace('MONTH: ', '').strip()
+            sheet_month = None
+            for v in header_block.to_numpy().ravel():
+                if isinstance(v, str) and "MONTH:" in v:
+                    m = re.search(r"MONTH:\s*([A-Za-z]+)", v)
+                    if m:
+                        sheet_month = m.group(1)
+                        break
 
             
             # update the manual station data file object
@@ -4852,3 +4896,351 @@ def aquacrop_gen_daily_data():
                     cursor.execute(sql_query_aut)
     except Exception as e:
         logger.error(f'Error on aquacrop_gen_daily_data: {repr(e)}')
+
+
+# fetch interpolation data
+@shared_task
+def fetch_interpolation_data_task(
+    *,
+    start_datetime,
+    end_datetime,
+    variable_id,
+    agg="instant",
+    source="raw_data",
+    quality_flags=None
+):
+    """
+    Fetches and aggregates climate interpolation data.
+    Returns a Python dict (Celery-safe).
+    """
+
+    where_query = ""
+
+    # RAW DATA SOURCE LOGIC
+    if source == "raw_data":
+        dt_query = "datetime"
+        value_query = "measured"
+        source_query = "raw_data"
+
+        if quality_flags:
+            try:
+                [int(qf) for qf in quality_flags.split(',')]
+            except ValueError:
+                raise ValueError("Invalid quality_flags value.")
+
+            where_query = (
+                f" measured != {settings.MISSING_VALUE} "
+                f"AND quality_flag IN ({quality_flags}) AND "
+            )
+        else:
+            where_query = f" measured != {settings.MISSING_VALUE} AND "
+
+    # SUMMARY DATA SOURCES
+    else:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT sampling_operation_id
+                FROM wx_variable
+                WHERE id=%(variable_id)s
+            """, params={'variable_id': variable_id})
+            sampling_operation = cursor.fetchone()[0]
+
+        if sampling_operation in [6, 7]:
+            value_query = "sum_value"
+        elif sampling_operation == 3:
+            value_query = "min_value"
+        elif sampling_operation == 4:
+            value_query = "max_value"
+        else:
+            value_query = "avg_value"
+
+        if source == "hourly":
+            dt_query = "datetime"
+            source_query = "hourly_summary"
+        elif source == "daily":
+            dt_query = "day"
+            source_query = "daily_summary"
+        elif source == "monthly":
+            dt_query = "date"
+            source_query = "monthly_summary"
+        elif source == "yearly":
+            dt_query = "date"
+            source_query = "yearly_summary"
+
+    # TIME FILTERING
+    if agg == "instant":
+        where_query += (
+            "variable_id=%(variable_id)s AND "
+            + dt_query + "=%(datetime)s"
+        )
+        params = {
+            'datetime': start_datetime,
+            'variable_id': variable_id
+        }
+    else:
+        where_query += (
+            "variable_id=%(variable_id)s AND "
+            + dt_query + " >= %(start_datetime)s AND "
+            + dt_query + " <= %(end_datetime)s"
+        )
+        params = {
+            'start_datetime': start_datetime,
+            'end_datetime': end_datetime,
+            'variable_id': variable_id
+        }
+
+    # QUERY EXECUTION
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT
+                a.station_id,
+                b.name,
+                b.code,
+                b.latitude,
+                b.longitude,
+                a.""" + value_query + """ AS measured
+            FROM """ + source_query + """ a
+            INNER JOIN wx_station b ON a.station_id=b.id
+            WHERE """ + where_query,
+            params=params
+        )
+        raw_data = cursor.fetchall()
+
+    data = []
+
+    for row in raw_data:
+        data.append({
+            'station_id': row[0],
+            'name': row[1],
+            'code': row[2],
+            'latitude': row[3],
+            'longitude': row[4],
+            'measured': row[5],
+        })
+
+    # AGGREGATION
+    if agg != "instant" and raw_data:
+        df = pd.json_normalize(data)
+        data = json.loads(
+            df.groupby(
+                ['station_id', 'name', 'code', 'longitude', 'latitude']
+            )
+            .agg(agg)
+            .reset_index()
+            .sort_values('name')
+            .to_json(orient="records")
+        )
+
+    return {"data": data}
+
+
+
+# fetch interpolation image
+@shared_task
+def fetch_interpolation_img_task(
+    start_datetime,
+    end_datetime,
+    variable_id,
+    cmap,
+    hres,
+    minimum_neighbors,
+    search_radius,
+    agg,
+    source,
+    vmin,
+    vmax,
+    quality_flags,
+    stands_llat,
+    stands_llon,
+    stands_ulat,
+    stands_ulon
+):
+    
+    stations_df = pd.read_sql_query("""
+        SELECT id,name,alias_name,code,latitude,longitude
+        FROM wx_station
+        WHERE longitude!=0
+        """,
+                                    con=connection
+                                    )
+    
+    stations = geopandas.GeoDataFrame(
+        stations_df, 
+        geometry=geopandas.points_from_xy(stations_df.longitude, stations_df.latitude)
+    )
+    
+    stations.crs = 'epsg:4326'
+
+    where_query = ""
+    if source == "raw_data":
+        dt_query = "datetime"
+        value_query = "measured"
+        source_query = "raw_data"
+        if quality_flags:
+            try:
+                [int(qf) for qf in quality_flags.split(',')]
+            except ValueError:
+                raise ValueError("Invalid quality_flags value.")
+
+            where_query = f" measured != {settings.MISSING_VALUE} AND quality_flag IN ({quality_flags}) AND "
+        else:
+            where_query = f" measured != {settings.MISSING_VALUE} AND "
+    else:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT sampling_operation_id
+                FROM wx_variable
+                WHERE id=%(variable_id)s
+                """,
+                           params={'variable_id': variable_id}
+                           )
+            sampling_operation = cursor.fetchone()[0]
+
+        if sampling_operation in [6, 7]:
+            value_query = "sum_value"
+        elif sampling_operation == 3:
+            value_query = "min_value"
+        elif sampling_operation == 4:
+            value_query = "max_value"
+        else:
+            value_query = "avg_value"
+
+        if source == "hourly":
+            dt_query = "datetime"
+            source_query = "hourly_summary"
+
+        elif source == "daily":
+            dt_query = "day"
+            source_query = "daily_summary"
+
+        elif source == "monthly":
+            dt_query = "date"
+            source_query = "monthly_summary"
+
+        elif source == "yearly":
+            dt_query = "date"
+            source_query = "yearly_summary"
+
+    if agg == "instant":
+        where_query += "variable_id=%(variable_id)s AND " + dt_query + "=%(datetime)s"
+        params = {'datetime': start_datetime, 'variable_id': variable_id}
+    else:
+        where_query += "variable_id=%(variable_id)s AND " + dt_query + " >= %(start_datetime)s AND " + dt_query + " <= %(end_datetime)s"
+        params = {'start_datetime': start_datetime, 'end_datetime': end_datetime, 'variable_id': variable_id}
+
+    climate_data = pd.read_sql_query(
+        "SELECT station_id,variable_id," + dt_query + "," + value_query + """
+        FROM """ + source_query + """
+        WHERE """ + where_query + "",
+        params=params,
+        con=connection
+    )
+
+    if len(climate_data) == 0:
+        return {"data":"/static/images/no-interpolated-data.png"}
+
+    df_merged = pd.merge(left=climate_data, right=stations, how='left', left_on='station_id', right_on='id')
+    df_climate = df_merged[["station_id", dt_query, "longitude", "latitude", value_query]]
+
+    if agg != "instant":
+        df_climate = (
+            df_climate
+            .groupby(['station_id', 'longitude', 'latitude'], as_index=False)
+            .agg({value_query: agg})
+        )
+
+    gx, gy, img = interpolate_to_grid(
+        df_climate["longitude"],
+        df_climate["latitude"],
+        df_climate[value_query],
+        interp_type='cressman',
+        minimum_neighbors=int(minimum_neighbors),
+        hres=float(hres),
+        search_radius=float(search_radius),
+        boundary_coords={'west': stands_llon, 'east': stands_ulon, 'south': stands_llat, 'north': stands_ulat}
+    )
+
+    fig = plt.figure(frameon=False)
+    ax = plt.Axes(fig, [0., 0., 1., 1.])
+    ax.set_axis_off()
+    fig.add_axes(ax)
+    ax.imshow(img, origin='lower', cmap=cmap, vmin=vmin, vmax=vmax)
+    fname = str(uuid.uuid4())
+    fig.savefig("/surface/static/images/spatial_img/" + fname + ".png", dpi='figure', format='png', transparent=True,
+                bbox_inches=Bbox.from_bounds(2, 0, 2.333, 4.013))
+
+    image1 = cv2.imread("/surface/static/images/spatial_img/" + fname + ".png", cv2.IMREAD_UNCHANGED)
+    image2 = cv2.imread(settings.SPATIAL_ANALYSIS_SHAPE_FILE_PATH, cv2.IMREAD_UNCHANGED)
+    image1 = cv2.resize(image1, dsize=(image2.shape[1], image2.shape[0]))
+    for i in range(image1.shape[0]):
+        for j in range(image1.shape[1]):
+            image1[i][j][3] = image2[i][j][3]
+    cv2.imwrite("/surface/static/images/spatial_img/" + fname + "-output.png", image1)
+
+    return {"data":f"/static/images/spatial_img/{fname}-output.png"}
+
+
+# fetch interpolation image after custom value has been added
+@shared_task
+def fetch_mod_interpolation_img_task(
+    stands_llat,
+    stands_llon,
+    stands_ulat,
+    stands_ulon,
+    parameters,
+    vmin,
+    vmax,
+    json_body_data
+):
+
+    df_climate = pd.json_normalize(json_body_data)
+
+    try:
+        df_climate = df_climate[["station_id", "longitude", "latitude", "measured"]]
+    except KeyError:
+        return {"data":"/static/images/no-interpolated-data.png"}
+
+    gx, gy, img = interpolate_to_grid(
+        df_climate["longitude"],
+        df_climate["latitude"],
+        df_climate["measured"],
+        interp_type='cressman',
+        minimum_neighbors=int(parameters["minimum_neighbors"]),
+        hres=float(parameters["hres"]),
+        search_radius=float(parameters["search_radius"]),
+        boundary_coords={'west': stands_llon, 'east': stands_ulon, 'south': stands_llat, 'north': stands_ulat}
+    )
+
+    fig = plt.figure(frameon=False)
+    ax = plt.Axes(fig, [0., 0., 1., 1.])
+    ax.set_axis_off()
+    fig.add_axes(ax)
+    ax.imshow(img, origin='lower', cmap=parameters["cmap"]["value"], vmin=vmin, vmax=vmax)
+    
+    fname = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ_") + str(uuid.uuid4())
+
+    fig.savefig("/surface/static/images/spatial_img/" + fname + ".png", dpi='figure', format='png', transparent=True,
+                bbox_inches=Bbox.from_bounds(2, 0, 2.333, 4.013))
+    
+    image1 = cv2.imread("/surface/static/images/spatial_img/" + fname + ".png", cv2.IMREAD_UNCHANGED)
+    image2 = cv2.imread(settings.SPATIAL_ANALYSIS_SHAPE_FILE_PATH, cv2.IMREAD_UNCHANGED)
+    image1 = cv2.resize(image1, dsize=(image2.shape[1], image2.shape[0]))
+
+    for i in range(image1.shape[0]):
+        for j in range(image1.shape[1]):
+            image1[i][j][3] = image2[i][j][3]
+
+    cv2.imwrite("/surface/static/images/spatial_img/" + fname + "-output.png", image1)
+
+    return {"data":f"/static/images/spatial_img/{fname}-output.png"}
+
+
+@shared_task
+def interpolation_img_cleanup():
+    try:
+        for filename in os.listdir('/surface/static/images/spatial_img/'):
+            os.remove('/surface/static/images/spatial_img/' + filename)
+    except Exception as e:
+        # Log an error message if the clean up task fails
+        logger.error("Interpolation image clean up task failed!")
+        logger.exception(f"Error: {e}")  # Log the full exception traceback for debugging
