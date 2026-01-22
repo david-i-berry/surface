@@ -520,3 +520,14 @@ class EquipmentModelAdmin(admin.ModelAdmin):
     list_display = ("name",)
     search_fields = ("name",)
     
+@admin.register(models.WxPermissionPages)
+class WxPermissionPagesAdmin(admin.ModelAdmin):
+    list_display = ("name", "url_name", "description",)
+    search_fields = ("name", "url_name",)
+    
+
+@admin.register(models.WxGroupPageAccess)
+class WxGroupPageAccessAdmin(admin.ModelAdmin):
+    list_display = ("group", "page", "can_read", "can_write", "can_delete",)
+    search_fields = ("group__name", "page__name", "page__url_name",)
+

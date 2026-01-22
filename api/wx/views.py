@@ -24,17 +24,18 @@ from openpyxl import Workbook
 import tempfile
 import psycopg2
 import pytz
-import django.conf
+from wx.decorators import wx_permission_required
 from django.contrib import messages
 from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth import get_user_model
 from wx.mixins import WxPermissionRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.cache import cache
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import connection, IntegrityError
+from django.db import connection, transaction, IntegrityError
 from django.http import HttpResponse, JsonResponse, FileResponse, HttpResponseNotAllowed, HttpResponseBadRequest, Http404
 from django.utils.http import http_date
 from django.template import loader
@@ -65,6 +66,7 @@ from wx.decoders import insert_raw_data_pgia, insert_raw_data_synop
 from wx.decoders.hobo import read_file as read_file_hobo
 from wx.decoders.toa5 import read_file
 from wx.forms import StationForm
+from wx.permissions import IsSuperUser
 from wx.models import AdministrativeRegion, StationFile, Decoder, QualityFlag, DataFile, DataFileStation, \
     DataFileVariable, StationImage, WMOStationType, WMORegion, WMOProgram, StationCommunication, CombineDataFile, ManualStationDataFile
 from wx.models import Country, Unit, Station, Variable, DataSource, StationVariable, StationDataFileStatus,\
@@ -110,6 +112,9 @@ import requests
 import re
 
 logger = logging.getLogger('surface.urls')
+
+# get user models
+User = get_user_model()
 
 # CONSTANT to be used in datetime to milliseconds conversion
 EPOCH = datetime_constructor(1970, 1, 1, tzinfo=timezone.utc)
@@ -622,11 +627,6 @@ def InterpolatePostData(request):
     
 
 
-@permission_classes([IsAuthenticated])
-def DataCaptureView(request):
-    template = loader.get_template('wx/data_capture.html')
-    return HttpResponse(template.render({}, request))
-
 
 class DataExportView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
     template_name = "wx/data_export.html"
@@ -659,21 +659,10 @@ class DataExportView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView
     
 
 # view to display manual upload page
-class ManualDataImportView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class ManualDataImportView(WxPermissionRequiredMixin, LoginRequiredMixin, TemplateView):
     '''view for uploading daily data for manual station (file format is xlsx)'''
 
     template_name = "wx/data/manual_data_import.html"
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Manual Data Import - Full Access"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
-
     
     def get_context_data(self, **kwargs):
         return super().get_context_data(**kwargs)
@@ -699,6 +688,7 @@ class ManualDataImportView(LoginRequiredMixin, WxPermissionRequiredMixin, Templa
 
 # retrieves manual data files metadata
 @api_view(('GET',))
+@wx_permission_required("manual-data-import", "read")
 def ManualDataFiles(request):
     files = []
     for df in ManualStationDataFile.objects.all().order_by('-created_at').values()[:100:1]:
@@ -736,6 +726,7 @@ def ManualDataFiles(request):
 
 
 # delete manual data file
+@wx_permission_required("manual-data-import", "delete")
 def DeleteManualDataFile(request):
     file_id = request.GET.get('id', None)
 
@@ -748,6 +739,7 @@ def DeleteManualDataFile(request):
 
 # recieve files from the manual import page, run some checks and return a success response
 @csrf_exempt
+@wx_permission_required("manual-data-import", "write")
 def CheckManualImportView(request):
     # print("DATA_UPLOAD_MAX_MEMORY_SIZE:", django.conf.settings.DATA_UPLOAD_MAX_MEMORY_SIZE)
     # print("FILE_UPLOAD_MAX_MEMORY_SIZE:", django.conf.settings.FILE_UPLOAD_MAX_MEMORY_SIZE)
@@ -847,6 +839,7 @@ def CheckManualImportView(request):
 
 # remove manual data files
 @csrf_exempt
+@wx_permission_required("manual-data-import", "read")
 def RemoveManualDataFile(request):
     if request.method == 'POST':
         try:
@@ -909,6 +902,7 @@ def RemoveManualDataFile(request):
 
 # process the uploaded manual data files
 @csrf_exempt
+@wx_permission_required("manual-data-import", "write")
 def UploadManualDataFile(request):
     UPLOAD_DIR = '/data/documents/ingest/manual/check'  #Upload Directory path
     PROCESS_DIR = '/data/documents/ingest/manual/process'  #Process Directory path 
@@ -4603,21 +4597,6 @@ class NotAuthView(LoginRequiredMixin, TemplateView):
     template_name = "not_authorized.html"
 
 
-
-# def get_wave_data_analysis(request):
-#     template = loader.get_template('wx/products/wave_data.html')
-
-
-#     variable = Variable.objects.get(name="Sea Level") # Sea Level
-#     station_ids = HighFrequencyData.objects.filter(variable_id=variable.id).values('station_id').distinct()
-
-#     station_list = Station.objects.filter(id__in=station_ids)
-
-#     context = {'station_list': station_list}
-
-#     return HttpResponse(template.render(context, request))
-
-
 class get_wave_data_analysis(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
     template_name = 'wx/products/wave_data.html'
 
@@ -6789,19 +6768,6 @@ class get_step_threshold_form(LoginRequiredMixin, WxPermissionRequiredMixin, Tem
         context['interval_list'] = Interval.objects.filter(seconds__gt=1).order_by('seconds')    
 
         return context
-    
-
-# def get_step_threshold_form(request):
-#     template = loader.get_template('wx/quality_control/step_threshold.html')
-
-#     context = {}
-#     context['station_list'] = Station.objects.select_related('profile').all()
-#     context['station_profile_list'] = StationProfile.objects.all()
-#     context['station_watershed_list'] = Watershed.objects.all()
-#     context['station_district_list'] = AdministrativeRegion.objects.all()
-#     context['interval_list'] = Interval.objects.filter(seconds__gt=1).order_by('seconds')    
-
-#     return HttpResponse(template.render(context, request))
 
 
 def get_step_threshold_entry(station_id, variable_id, interval, is_reference=False):
@@ -7403,6 +7369,7 @@ def daily_means_data_view(request):
 class DataInventoryView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
     # The actual data inventory page will be disabled until it is re-worked
     template_name = "wx/data_inventory.html"
+    # template_name = "coming-soon.html"
 
     # This is the only “permission” string you need to supply:
     permission_required = "Data Inventory - Read"
@@ -11522,3 +11489,84 @@ class AquacropAvailableDataView(views.APIView):
 
         return start_datetime_history, end_datetime_history
 
+
+class GroupsInfo(views.APIView):
+    permission_classes = (IsAuthenticated, IsSuperUser)
+
+    def get(self, request, *args, **kwargs):
+        query = "SELECT id, name FROM auth_group ORDER BY id;"
+
+        with connection.cursor() as cursor:
+            cursor.execute(query)
+            rows = cursor.fetchall()
+
+        # Convert tuples to JSON-safe structures
+        groups_data = [
+            {"id": row[0], "name": row[1]}
+            for row in rows
+        ]
+
+        return Response(groups_data)
+
+# retrive the all users info
+class UsersGroupsInfo(views.APIView):
+    permission_classes = (IsAuthenticated, IsSuperUser)
+
+    def get(self, request, *args, **kwargs):
+        query = """
+                    SELECT
+                        AU.id,
+                        AU.first_name,
+                        AU.last_name,
+                        AU.username,
+                        AU.email,
+                        COALESCE(array_agg(AUG.group_id ORDER BY AUG.group_id)
+                                FILTER (WHERE AUG.group_id IS NOT NULL),
+                                '{}') AS all_group_ids
+                    FROM auth_user AS AU
+                    LEFT JOIN auth_user_groups AS AUG
+                        ON AU.id = AUG.user_id
+                    GROUP BY
+                        AU.id,
+                        AU.first_name,
+                        AU.last_name,
+                        AU.username,
+                        AU.email
+                    ORDER BY AU.id;
+                """
+
+        with connection.cursor() as cursor:
+            cursor.execute(query)
+            rows = cursor.fetchall()
+
+        # Convert tuples to JSON-safe structures
+        users_groups_data = [
+            {"id": row[0], "first_name": row[1], "last_name": row[2], "username": row[3], "email": row[4], "roles": row[5]}
+            for row in rows
+        ]
+
+        return Response(users_groups_data)
+
+# update users info
+class UpdateUserRoles(views.APIView):
+    permission_classes = (IsAuthenticated, IsSuperUser)
+
+    def patch(self, request, user_id):
+        roles = request.data.get("roles", [])
+
+        if not isinstance(roles, list) or not all(isinstance(x, int) for x in roles):
+            return Response({"message": "roles must be a list of integers"}, status=400)
+
+        # transaction atomic ensure that everything with the with block is successfull otherwise it roles back the changes made
+        # this matters as we are delting all old roles and then updating
+        with transaction.atomic():
+            # delete existing roles
+            User.groups.through.objects.filter(user_id=user_id).delete()
+
+            # insert new roles
+            through_objs = [
+                User.groups.through(user_id=user_id, group_id=gid) for gid in roles
+            ]
+            User.groups.through.objects.bulk_create(through_objs)
+
+        return Response({"message": "ok"})
