@@ -2431,3 +2431,29 @@ class Soil(BaseModel):
         help_text='Thickness of soil surface layer for water stress comparisons (m)',
         verbose_name='zTop'
     )    
+
+
+
+# permission pages, out lines the page which require permissioning enforced
+class WxPermissionPages(BaseModel):
+    name = models.CharField(max_length=256, unique=True)
+    url_name = models.CharField(max_length=256, unique=True)
+    description = models.CharField(max_length=256)
+
+    def __str__(self):
+        return self.name
+    
+
+# links groups to permission pages
+class WxGroupPageAccess(BaseModel):
+    group = models.ForeignKey(Group, on_delete=models.CASCADE)
+    page = models.ForeignKey(WxPermissionPages, on_delete=models.CASCADE)
+
+    can_read = models.BooleanField(default=False)
+    can_write = models.BooleanField(default=False)
+    can_delete = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["group", "page"], name="unique_group_page")
+        ]

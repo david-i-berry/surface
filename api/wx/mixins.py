@@ -1,89 +1,79 @@
+# wx/mixins.py
+
 from django.conf import settings
-from django.contrib.auth.mixins import PermissionRequiredMixin
-from django.urls import reverse
-from django.contrib.auth import REDIRECT_FIELD_NAME
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import HttpResponseForbidden
 from django.shortcuts import redirect
-from django.core.exceptions import PermissionDenied
-from wx.models import WxPermission, WxGroupPermission
+from django.urls import resolve, reverse
+from wx.permissions import user_can
+
+from wx.models import WxGroupPageAccess
 
 
-class WxPermissionRequiredMixin(PermissionRequiredMixin):
+class WxPermissionRequiredMixin:
     """
-    A subclass of Django's PermissionRequiredMixin that checks
-    custom WxPermission/WxGroupPermission tables instead of auth_permission.
-    You must set `permission_required = "<permission_name>"` (e.g. "station-create").
+    Gate a Django view based on WxGroupPageAccess.
+
+    The permission key is the Django route name (urls.py name="...").
+    Example: name="manual-data-import" -> url_name="manual-data-import"
+
+    Action is inferred from HTTP method:
+    - GET/HEAD/OPTIONS -> read
+    - POST/PUT/PATCH  -> write
+    - DELETE          -> delete
+
+    If unauthorized:
+    - unauthenticated users go to LOGIN_URL with ?next=
+    - authenticated users go to the 'not-auth' page
     """
 
-    def has_permission(self):
+    # Optional override: set this on a view if you want a specific page key
+    # (Useful when an AJAX endpoint should inherit permission from a parent page.)
+    wx_permission_page_name = None  # e.g. "spatial-analysis"
+
+    def get_required_action(self, request):
+        """Infer the required permission action from the request method."""
+        if request.method in ("GET", "HEAD", "OPTIONS"):
+            return "read"
+        if request.method in ("POST", "PUT", "PATCH"):
+            return "write"
+        if request.method == "DELETE":
+            return "delete"
+        return None
+
+    def get_permission_page_name(self, request):
         """
-        Override the default `has_permission` to check if WxPermission in WxGroupPermission.
-        Returns True if:
-         1) The user is authenticated, AND
-         2) At least one of the user's groups has a related WxGroupPermission
-            whose `permissions__name` matches a name in `self.permission_required`.
-        Otherwise, returns False.
+        Decide which WxPermissionPages.url_name to check.
+
+        Default:
+        - Use the resolved Django route name (urls.py name="...")
+
+        Override:
+        - If wx_permission_page_name is set on the view, use that instead.
         """
+        if self.wx_permission_page_name:
+            return self.wx_permission_page_name
+        return resolve(request.path_info).url_name
 
-        user = self.request.user
+    def handle_no_permission(self, request):
+        """
+        Redirect unauthenticated users to login, and authenticated users to not-auth.
+        """
+        if not request.user.is_authenticated:
+            login_url = getattr(settings, "LOGIN_URL", "/accounts/login/")
+            return redirect(f"{login_url}?next={request.get_full_path()}")
 
-        # If not logged in, fail immediately
-        if not user.is_authenticated:
-            return False
-
-        # Superuser shortcut
-        if user.is_superuser:
-            return True
-
-        # Normalize permission_required into a tuple
-        perms = self.get_permission_required()
-        if isinstance(perms, str):
-            perms = (perms,)
-
-        # Grab all group IDs the user belongs to
-        user_group_ids = user.groups.values_list("id", flat=True)
-
-        # Treat permissions as OR: As soon as we find one matching permission, return True.
-        for perm_name in perms:
-            # Try to look up the corresponding WxPermission row
-            try:
-                perm_obj = WxPermission.objects.get(name=perm_name)
-            except WxPermission.DoesNotExist:
-                # If you’d rather treat “missing in DB” as simply “not granted,”
-                # you could `continue` here instead of raising. But raising
-                # can help catch typos.
-                raise PermissionDenied(f"WxPermission '{perm_name}' not found in DB.")
-
-            # Check if any of the user’s groups has this permission
-            if WxGroupPermission.objects.filter(
-                group_id__in=user_group_ids,
-                permissions=perm_obj
-            ).exists():
-                # As soon as one is satisfied, allow access
-                return True
-
-        return False
+        return redirect(reverse("not-auth"))
     
-    def handle_no_permission(self):
-        """
-        If the user is not logged in, redirect to LOGIN_URL with ?next=<current_path>.
-        If the user is logged in but lacks permissions, raise 403 (PermissionDenied).
-        This mirrors PermissionRequiredMixin's default behavior when `raise_exception=True`.
-        """
-        # If user is not authenticated, send to login page
-        user = self.request.user
-        if not user.is_authenticated:
-            login_url = self.get_login_url()
-            return redirect(f"{login_url}?{REDIRECT_FIELD_NAME}={self.request.get_full_path()}")
+    def dispatch(self, request, *args, **kwargs):
+        action = self.get_required_action(request)
+        if action is None:
+            return self.handle_no_permission(request)
 
-        # Otherwise, User is logged in but lacks perms, so redirect to 'not-auth'
-        not_auth_url = reverse('not-auth')
-        return redirect(not_auth_url)
+        page_name = self.get_permission_page_name(request)
 
-    def get_login_url(self):
-        """
-        Let PermissionRequiredMixin know which login URL (sending the user back to the login page) to use.
-        By default, it looks at `self.login_url` or `settings.LOGIN_URL`.
-        """
-        if getattr(self, "login_url", None):
-            return self.login_url
-        return settings.LOGOUT_REDIRECT_URL
+        # user_can handles the check
+        if not user_can(request.user, page_name, action):
+            return self.handle_no_permission(request)
+
+        return super().dispatch(request, *args, **kwargs)

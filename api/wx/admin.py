@@ -172,7 +172,7 @@ class NoaaTransmissionTypeAdmin(admin.ModelAdmin):
 @admin.register(models.NoaaTransmissionRate)
 class NoaaTransmissionRateAdmin(admin.ModelAdmin):
     list_display = ("rate",)
-    search_fields = ("rate")
+    search_fields = ("rate",)
 
 
 @admin.register(models.NoaaDcp)
@@ -449,12 +449,12 @@ class ElementDecoder(admin.ModelAdmin):
 @admin.register(models.VisitType)
 class VisitTypeAdmin(admin.ModelAdmin):
     list_display = ("name",)
-    search_fields = ("name")
+    search_fields = ("name",)
 
 @admin.register(models.Technician)
 class TechnicianAdmin(admin.ModelAdmin):
     list_display = ("name",)
-    search_fields = ("name")
+    search_fields = ("name",)
 
 
 @admin.register(models.Manufacturer)
@@ -509,9 +509,20 @@ class StationProfileEquipmentTypeAdmin(admin.ModelAdmin):
 @admin.register(models.Crop)
 class CropAdmin(admin.ModelAdmin):
     list_display = ("name",)
-    search_fields = ("name")
+    search_fields = ("name",)
 
 # @admin.register(models.Soil)
 # class SoilAdmin(admin.ModelAdmin):
 #     list_display = ("soil_type",)
     
+@admin.register(models.WxPermissionPages)
+class WxPermissionPagesAdmin(admin.ModelAdmin):
+    list_display = ("name", "url_name", "description",)
+    search_fields = ("name", "url_name",)
+    
+
+@admin.register(models.WxGroupPageAccess)
+class WxGroupPageAccessAdmin(admin.ModelAdmin):
+    list_display = ("group", "page", "can_read", "can_write", "can_delete",)
+    search_fields = ("group__name", "page__name", "page__url_name",)
+
