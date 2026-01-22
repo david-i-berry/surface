@@ -35,7 +35,7 @@ from django.contrib.messages.views import SuccessMessageMixin
 from django.core.cache import cache
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import connection, transaction
+from django.db import connection, transaction, IntegrityError
 from django.http import HttpResponse, JsonResponse, FileResponse, HttpResponseNotAllowed, HttpResponseBadRequest, Http404
 from django.utils.http import http_date
 from django.template import loader
