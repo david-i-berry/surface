@@ -24,7 +24,7 @@ from openpyxl import Workbook
 import tempfile
 import psycopg2
 import pytz
-from wx.decorators import wx_permission_required
+from wx.decorators import wx_permission_required, wx_mapped_permission_required
 from django.contrib import messages
 from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
@@ -628,20 +628,9 @@ def InterpolatePostData(request):
 
 
 
-class DataExportView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class DataExportView(LoginRequiredMixin, TemplateView):
     template_name = "wx/data_export.html"
 
-    # This is the only “permission” string you need to supply:
-    permission_required = "Data Export - Full Access"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
-
-    
     def get_context_data(self, **kwargs):
         context =  super().get_context_data(**kwargs)
 
@@ -688,7 +677,7 @@ class ManualDataImportView(WxPermissionRequiredMixin, LoginRequiredMixin, Templa
 
 # retrieves manual data files metadata
 @api_view(('GET',))
-@wx_permission_required("manual-data-import", "read")
+@wx_mapped_permission_required
 def ManualDataFiles(request):
     files = []
     for df in ManualStationDataFile.objects.all().order_by('-created_at').values()[:100:1]:
@@ -726,7 +715,7 @@ def ManualDataFiles(request):
 
 
 # delete manual data file
-@wx_permission_required("manual-data-import", "delete")
+@wx_mapped_permission_required
 def DeleteManualDataFile(request):
     file_id = request.GET.get('id', None)
 
@@ -739,7 +728,7 @@ def DeleteManualDataFile(request):
 
 # recieve files from the manual import page, run some checks and return a success response
 @csrf_exempt
-@wx_permission_required("manual-data-import", "write")
+@wx_mapped_permission_required
 def CheckManualImportView(request):
     # print("DATA_UPLOAD_MAX_MEMORY_SIZE:", django.conf.settings.DATA_UPLOAD_MAX_MEMORY_SIZE)
     # print("FILE_UPLOAD_MAX_MEMORY_SIZE:", django.conf.settings.FILE_UPLOAD_MAX_MEMORY_SIZE)
@@ -839,7 +828,7 @@ def CheckManualImportView(request):
 
 # remove manual data files
 @csrf_exempt
-@wx_permission_required("manual-data-import", "read")
+@wx_mapped_permission_required
 def RemoveManualDataFile(request):
     if request.method == 'POST':
         try:
@@ -902,7 +891,7 @@ def RemoveManualDataFile(request):
 
 # process the uploaded manual data files
 @csrf_exempt
-@wx_permission_required("manual-data-import", "write")
+@wx_mapped_permission_required
 def UploadManualDataFile(request):
     UPLOAD_DIR = '/data/documents/ingest/manual/check'  #Upload Directory path
     PROCESS_DIR = '/data/documents/ingest/manual/process'  #Process Directory path 
@@ -2540,18 +2529,8 @@ def capture_forms_values_patch(request):
     return JsonResponse({'message': 'Only the GET and PATCH methods is allowed.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class StationOscarExportView(LoginRequiredMixin, WxPermissionRequiredMixin, ListView):
+class StationOscarExportView(LoginRequiredMixin, ListView):
     model = Station
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Oscar Export - Read"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
     template_name = 'wx/station_oscar_export.html'
 
@@ -2609,34 +2588,15 @@ class StationOscarExportView(LoginRequiredMixin, WxPermissionRequiredMixin, List
         return JsonResponse(response_data)
 
     
-class StationListView(LoginRequiredMixin, WxPermissionRequiredMixin, ListView):
+class StationListView(LoginRequiredMixin, ListView):
     model = Station
     
-    # This is the only “permission” string you need to supply:
-    permission_required = "Station List - Read"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
 
-class StationDetailView(LoginRequiredMixin, WxPermissionRequiredMixin, DetailView):
+class StationDetailView(LoginRequiredMixin, DetailView):
     model = Station
     template_name = 'wx/station_detail.html'  # Use the appropriate template
     context_object_name = 'station'
-
-    # This is the only “permission” string you need to supply:
-    permission_required = ("Station Detail - Read")
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
     # Define the same layout as in the UpdateView
     layout = Layout(
@@ -2699,18 +2659,8 @@ class StationDetailView(LoginRequiredMixin, WxPermissionRequiredMixin, DetailVie
         return context
 
 
-class StationCreate(LoginRequiredMixin, WxPermissionRequiredMixin, SuccessMessageMixin, CreateView):
+class StationCreate(LoginRequiredMixin, SuccessMessageMixin, CreateView):
     model = Station
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Create Station - Write"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
     success_message = "%(name)s was created successfully"
     # form_class = StationCreateForm(instance=self.object)
@@ -2863,19 +2813,9 @@ class StationCreate(LoginRequiredMixin, WxPermissionRequiredMixin, SuccessMessag
 
 
 
-class StationUpdate(LoginRequiredMixin, WxPermissionRequiredMixin, SuccessMessageMixin, UpdateView):
+class StationUpdate(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
     template_name = "wx/station_update.html"
     model = Station
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Station Update - Update"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
     success_message = "%(name)s was updated successfully"
     form_class = StationForm
@@ -3055,18 +2995,8 @@ def MonthlyFormUpdate(request):
     return JsonResponse({}, status=status.HTTP_200_OK)
 
 
-class StationDelete(LoginRequiredMixin, WxPermissionRequiredMixin, DeleteView):
+class StationDelete(LoginRequiredMixin, DeleteView):
     model = Station
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Station Delete - Delete"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
     fields = ['code', 'name', 'profile', ]
 
@@ -3074,18 +3004,8 @@ class StationDelete(LoginRequiredMixin, WxPermissionRequiredMixin, DeleteView):
         return reverse('stations-list')
 
 
-class StationFileList(LoginRequiredMixin, WxPermissionRequiredMixin, ListView):
+class StationFileList(LoginRequiredMixin, ListView):
     model = StationFile
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Stations Files List - Read"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
     def get_queryset(self):
         queryset = StationFile.objects.filter(station__id=self.kwargs.get('pk'))
@@ -3099,18 +3019,8 @@ class StationFileList(LoginRequiredMixin, WxPermissionRequiredMixin, ListView):
         return context
 
 
-class StationFileCreate(LoginRequiredMixin, WxPermissionRequiredMixin, SuccessMessageMixin, CreateView):
+class StationFileCreate(LoginRequiredMixin, SuccessMessageMixin, CreateView):
     model = StationFile
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Stations Files Create - Write"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
     # fields = "__all__"
     fields = ('name', 'file')
@@ -3140,18 +3050,8 @@ class StationFileCreate(LoginRequiredMixin, WxPermissionRequiredMixin, SuccessMe
         return reverse('stationfiles-list', kwargs={'pk': self.kwargs.get('pk')})
 
 
-class StationFileDelete(LoginRequiredMixin, WxPermissionRequiredMixin, DeleteView):
+class StationFileDelete(LoginRequiredMixin, DeleteView):
     model = StationFile
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Stations Files Delete - Delete"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
     success_message = "%(name)s was deleted successfully"
 
@@ -3166,18 +3066,8 @@ class StationFileDelete(LoginRequiredMixin, WxPermissionRequiredMixin, DeleteVie
         return reverse('stationfiles-list', kwargs={'pk': self.kwargs.get('pk_station')})
 
 
-class StationVariableListView(LoginRequiredMixin, WxPermissionRequiredMixin, ListView):
+class StationVariableListView(LoginRequiredMixin, ListView):
     model = StationVariable
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Station Variable - Read"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
     def get_queryset(self):
         queryset = StationVariable.objects.filter(station__id=self.kwargs.get('pk'))
@@ -3191,18 +3081,8 @@ class StationVariableListView(LoginRequiredMixin, WxPermissionRequiredMixin, Lis
         return context
 
 
-class StationVariableCreateView(LoginRequiredMixin, WxPermissionRequiredMixin, SuccessMessageMixin, CreateView):
+class StationVariableCreateView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
     model = StationVariable
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Station Variable - Write"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
     fields = ('variable',)
     success_message = "%(variable)s was created successfully"
@@ -3230,18 +3110,8 @@ class StationVariableCreateView(LoginRequiredMixin, WxPermissionRequiredMixin, S
         return reverse('stationvariable-list', kwargs={'pk': self.kwargs.get('pk')})
 
 
-class StationVariableDeleteView(LoginRequiredMixin, WxPermissionRequiredMixin, DeleteView):
+class StationVariableDeleteView(LoginRequiredMixin, DeleteView):
     model = StationVariable
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Station Variable - Delete"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
     success_message = "%(action)s was deleted successfully"
 
@@ -3525,18 +3395,8 @@ def variable_report_data(request):
         return JsonResponse({}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class StationReportView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class StationReportView(LoginRequiredMixin, TemplateView):
     template_name = "wx/products/station_report.html"
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Station Report - Full Access"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
     
     def get_context_data(self, **kwargs):
@@ -3569,20 +3429,9 @@ class StationReportView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateV
 
 
 
-class VariableReportView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class VariableReportView(LoginRequiredMixin, TemplateView):
     template_name = "wx/products/variable_report.html"
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Variable Report - Full Access"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
     
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
@@ -3603,20 +3452,9 @@ class ProductReportView(LoginRequiredMixin, TemplateView):
     template_name = "wx/products/report.html"
 
 
-class ProductCompareView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class ProductCompareView(LoginRequiredMixin, TemplateView):
     template_name = 'wx/products/compare.html'
 
-    # This is the only “permission” string you need to supply:
-    permission_required = "Station Compare - Full Access"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
-    
-    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
@@ -3630,20 +3468,9 @@ class ProductCompareView(LoginRequiredMixin, WxPermissionRequiredMixin, Template
         return context
 
 
-class QualityControlView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class QualityControlView(LoginRequiredMixin, TemplateView):
     template_name = 'wx/quality_control/validation.html'
 
-    # This is the only “permission” string you need to supply:
-    permission_required = "Data Validation - Full Access"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
-
-    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
@@ -3695,18 +3522,8 @@ def get_yearly_average(request):
     return JsonResponse({'message': 'Missing parameters.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class YearlyAverageReport(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class YearlyAverageReport(LoginRequiredMixin, TemplateView):
     template_name = 'wx/reports/yearly_average.html'
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Yearly Average - Full Access"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
     
 
 
@@ -4560,18 +4377,8 @@ def get_stationsmonitoring_map_data(request):
 #     return HttpResponse(template.render(context, request))
 
 
-class stationsmonitoring_form(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class stationsmonitoring_form(LoginRequiredMixin, TemplateView):
     template_name = "wx/stations/stations_monitoring.html"
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Stations Monitoring - Read"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
     def get_context_data(self, **kwargs):
         # call the base implementation to get a context dict
@@ -4597,19 +4404,8 @@ class NotAuthView(LoginRequiredMixin, TemplateView):
     template_name = "not_authorized.html"
 
 
-class get_wave_data_analysis(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class get_wave_data_analysis(LoginRequiredMixin, TemplateView):
     template_name = 'wx/products/wave_data.html'
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Wave Data Analysis - Full Access"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
-    # passing required context for watershed and region autocomplete fields
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -4959,18 +4755,8 @@ def get_wave_data(request):
     return JsonResponse(charts)
 
 
-class get_equipment_inventory(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class get_equipment_inventory(LoginRequiredMixin, TemplateView):
     template_name = 'wx/maintenance_reports/equipment_inventory.html'
-
-    # This is the only “permission” string you need to supply:
-    permission_required = ("Equipment Inventory - Read", "Equipment Inventory - Write", "Equipment Inventory - Update", "Equipment Inventory - Delete", "Equipment Inventory - Full Access")
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
 
 def get_value(variable):
@@ -5349,18 +5135,8 @@ def delete_equipment(request):
     )
 
 
-class get_maintenance_reports(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class get_maintenance_reports(LoginRequiredMixin, TemplateView):
     template_name = 'wx/maintenance_reports/maintenance_reports.html'
-
-    # This is the only “permission” string you need to supply:
-    permission_required = ("Maintenance Report - Read", "Maintenance Report - Write")
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
 
 @require_http_methods(["PUT"])
@@ -5561,18 +5337,8 @@ def get_maintenance_report_obj(maintenance_report):
     return station, station_profile, technician, visit_type
 
 
-class get_maintenance_report_form(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class get_maintenance_report_form(LoginRequiredMixin, TemplateView):
     template_name = 'wx/maintenance_reports/new_report.html'
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Maintenance Report - Write"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -6034,19 +5800,8 @@ def update_maintenance_report_summary(request, id):
 
     return JsonResponse(response, status=status.HTTP_200_OK)
 
-class SpatialAnalysisView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class SpatialAnalysisView(LoginRequiredMixin, TemplateView):
     template_name = "wx/spatial_analysis.html"
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Spatial Analysis - Full Access"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
-    # passing required context for watershed and region autocomplete fields
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -6111,20 +5866,9 @@ class StationsMapView(LoginRequiredMixin, TemplateView):
     template_name = "wx/station_map.html"
 
 
-class StationMetadataView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class StationMetadataView(LoginRequiredMixin, TemplateView):
     template_name = "wx/station_metadata.html"
     model = Station
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Station Metadata - Read"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
-
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -6208,19 +5952,8 @@ class StationFileViewSet(viewsets.ModelViewSet):
         return queryset
 
 
-class ExtremesMeansView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class ExtremesMeansView(LoginRequiredMixin, TemplateView):
     template_name = 'wx/products/extremes_means.html'
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Extremes Means - Full Access"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
-    # passing required context for watershed and region autocomplete fields
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -6500,20 +6233,9 @@ def range_threshold_view(request): # For synop and daily data captures
     return Response([], status=status.HTTP_200_OK)
 
 
-class get_range_threshold_form(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class get_range_threshold_form(LoginRequiredMixin, TemplateView):
     template_name = "wx/quality_control/range_threshold.html"
 
-    # This is the only “permission” string you need to supply:
-    permission_required = "Range Threshold - Full Access"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
-
-    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
@@ -6744,20 +6466,9 @@ def delete_range_threshold(request):
 
 
 
-class get_step_threshold_form(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class get_step_threshold_form(LoginRequiredMixin, TemplateView):
     template_name = "wx/quality_control/step_threshold.html"
 
-    # This is the only “permission” string you need to supply:
-    permission_required = "Step Threshold - Full Access"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
-
-    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
@@ -6932,20 +6643,9 @@ def delete_step_threshold(request):
 
 
 
-class get_persist_threshold_form(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class get_persist_threshold_form(LoginRequiredMixin, TemplateView):
     template_name = "wx/quality_control/persist_threshold.html"
 
-    # This is the only “permission” string you need to supply:
-    permission_required = "Persist Threshold - Full Access"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
-
-    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
@@ -6956,19 +6656,6 @@ class get_persist_threshold_form(LoginRequiredMixin, WxPermissionRequiredMixin, 
         context['interval_list'] = Interval.objects.filter(seconds__gt=1).order_by('seconds')    
 
         return context
-    
-
-# def get_persist_threshold_form(request):
-#     template = loader.get_template('wx/quality_control/persist_threshold.html')
-
-#     context = {}
-#     context['station_list'] = Station.objects.select_related('profile').all()
-#     context['station_profile_list'] = StationProfile.objects.all()
-#     context['station_watershed_list'] = Watershed.objects.all()
-#     context['station_district_list'] = AdministrativeRegion.objects.all()
-#     context['interval_list'] = Interval.objects.filter(seconds__gt=1).order_by('seconds')    
-
-#     return HttpResponse(template.render(context, request))
 
 
 def get_persist_threshold_entry(station_id, variable_id, interval, is_reference=False):
@@ -7366,20 +7053,8 @@ def daily_means_data_view(request):
     return JsonResponse(res, status=status.HTTP_200_OK)
 
 
-class DataInventoryView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
-    # The actual data inventory page will be disabled until it is re-worked
+class DataInventoryView(LoginRequiredMixin, TemplateView):
     template_name = "wx/data_inventory.html"
-    # template_name = "coming-soon.html"
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Data Inventory - Read"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    # raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
     
     def get_context_data(self, **kwargs):
@@ -8006,205 +7681,6 @@ class IntervalViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthenticated,)
     queryset = Interval.objects.all().order_by('seconds')
     serializer_class = serializers.IntervalSerializer
-
-# def get_synop_table_config():
-#     # List of variables, in order, for synoptic station input form
-#     variable_symbols = [
-#         'PRECIND', 'LOWCLHFt', 'VISBY-km',
-#         'CLDTOT', 'WNDDIR', 'WNDSPD', 'TEMP', 'TDEWPNT', 'TEMPWB',
-#         'RH', 'PRESSTN', 'PRESSEA', 'BAR24C', 'PRECIP', 'PREC24H', 'PRECDUR', 'PRSWX',
-#         'W1', 'W2', 'Nh', 'CL', 'CM', 'CH', 'STSKY',
-#         'DL', 'DM', 'DH', 'TEMPMAX', 'TEMPMIN', 'N1', 'C1', 'hhFt1',
-#         'N2', 'C2', 'hhFt2', 'N3', 'C3', 'hhFt3', 'N4', 'C4', 'hhFt4', 'SpPhenom'
-#     ]
-    
-#     # Get a variable list using the order of variable_ids list
-#     variable_dict = {variable.symbol: variable for variable in Variable.objects.filter(symbol__in=variable_symbols)}
-#     variable_list = [variable_dict[variable_symbol] for variable_symbol in variable_symbols]
-
-#     nested_headers = [
-#         [variable.name for variable in variable_list]+['Remarks', 'Observer', 'Action'],
-#         # [variable.symbol for variable in variable_list]+['Remarks', 'Observer', 'Action'],
-#         [
-#             (
-#                 variable.synoptic_code_form
-#             ) 
-#             if variable.synoptic_code_form is not None 
-#             else '' 
-#             for variable in variable_list
-#          ]+['', '', ''],
-#     ]
-
-#     col_widths = [
-#         99, 146, 176, 136, 61, 61, 107, 100, 83,
-#         171, 154, 117, 175, 163, 180, 129, 129, 181, 112,
-#         144, 144, 169, 108, 124, 110, 82, 148, 153,
-#         150, 208, 212, 162, 159, 195, 162, 159, 195,
-#         162, 159, 195, 162, 159, 195, 145, 64, 65, 49
-#     ]
-
-
-#     columns = []
-#     for variable in variable_list:
-#         if (variable.variable_type=='Numeric' and variable.id not in [0, 4057, 4055, 4058, 4059, 4060, 4061]):
-#             var_type='numeric'
-#             numeric_format = '0'
-#             if variable.scale > 0:
-#                 numeric_format = '0.'+'0'*variable.scale
-
-#             new_column = {
-#                 'data': str(variable.id),
-#                 'name': str(variable.symbol),
-#                 'type': var_type,
-#                 'numericFormat': {'pattern': numeric_format},
-#                 'validator': 'numericFieldValidator'
-#             }
-#         elif (variable.variable_type=='Numeric' and variable.id in [0]):
-#             var_type='numeric'
-#             numeric_format = '0'
-#             if variable.scale > 0:
-#                 numeric_format = '0.'+'0'*variable.scale
-
-#             new_column = {
-#                 'data': str(variable.id),
-#                 'name': str(variable.symbol),
-#                 'type': var_type,
-#                 'numericFormat': {'pattern': numeric_format},
-#                 'validator': 'customPrecipFieldValidator'
-#             }
-#         elif (variable.variable_type=='Numeric' and variable.id in [4058, 4059, 4060, 4061]):
-#             var_type='numeric'
-#             numeric_format = '0'
-#             if variable.scale > 0:
-#                 numeric_format = '0.'+'0'*variable.scale
-
-#             new_column = {
-#                 'data': str(variable.id),
-#                 'name': str(variable.symbol),
-#                 'type': var_type,
-#                 'numericFormat': {'pattern': numeric_format},
-#                 'validator': 'customCloudFieldValidator'
-#             }
-#         elif(variable.variable_type=='Code'):
-#             var_type='dropdown'
-#             new_column = {
-#                 'data': str(variable.id),
-#                 'name': str(variable.symbol),
-#                 'type': var_type,
-#                 'codetable': variable.code_table_id,
-#                 'strict': 'true',
-#                 'validator': 'dropdownFieldValidator'
-#             }   
-#         elif (variable.variable_type=='Numeric' and variable.id in [4057, 4055]): # the 24hr barometric change column
-#             var_type='numeric'
-#             numeric_format = '0'
-#             if variable.scale > 0:
-#                 numeric_format = '0.'+'0'*variable.scale
-
-#             new_column = {
-#                 'data': str(variable.id),
-#                 'name': str(variable.symbol),
-#                 'type': var_type,
-#                 'numericFormat': {'pattern': numeric_format},
-#                 'validator': 'numericFieldValidator',
-#                 'readOnly': 'true',
-#             }      
-#         else:
-#             var_type='text'
-#             numeric_format=None
-#             new_column = {
-#                 'data': str(variable.id),
-#                 'name': str(variable.symbol),
-#                 'type': var_type,
-#                 'validator': 'textFieldValidator',
-#             }
-
-#         columns.append(new_column)
- 
-#     columns.append({
-#         'data': 'remarks',
-#         'name':'remarks',
-#         'type': 'text',
-#         'validator': 'textFieldValidator'
-#     })
-#     columns.append({
-#         'data': 'observer',
-#         'name':'observer',
-#         'type': 'text',
-#         'validator': 'textFieldValidator'
-#     })
-#     columns.append({
-#         'data': 'action',
-#         'renderer': 'deleteButtonRenderer',
-#         'readOnly': 'true',
-#     })   
-
-#     row_headers = [
-#         '00:00','01:00','02:00','03:00','04:00','05:00','06:00','07:00',
-#         '08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00',
-#         '16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00',
-#         'SUM', 'AVG', 'MIN', 'MAX', 'STDDEV', 'COUNT'
-#     ]
-#     number_of_columns = len(columns)
-#     number_of_rows = len(row_headers)
-    
-#     # Get wmo code values to use in dropdown for code variables
-#     wmocodevalue_list = WMOCodeValue.objects.values('value', 'code_table_id')
-#     wmocodevalue_dict = {}
-#     for item in wmocodevalue_list:
-#         code_table_id = item['code_table_id']
-
-#         if code_table_id not in wmocodevalue_dict:
-#             wmocodevalue_dict[code_table_id] = []
-
-#         wmocodevalue_dict[code_table_id].append(item['value'])
-
-#     context = {
-#         'col_widths': col_widths,
-#         'nested_headers': nested_headers,
-#         'row_headers': row_headers,
-#         'columns': columns,
-#         'variable_ids': [variable.id for variable in variable_list],
-#         'wmocodevalue_dict': wmocodevalue_dict,
-#         'number_of_columns': number_of_columns,
-#         'number_of_rows': number_of_rows,
-#     }
-#     return context
-
-
-# class SynopView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
-#     template_name = "wx/data/synop.html"
-
-#     # This is the only “permission” string you need to supply:
-#     permission_required = "Synop Capture Old - Full Access"
-
-#     # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-#     raise_exception = True
-
-#     # (Optional) override the login URL if you don’t want the default:
-#     # login_url = "/new-reroute/"
-#     # If omitted, it will use settings.LOGIN_URL
-
-    
-#     def get_context_data(self, **kwargs):
-#         context = super().get_context_data(**kwargs)
-
-#         context['station_list'] = Station.objects.filter(is_synoptic=True).values('id', 'name', 'code')
-#         context['handsontable_config'] = get_synop_table_config()
-
-#         # Get parameters from request or set default values
-#         station_id = self.request.GET.get('station_id', 'null')
-#         date = self.request.GET.get('date', datetime.date.today().isoformat())
-#         context['station_id'] = station_id
-#         # context['date'] = date
-
-#         # changing the date so that if reflects that users timezone
-#         offset = datetime.timedelta(minutes=(settings.TIMEZONE_OFFSET))
-#         dt_object = datetime.datetime.now() + offset
-
-#         context['date'] = dt_object.date()
-
-#         return context   
 
 
 @csrf_exempt
@@ -9097,19 +8573,8 @@ def get_monthly_form_config():
     return context
 
 
-class MonthlyFormView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class MonthlyFormView(LoginRequiredMixin, TemplateView):
     template_name = "wx/data/monthly_form.html"
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Monthly Form - Full Access"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
-
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -9125,18 +8590,8 @@ class MonthlyFormView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateVie
 
 
 # wis2box dashboard page
-class WIS2DashboardView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class WIS2DashboardView(LoginRequiredMixin, TemplateView):
     template_name = "wx/wis2dashboard/wis2dashboard.html"
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "WIS2 Dashboard - Full Access"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
     
     def get_context_data(self, **kwargs):
@@ -9428,19 +8883,8 @@ def push_to_wis2box(request):
 
 
 # updated synop capture form view
-class SynopCaptureView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class SynopCaptureView(LoginRequiredMixin, TemplateView):
     template_name = "wx/data/synop_capture_form.html"
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Synop Capture - Full Access"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
-
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -9763,19 +9207,9 @@ def stat_file_info(path):
 
 
 @method_decorator(require_http_methods(["GET"]), name="dispatch")
-class ConfigurationSettingsView(LoginRequiredMixin,  WxPermissionRequiredMixin, TemplateView):
+class ConfigurationSettingsView(LoginRequiredMixin,  TemplateView):
 
     template_name = "wx/configuration_settings.html"
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Configuration Settings - Full Access"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
     def get_context_data(self, **kwargs):
         static_dir = get_static_assets_dir()
@@ -9811,19 +9245,8 @@ class ConfigurationSettingsView(LoginRequiredMixin,  WxPermissionRequiredMixin, 
 
 
 @method_decorator(require_http_methods(["GET"]), name="dispatch")
-class ManagePermissionsView(LoginRequiredMixin,  WxPermissionRequiredMixin, TemplateView):
+class ManagePermissionsView(LoginRequiredMixin,  TemplateView):
     template_name = "wx/manage_permissions.html"
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Permission Management - Full Access"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
-
 
 @method_decorator(require_http_methods(["POST"]), name="dispatch")
 class UploadOrDeleteSpatialFilesView(View):
@@ -10144,18 +9567,8 @@ def get_agromet_summary_data(request):
     return JsonResponse(response, status=status.HTTP_200_OK, safe=False)
 
 
-class AgroMetSummariesView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class AgroMetSummariesView(LoginRequiredMixin, TemplateView):
     template_name = "wx/agromet/agromet_summaries.html"
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Agromet Monthly & Seasonal - Full Access"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
     agromet_variable_symbols = [
         'TEMP',
@@ -10601,18 +10014,8 @@ def get_agromet_products_data(request):
     return JsonResponse(response, status=status.HTTP_200_OK, safe=False)            
 
 
-class AgroMetProductsView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateView):
+class AgroMetProductsView(LoginRequiredMixin, TemplateView):
     template_name = "wx/agromet/agromet_products.html"
-
-    # This is the only “permission” string you need to supply:
-    permission_required = "Agromet Products - Full Access"
-
-    # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
-
-    # (Optional) override the login URL if you don’t want the default:
-    # login_url = "/new-reroute/"
-    # If omitted, it will use settings.LOGIN_URL
 
     agromet_variable_symbols = [
         'TEMP',

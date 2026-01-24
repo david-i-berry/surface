@@ -1,42 +1,56 @@
-from asgiref.sync import iscoroutinefunction
-from django.utils.decorators import sync_and_async_middleware
-from .models import WxGroupPermission
+# wx/middleware.py
 
-@sync_and_async_middleware
-def user_permissions_middleware(get_response):
-    if iscoroutinefunction(get_response):
-        async def middleware(request):
-            if request.user.is_authenticated:
-                user_groups = request.user.groups.all()
-                permissions = await WxGroupPermission.objects.filter(group__in=user_groups).prefetch_related('permissions').aasync()
+from wx.models import WxGroupPageAccess
 
-                user_permissions = set()
-                for group_permission in permissions:
-                    user_permissions.update(group_permission.permissions.values_list('url_name', flat=True))
+class AttachWxPermissionsMiddleware:
+    """
+    Attach a precomputed set of permission strings to request.user_permissions.
 
-                request.user_permissions = user_permissions
-            else:
-                request.user_permissions = set()
+    Format:
+      "<url_name>:read"
+      "<url_name>:write"
+      "<url_name>:delete"
 
-            response = await get_response(request)
-            return response
-    else:
-        def middleware(request):
-            if request.user.is_authenticated:
-                user_groups = request.user.groups.all()
-                permissions = WxGroupPermission.objects.filter(group__in=user_groups).prefetch_related('permissions')
+    Why:
+    - Templates can check permissions without extra DB hits.
+    - Vue pages can read them from an endpoint (later) without recomputing.
+    """
 
-                user_permissions = set()
-                for group_permission in permissions:
-                    user_permissions.update(group_permission.permissions.values_list('url_name', flat=True))
+    def __init__(self, get_response):
+        self.get_response = get_response
 
-                request.user_permissions = user_permissions
-            else:
-                request.user_permissions = set()
+    def __call__(self, request):
+        # Default for anonymous users
+        request.user_permissions = set()
 
-            response = get_response(request)
-            return response
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return self.get_response(request)
 
-    return middleware
+        # Superusers get "all" in the UI
+        # (We store a sentinel so template checks can short-circuit.)
+        if user.is_superuser:
+            request.user_permissions = {"*"}
+            return self.get_response(request)
+
+        # Fetch all WxGroupPageAccess rows for all groups the user belongs to
+        access_rows = WxGroupPageAccess.objects.filter(
+            group__in=user.groups.all()
+        ).select_related("page")
+
+        perms = set()
+
+        for row in access_rows:
+            url_name = row.page.url_name
+            if row.can_read:
+                perms.add(f"{url_name}:read")
+            if row.can_write:
+                perms.add(f"{url_name}:write")
+            if row.can_delete:
+                perms.add(f"{url_name}:delete")
+
+        request.user_permissions = perms
+
+        return self.get_response(request)
 
             

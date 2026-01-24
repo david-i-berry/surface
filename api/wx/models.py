@@ -5,7 +5,9 @@ from datetime import datetime as dt
 import pytz
 from colorfield.fields import ColorField
 from django.contrib.auth.models import Group
-from django.contrib.gis.db import models
+from django.contrib.gis.db import models # for GeoDjango fields if you need them
+from django.db import models as dj_models
+from django.db.models import Q
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.urls import reverse
 from django.utils.timezone import now
@@ -2484,7 +2486,36 @@ class WxGroupPageAccess(BaseModel):
     can_write = models.BooleanField(default=False)
     can_delete = models.BooleanField(default=False)
 
+    def clean(self):
+        # If write/delete is granted, read must also be granted
+        if (self.can_write or self.can_delete) and not self.can_read:
+            raise ValidationError("can_read must be True if can_write or can_delete is True.")
+
+        # Don't allow a row that grants nothing
+        if not (self.can_read or self.can_write or self.can_delete):
+            raise ValidationError("At least one permission must be True (read/write/delete).")
+
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["group", "page"], name="unique_group_page")
+            models.UniqueConstraint(fields=["group", "page"], name="unique_group_page"),
+
+            # If can_write is True -> can_read must be True
+            dj_models.CheckConstraint(
+                check=Q(can_write=False) | Q(can_read=True),
+                name="wx_write_requires_read"
+            ),
+
+            # If can_delete is True -> can_read must be True
+            dj_models.CheckConstraint(
+                check=Q(can_delete=False) | Q(can_read=True),
+                name="wx_delete_requires_read"
+            ),
+
+            # At least one of the permissions must be True
+            dj_models.CheckConstraint(
+                check=Q(can_read=True) | Q(can_write=True) | Q(can_delete=True),
+                name="wx_at_least_one_permission"
+            ),
         ]
+
+

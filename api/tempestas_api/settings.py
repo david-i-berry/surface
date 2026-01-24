@@ -94,7 +94,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'simple_history.middleware.HistoryRequestMiddleware',
-    'wx.middleware.user_permissions_middleware',
+    "wx.middleware.AttachWxPermissionsMiddleware",
 ]
 
 ROOT_URLCONF = 'tempestas_api.urls'
@@ -113,7 +113,6 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'wx.context_processors.get_surface_context',
-                'wx.context_processors.get_user_wx_permissions',
                 'wx.context_processors.get_surface_version',
             ],
         },
@@ -332,6 +331,9 @@ WIS2BOX_TOPIC_HIERARCHY = str(os.getenv('WIS2BOX_TOPIC_HIERARCHY'))
 
 #file upload size limit 
 DATA_UPLOAD_MAX_MEMORY_SIZE = 15000000  #15MB
+
+# check to ensure the permission map is always up to date
+WX_PERMISSIONS_STRICT_MAP = True  # set False in prod if you’re worried
 
 APP_VERSION = "v1.0.0"
 APP_VERSION_STAGE = "-beta.1"

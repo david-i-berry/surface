@@ -358,11 +358,9 @@
             </v-text-field>
           </v-flex>
           <v-flex lg1 mt-5>
-            {% if 'write' in USER_PERMISSIONS.equipment_inventory or 'full_access' in USER_PERMISSIONS.equipment_inventory or user.is_superuser %}
-              <v-btn label color="primary" @click="getEquipmentData(); is_new_equipment=true; dialog_new = true">
-                New Equipment
-              </v-btn>
-            {% endif %}            
+            <v-btn label color="primary" @click="getEquipmentData(); is_new_equipment=true; dialog_new = true">
+              New Equipment
+            </v-btn>       
           </v-flex>
         </v-layout>
 
@@ -376,7 +374,6 @@
               loading="true"
             >
               <template v-slot:item.actions="{ item }">
-                {% if 'update' in USER_PERMISSIONS.equipment_inventory or 'full_access' in USER_PERMISSIONS.equipment_inventory or user.is_superuser %}
                 <v-tooltip bottom>
                   <template v-slot:activator="{ on }">
 
@@ -392,9 +389,7 @@
                   </template>
                   <span>Update Equipment</span>
                 </v-tooltip>
-                {% endif %}
 
-                {% if 'delete' in USER_PERMISSIONS.equipment_inventory or 'full_access' in USER_PERMISSIONS.equipment_inventory or user.is_superuser %}
                   <v-tooltip bottom>
                     <template v-slot:activator="{ on }">
 
@@ -412,7 +407,6 @@
                     </template>
                     <span>Delete Equipment</span>
                   </v-tooltip>
-                {% endif %}
               </template>              
             </v-data-table>
           </v-flex>            

@@ -531,3 +531,8 @@ class WxGroupPageAccessAdmin(admin.ModelAdmin):
     list_display = ("group", "page", "can_read", "can_write", "can_delete",)
     search_fields = ("group__name", "page__name", "page__url_name",)
 
+    def save_model(self, request, obj, form, change):
+        # Ensure model.clean() runs (and field validation too)
+        obj.full_clean()
+        super().save_model(request, obj, form, change)
+

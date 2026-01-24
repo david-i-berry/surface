@@ -24,24 +24,17 @@
 
       <a href="{% url 'station-metadata' %}" class="btn-outline-default btn-small">Metadata</a>
 
-      {% if user.is_superuser or USER_PERMISSIONS.station_update %}
-        {% url 'station-detail' station.id as metadataView %}
-        {% if request.path == metadataView %}
-          <a href="{% url 'station-update' station.id %}" class="btn-outline-default btn-small">Edit</a>
-        {% endif %}
+
+      {% url 'station-detail' station.id as metadataView %}
+      {% if request.path == metadataView %}
+        <a href="{% url 'station-update' station.id %}" class="btn-outline-default btn-small">Edit</a>
       {% endif %}
 
-      {% if USER_PERMISSIONS.stationfiles_list or user.is_superuser %}
-        <a href="{% url 'stationfiles-list' station.id %}" class="btn-outline-default btn-small">Files</a>
-      {% endif %}
+      <a href="{% url 'stationfiles-list' station.id %}" class="btn-outline-default btn-small">Files</a>
 
-      {% if USER_PERMISSIONS.stationvariable_list or user.is_superuser %}
-        <a href="{% url 'stationvariable-list' station.id %}" class="btn-outline-default btn-small">Variables</a>
-      {% endif %}
+      <a href="{% url 'stationvariable-list' station.id %}" class="btn-outline-default btn-small">Variables</a>
 
-      {% if user.is_superuser or USER_PERMISSIONS.station_delete %}
-        <a href="{% url 'station-delete' station.id %}" class="btn-outline-default btn-small metadata-btn-danger">Delete</a>
-      {% endif %}
+      <a href="{% url 'station-delete' station.id %}" class="btn-outline-default btn-small metadata-btn-danger">Delete</a>
 
       <a href="{% url 'stations-list' %}" class="btn-outline-default btn-small metadata-btn-info">Station List</a>
     

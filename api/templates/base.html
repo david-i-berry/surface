@@ -744,7 +744,7 @@
           <ul class="collapsible to-uppercase">
 
             <!-- stations tab -->
-            {% if request|has_any_feature_permission:"stations-map, station-create, stations-list, station-metadata, station-oscar-export, stations-monitoring" %}
+            {% if request|has_any_feature_permission:"stations-map:read, station-create:read, stations-list:read, station-metadata:read, station-oscar-export:read, stations-monitoring:read" %}
             <li id="stations-group" class="hover-item nav-dropdown-toggle">
 
               <!-- tab name -->
@@ -758,28 +758,27 @@
                 </span>
               </a>
 
-
-              {% if request|has_any_feature_permission:"stations-map" %}
+              {% if request|has_any_feature_permission:"stations-map:read" %}
                 <a id="stations-map" href="{% url 'stations-map' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">MAP<i class="material-icons secondary-content">map</i></a>
               {% endif%}
 
-              {% if request|has_any_feature_permission:"station-create" %}
+              {% if request|has_any_feature_permission:"station-create:read" %}
                 <a id="station-create" href="{% url 'station-create' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">CREATE&nbsp;STATION<i class="material-icons secondary-content">create</i></a>
               {% endif%}
 
-              {% if request|has_any_feature_permission:"stations-list" %}
+              {% if request|has_any_feature_permission:"stations-list:read" %}
                 <a id="stations-list" href="{% url 'stations-list' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">LIST<i class="material-icons secondary-content">list</i></a>
               {% endif%}
 
-              {% if request|has_any_feature_permission:"station-metadata" %}
+              {% if request|has_any_feature_permission:"station-metadata:read" %}
                 <a id="station-metadata" href="{% url 'station-metadata' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">METADATA<i class="material-icons secondary-content">assessment</i></a>
               {% endif%}
               
-              {% if request|has_any_feature_permission:"station-oscar-export" %}
+              {% if request|has_any_feature_permission:"station-oscar-export:read" %}
                 <a id="station-oscar-export" href="{% url 'station-oscar-export' %}" class="left-space hidden-link"  onclick="mainOverlayLoader()">OSCAR&nbsp;Export<i class="material-icons secondary-content">send</i></a>
               {% endif%}
               
-              {% if request|has_any_feature_permission:"stations-monitoring" %}
+              {% if request|has_any_feature_permission:"stations-monitoring:read" %}
                 <a id="stations-monitoring" href="{% url 'stations-monitoring' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">MONITORING<i class="material-icons secondary-content">monitor</i></a>                    
               {% endif%}
 
@@ -789,7 +788,7 @@
             {% endif%}
 
             <!-- maintenance tab -->
-            {% if request|has_any_feature_permission:"equipment-inventory, maintenance-reports" %}
+            {% if request|has_any_feature_permission:"equipment-inventory:read, maintenance-reports:read" %}
             <li id="maintenance-group" class="hover-item nav-dropdown-toggle">
 
               <!-- tab name -->
@@ -803,11 +802,11 @@
                 </span>
               </a>
                
-              {% if request|has_any_feature_permission:"maintenance-reports" %}             
+              {% if request|has_any_feature_permission:"maintenance-reports:read" %}             
                 <a id="maintenance-reports" href="{% url 'maintenance-reports' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Maint. Reports<i class="material-icons-outlined secondary-content">article</i></a>
               {% endif %}
 
-              {% if request|has_any_feature_permission:"equipment-inventory" %}
+              {% if request|has_any_feature_permission:"equipment-inventory:read" %}
                 <a id="equipment-inventory" href="{% url 'equipment-inventory' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Equip. Inventory<i class="material-icons-outlined secondary-content">inventory</i></a>
               {% endif %}
 
@@ -817,7 +816,7 @@
             {% endif %}
 
             <!-- data tab -->
-            {% if request|has_any_feature_permission:"monthly-form, data-export, manual-data-import, synop-capture-form, data-inventory" %}
+            {% if request|has_any_feature_permission:"monthly-form:read, data-export:read, manual-data-import:read, synop-capture-form:read, data-inventory:read" %}
             <li id="data-group" class="hover-item nav-dropdown-toggle">
 
               <!-- tab name -->
@@ -831,30 +830,23 @@
                 </span>
               </a>
 
-              {% if request|has_any_feature_permission:"monthly-form" %}
+              {% if request|has_any_feature_permission:"monthly-form:read" %}
                 <a id="monthly-form" href="{% url 'monthly-form' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Monthly Capture<i class="material-icons secondary-content">filter_center_focus</i></a>
               {% endif %}
                           
-              {% if request|has_any_feature_permission:"synop-capture-form" %}
+              {% if request|has_any_feature_permission:"synop-capture-form:read" %}
                 <a id="synop-capture-form" href="{% url 'synop-capture-form' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Synop Capture<i class="material-icons secondary-content">keyboard</i></a>
               {% endif %}
               
-              {% if request|has_any_feature_permission:"data-inventory" %}
-                <a id="data-inventory" href="{% url 'coming-soon' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Data Inventory<i class="material-icons secondary-content">web</i></a>
-                <!-- Actual like, coming soon above -->
-                <!-- <a id="data-inventory" href="{% url 'data-inventory' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Data Inventory<i class="material-icons secondary-content">web</i></a> -->
+              {% if request|has_any_feature_permission:"data-inventory:read" %}
+                <a id="data-inventory" href="{% url 'data-inventory' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Data Inventory<i class="material-icons secondary-content">web</i></a>
               {% endif %}
 
-              <!-- wis2dashboard -->
-              {% if request|has_any_feature_permission:"wis2-dashboard" %}
-                <a id="wis2-dashboard" href="{% url 'wis2-dashboard' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">WIS2 DASHBOARD<i class="material-icons secondary-content">space_dashboard</i></a>
-              {% endif %}
-
-              {% if request|has_any_feature_permission:"manual-data-import" %}
+              {% if request|has_any_feature_permission:"manual-data-import:read" %}
                 <a id="manual-data-import" href="{% url 'manual-data-import' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Import<i class="material-icons-outlined secondary-content">cloud_upload</i></a>
               {% endif %}
 
-              {% if request|has_any_feature_permission:"data-export" %}
+              {% if request|has_any_feature_permission:"data-export:read" %}
                 <a id="data-export" href="{% url 'data-export' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Export<i class="material-icons secondary-content">cloud_download</i></a>
               {% endif %}
 
@@ -863,8 +855,15 @@
             </li>
             {% endif %}
 
+            <!-- wis2dashboard -->
+            {% if request|has_any_feature_permission:"wis2-dashboard:read" %}
+            <li class="">
+              <a class="collapsible-item" href="{% url 'wis2-dashboard' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()"><i class="material-icons">token</i><span class="custom-navbar-text-fade-out">WIS2 DASHBOARD</span></a>
+            </li>
+            {% endif %}
+
             <!-- Quality control -->
-            {% if request|has_any_feature_permission:"persist-threshold, step-threshold, range-threshold, quality-control" %}
+            {% if request|has_any_feature_permission:"persist-threshold:read, step-threshold:read, range-threshold:read, quality-control:read" %}
             <li id="quality-control-group" class="hover-item nav-dropdown-toggle">
 
               <!-- tab name -->
@@ -878,19 +877,19 @@
                 </span>
               </a>
 
-              {% if request|has_any_feature_permission:"quality-control" %}
+              {% if request|has_any_feature_permission:"quality-control:read" %}
                 <a id="quality-control" href="{% url 'quality-control' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Data Validation<i class="material-icons secondary-content">done_all</i></a>
               {% endif %}
 
-              {% if request|has_any_feature_permission:"range-threshold" %}
+              {% if request|has_any_feature_permission:"range-threshold:read" %}
                 <a id="range-threshold" href="{% url 'range-threshold' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Range Threshold<i class="material-icons secondary-content">clear_all</i></a>
               {% endif %}
 
-              {% if request|has_any_feature_permission:"step-threshold" %}
+              {% if request|has_any_feature_permission:"step-threshold:read" %}
                 <a id="step-threshold" href="{% url 'step-threshold' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Step Threshold<i class="material-icons secondary-content">low_priority</i></a>
               {% endif %}
 
-              {% if request|has_any_feature_permission:"persist-threshold" %}
+              {% if request|has_any_feature_permission:"persist-threshold:read" %}
                 <a id="persist-threshold" href="{% url 'persist-threshold' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Persist Threshold<i class="material-icons secondary-content">format_align_left</i></a>
               {% endif %}
 
@@ -900,7 +899,7 @@
             {% endif %}
 
             <!-- products -->
-            {% if request|has_any_feature_permission:"wave-data, extremes-means, spatial-analysis, product-compare, variable-report, station-report" %}
+            {% if request|has_any_feature_permission:"wave-data:read, extremes-means:read, spatial-analysis:read, product-compare:read, variable-report:read, station-report:read" %}
             <li id="products-group" class="hover-item nav-dropdown-toggle">
 
               <!-- tab name -->
@@ -914,31 +913,31 @@
                 </span>
               </a>
 
-              {% if request|has_any_feature_permission:"station-report" %}
+              {% if request|has_any_feature_permission:"station-report:read" %}
                 <a id="station-report" href="{% url 'station-report' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Station Report<i class="material-icons secondary-content">people</i></a>
               {% endif %}
 
-              {% if request|has_any_feature_permission:"variable-report" %}
+              {% if request|has_any_feature_permission:"variable-report:read" %}
                 <a id="variable-report" href="{% url 'variable-report' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Variable Report<i class="material-icons secondary-content">view_list</i></a>
               {% endif %}
 
-              {% if request|has_any_feature_permission:"product-compare" %}
+              {% if request|has_any_feature_permission:"product-compare:read" %}
                 <a id="product-compare" href="{% url 'product-compare' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Station Compare<i class="material-icons secondary-content">compare_arrows</i></a>
               {% endif %}
 
-              {% if request|has_any_feature_permission:"yearly-average" %}
+              {% if request|has_any_feature_permission:"yearly-average:read" %}
                 <a id="yearly-average" href="{% url 'yearly-average' %}" class="left-space hidden-link">Yearly Average<i class="material-icons secondary-content" onclick="mainOverlayLoader()">timeline</i></a>
               {% endif %}
 
-              {% if request|has_any_feature_permission:"spatial-analysis" %}
+              {% if request|has_any_feature_permission:"spatial-analysis:read" %}
                 <a id="spatial-analysis" href="{% url 'spatial-analysis' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Spatial analysis<i class="material-icons secondary-content">dashboard</i></a>
               {% endif %}
 
-              {% if request|has_any_feature_permission:"extremes-means" %}
+              {% if request|has_any_feature_permission:"extremes-means:read" %}
                 <a id="extremes-means" href="{% url 'extremes-means' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Extremes & Means<i class="material-icons secondary-content">equalizer</i></a>
               {% endif %}
               
-              {% if request|has_any_feature_permission:"wave-data" %}
+              {% if request|has_any_feature_permission:"wave-data:read" %}
                 <a id="wave-data" href="{% url 'wave-data' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Wave data analysis<i class="material-icons secondary-content">water</i></a>
               {% endif %}
 
@@ -948,7 +947,7 @@
             {% endif %}
 
             <!-- agromet tab -->
-            {% if request|has_any_feature_permission:"agromet-summaries,agromet-products" %}
+            {% if request|has_any_feature_permission:"agromet-summaries:read, agromet-products:read" %}
             <li id="agromet-group" class="hover-item nav-dropdown-toggle">
 
               <!-- tab name -->
@@ -962,11 +961,11 @@
                 </span>
               </a>
 
-              {% if request|has_any_feature_permission:"agromet-summaries" %}
+              {% if request|has_any_feature_permission:"agromet-summaries:read" %}
                 <a id="agromet-summaries"  href="{% url 'agromet-summaries' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Monthly & Seasonal<i class="material-icons secondary-content">view_list</i></a>
               {% endif %}
               
-              {% if request|has_any_feature_permission:"agromet-products" %}
+              {% if request|has_any_feature_permission:"agromet-products:read" %}
                 <a id="agromet-products"  href="{% url 'agromet-products' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Calculated Products<i class="material-icons secondary-content">calculate</i></a>
               {% endif %}
 
@@ -976,7 +975,7 @@
             {% endif %}
 
             <!-- settings tab -->
-            {% if request|has_any_feature_permission:"configuration-settings,manage-permissions" %}
+            {% if request|has_any_feature_permission:"configuration-settings:read, manage-permissions:read" %}
             <li id="settings-group" class="hover-item nav-dropdown-toggle">
 
               <!-- tab name -->
@@ -990,17 +989,17 @@
                 </span>
               </a>
 
-              {% if request|has_any_feature_permission:"configuration-settings" %}
+              {% if request|has_any_feature_permission:"configuration-settings:read" %}
                 <a id="configuration-settings"  href="{% url 'configuration-settings' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Configuration<i class="material-icons secondary-content">build</i></a>
               {% endif %}
 
-              {% if request|has_any_feature_permission:"manage-permissions" %}
+              {% if request|has_any_feature_permission:"manage-permissions:read" %}
                 <a id="manage-permissions"  href="{% url 'coming-soon' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Manage Permissions<i class="material-icons secondary-content">key_vertical</i></a>
                 <!-- Actual like, coming soon above -->
                 <!--  <a id="manage-permissions"  href="{% url 'manage-permissions' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Manage Permissions<i class="material-icons secondary-content">key_vertical</i></a> -->
               {% endif %}
               
-              {% if request|has_any_feature_permission:"" %} <!-- leaving it blank just does a superuser check-->
+              {% if request.user.is_superuser %}
                 <a id="admin-area"  href="{% url 'admin:index' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Administrative Area<i class="material-icons secondary-content">business_center</i></a>
               {% endif %}
 
@@ -1289,6 +1288,14 @@
             window.wxToast({
               message: "Your session has expired. Please log in again to continue.",
               type: "warn",
+              timeout: 3500
+            });
+          }
+          // If backend sends 500 for error (permission mapping probably missing)
+          else if (error.response && error.response.status === 500){
+            window.wxToast({
+              message: "An error occured. Permission mapping missing.",
+              type: "error",
               timeout: 3500
             });
           }

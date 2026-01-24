@@ -309,7 +309,12 @@
               this.currentStatus = STATUS_INITIAL;
 
               this.request_error = true;
-              this.request_error_message = error.response.data.error;
+              
+              if (error.response.data.error) {
+                this.request_error_message = error.response.data.error;
+              } else {
+                this.request_error_message = error.response.data.detail;
+              }
 
               // reset loading and show btn
               this.loading = false;
@@ -425,7 +430,12 @@
                 this.request_error_message = 'File is too large! Please upload a file 2.00MB or below.';
               } else {
                 this.request_error = true;
-                this.request_error_message = error.response.data.error;
+                
+                if (error.response.data.error) {
+                  this.request_error_message = error.response.data.error;
+                } else {
+                  this.request_error_message = error.response.data.detail;
+                }
               }
 
               this.showBtn = true; // re-enable btns
@@ -459,7 +469,12 @@
               this.currentStatus = STATUS_INITIAL;
 
               this.request_error = true;
-              this.request_error_message = error.response.data.error;
+              
+              if (error.response.data.error) {
+                this.request_error_message = error.response.data.error;
+              } else {
+                this.request_error_message = error.response.data.detail;
+              }
 
               // reset loading and show btn
               this.loading = false;

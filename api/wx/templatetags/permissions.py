@@ -1,19 +1,24 @@
+# wx/templatetags/permissions.py
+
 from django import template
 
 register = template.Library()
 
+
 @register.filter
-def has_any_feature_permission(request, features):
+def has_any_feature_permission(request, features: str) -> bool:
     """
-    Frontend-only feature gate.
+    UI gate.
 
-    Expects:
-    - request.user_permissions to be an iterable of strings
+    Input:
+      features = "manual-data-import:read,manual-data-import:write"
+
+    Behavior:
+    - Anonymous -> False
+    - Superuser -> True
+    - If request.user_permissions contains "*" -> True
+    - Otherwise -> check membership in request.user_permissions
     """
-
-    # Defensive check:
-    # - request.user may not exist if AuthenticationMiddleware is missing
-    # - anonymous users should never see frontend-restricted features
     if not hasattr(request, "user") or not request.user.is_authenticated:
         return False
 
@@ -21,10 +26,13 @@ def has_any_feature_permission(request, features):
     if request.user.is_superuser:
         return True
 
-    # If frontend permissions were not attached to the request
-    if not hasattr(request, "user_permissions"):
+    perms = getattr(request, "user_permissions", None)
+    if not perms:
         return False
 
-    feature_list = [f.strip() for f in features.split(",")]
+    # Middleware sets "*" for superusers; keep this as a fast-path anyway
+    if "*" in perms:
+        return True
 
-    return any(f in request.user_permissions for f in feature_list)
+    feature_list = [f.strip() for f in features.split(",") if f.strip()]
+    return any(f in perms for f in feature_list)
