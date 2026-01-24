@@ -94,7 +94,17 @@
 							inset
 					  	/> 						  
 					</v-col>
-					<v-col cols="3" v-if="!filters.is_seasonal">
+					<v-col cols="2" v-if="!filters.is_seasonal">
+						<v-autocomplete
+							label="Select Interval"
+							:items="intervals"
+							v-model="requestData.interval"
+							:rules="[rules.required]"
+							hint="*Required"
+							persistent-hint
+						/>
+					</v-col>
+					<v-col cols="3" v-if="!filters.is_seasonal && !['3 months', '6 months'].includes(requestData.interval)">
 						<v-autocomplete
 							label="Select Months"
 							:items="months"
@@ -107,19 +117,23 @@
 							clearable
 							chips
 							deletable-chips
+							:disabled="!requestData.interval"
 							:rules="[rules.required, rules.nonEmpty]"
 						/>
-					</v-col>					
-					<v-col cols="2" v-if="!filters.is_seasonal">
+					</v-col>
+					<v-col cols="3" v-if="!filters.is_seasonal && ['3 months', '6 months'].includes(requestData.interval)">
 						<v-autocomplete
-							label="Select Interval"
-							:items="intervals"
-							v-model="requestData.interval"
-							:rules="[rules.required]"
+							label="Select Starting Month"
+							:items="months"
+							item-value='id'
+							item-text="name"
+							v-model="requestData.month"
 							hint="*Required"
 							persistent-hint
+							:disabled="!requestData.interval"
+							:rules="[rules.required]"
 						/>
-					</v-col>
+					</v-col>					
 				</v-row>
 				<v-row>
 					<v-col cols="3" class="d-flex justify-left">
@@ -302,6 +316,7 @@
 				isDailyData: true,
 				summaryType: 'Seasonal',
 				months: [],
+				month: null,
 				interval: null,
 				startYear: null,
 				endYear: null,
@@ -316,6 +331,7 @@
 				isDailyData: true,
 				summaryType: 'Seasonal',
 				months: [],
+				month: null,
 				interval: null,
 				startYear: null,
 				endYear: null,
@@ -347,7 +363,7 @@
 				{id: 11, name: 'Nov'},
 				{id: 12, name: 'Dec'},
 			],
-			intervals: ['7 days', '10 days', '1 month'],
+			intervals: ['7 days', '10 days', '1 month', '3 months', '6 months'],
 			variableList: {{ variable_list | safe }},
 			stationList: [
 				{% for station in station_list %}
@@ -377,7 +393,13 @@
 			},
 			'requestData.startYear' (newStartYear, oldStartYear) {
 				this.requestData.endYear = null
-			}
+			},
+			'requestData.interval' (newInterval, oldInterval){
+				if (['3 months', '6 months'].includes(newInterval) != ['3 months', '6 months'].includes(oldInterval)){
+					this.requestData.months = []
+					this.requestData.month = null
+				}
+			},
 		},	
 		computed: {
 			availableStartYears () {
@@ -424,11 +446,20 @@
 					
 				}
 				else if (this.requestedData.summaryType==='Monthly'){
-					baseHeaders = [
-						{ text: 'Year', align: 'end', value: 'year', sortable: false},
-						{ text: 'Month', align: 'end', value: 'month', sortable: false}
-					];
-					baseKeys = ['station', 'variable_id', 'year', 'month']
+					if (['3 months', '6 months'].includes(this.requestedData.interval)) {
+						baseHeaders = [
+							{ text: 'Year', align: 'end', value: 'year', sortable: false},
+							{ text: 'Starting Month', align: 'end', value: 'month', sortable: false}
+						];
+						baseKeys = ['station', 'variable_id', 'year', 'month']
+					}
+					else{
+						baseHeaders = [
+							{ text: 'Year', align: 'end', value: 'year', sortable: false},
+							{ text: 'Month', align: 'end', value: 'month', sortable: false}
+						];
+						baseKeys = ['station', 'variable_id', 'year', 'month']
+					}
 				}
 
 				const keys = filteredData.length? Object.keys(filteredData[0]).filter(item => !baseKeys.includes(item)): [];
@@ -462,6 +493,7 @@
 				this.requestedData.variableIds = this.requestData.variableIds
 				this.requestedData.isDailyData = this.requestData.isDailyData
 				this.requestedData.months = this.requestData.months
+				this.requestedData.month = this.requestData.month
 				this.requestedData.interval = this.requestData.interval
 				this.requestedData.startYear = this.requestData.startYear
 				this.requestedData.endYear = this.requestData.endYear
@@ -481,6 +513,7 @@
 					variable_ids: this.requestedData.variableIds.join(','),
 					is_daily_data: this.requestedData.isDailyData,
 					months: this.requestedData.months.join(','),
+					month: this.requestedData.month,
 					interval: this.requestedData.interval,
 					start_year: this.requestedData.startYear,
 					end_year: this.requestedData.endYear,

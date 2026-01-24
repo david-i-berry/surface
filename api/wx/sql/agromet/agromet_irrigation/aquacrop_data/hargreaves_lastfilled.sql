@@ -31,7 +31,7 @@ WITH requested_entries AS (
         COUNT(min_value) OVER (PARTITION BY vr_symbol ORDER BY day) AS min_group,
         COUNT(max_value) OVER (PARTITION BY vr_symbol ORDER BY day) AS max_group,
         COUNT(avg_value) OVER (PARTITION BY vr_symbol ORDER BY day) AS avg_group,
-        COUNT(avg_value) OVER (PARTITION BY vr_symbol ORDER BY day) AS sum_group
+        COUNT(sum_value) OVER (PARTITION BY vr_symbol ORDER BY day) AS sum_group
     FROM extended_daily_summary
 ),
 filled_daily_summary AS (
@@ -55,7 +55,7 @@ filled_daily_summary AS (
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
         ) AS avg_value,
         FIRST_VALUE(sum_value) OVER (
-            PARTITION BY vr_symbol, avg_group 
+            PARTITION BY vr_symbol, sum_group 
             ORDER BY day
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
         ) AS sum_value        
