@@ -5,7 +5,10 @@
 /api/static/material
 /api/static/rest_framework
 /api/static/ckeditor
-api/static/images/
+/api/static/images/
+
+# .geojson fiels
+*.geojson
 
 /data/
 
@@ -151,4 +154,3 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
-

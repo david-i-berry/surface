@@ -34,24 +34,9 @@ def get_surface_context(req):
     }
 
 
-def get_user_wx_permissions(req):
-    with psycopg2.connect(settings.SURFACE_CONNECTION_STRING) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                    SELECT DISTINCT url_name, permission
-                    FROM wx_wxpermission as perm
-                    JOIN wx_wxgrouppermission_permissions as gpp ON gpp.wxpermission_id = perm.id
-                    JOIN wx_wxgrouppermission as gp ON gp.id = gpp.wxgrouppermission_id
-                    JOIN auth_user_groups as aug ON aug.group_id = gp.group_id 
-                    WHERE aug.user_id = %s
-                """, (req.user.id,))
-
-            user_permissions = {}
-            for row in cursor.fetchall():
-                if user_permissions.get(row[0]) is None:
-                    user_permissions[row[0]] = []
-
-                user_permissions[row[0]].append(row[1])
-
-    return {'USER_PERMISSIONS': user_permissions, 'USER_IS_ADMIN': 1 if req.user.is_superuser else 0}
+def get_surface_version(req):
+    return {
+        'APP_VERSION': settings.APP_VERSION,
+        'APP_VERSION_STAGE': settings.APP_VERSION_STAGE,
+        'APP_VERSION_LABEL': settings.APP_VERSION_LABEL
+    }

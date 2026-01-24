@@ -173,9 +173,9 @@
               <v-switch
                 v-for="region in regions"
                 :key="region.id"
-                v-model="defaultFilter.region"
+                v-model="defaultFilter.region_id"
                 :label="region.name"
-                :value="region.name"
+                :value="region.id"
               >
               </v-switch>
             </div>
@@ -215,6 +215,8 @@
         </v-expansion-panel>
       </v-expansion-panels>
     </v-navigation-drawer>
+
+    <!-- map -->
     <div style="height: 100vh; width: 100%">
       <l-map
         ref="myMap"
@@ -259,22 +261,29 @@
             @click="openStationsDetailDialog(marker, $event)"
             @add="openPopup"
           >
+
             <l-tooltip :options="tooltipOptions"
               >[[ marker.tooltip ]]</l-tooltip
             >
+
             <l-popup v-show="showMarkerValues" :options="popupOptions">
+
               <div class="left">
                 <div class="value temp-max">[[ marker.tempMax ]]</div>
                 <div class="value temp-min">[[ marker.tempMin ]]</div>
               </div>
+
               <div class="right">
                 <div class="value atm-pressure">[[ marker.atmPressure ]]</div>
                 <div class="value precipitation">
                   [[ marker.precipitation ]]
                 </div>
               </div>
+
             </l-popup>
+
           </l-marker>
+
         </div>
 
         <l-geo-json
@@ -470,6 +479,7 @@
 
     </div>
 
+    <!-- overlays box -->
     <div
       class="overlays-filter"
       v-bind:class="{ 'options-menu-opened': drawer === true }"
@@ -491,18 +501,27 @@
 
           <v-list-item>
             <v-switch
+              inset
+              :loading="loadWatershed"
+              v-model="showWatershed"
               @change="toggleWatershedOverlay()"
               label="Watershed"
             ></v-switch>
           </v-list-item>
           <v-list-item>
             <v-switch
+              inset
+              :loading="loadGroundwater"
+              v-model="showGroundwater"
               @change="toggleGroundwaterOverlay()"
               label="Groundwater"
             ></v-switch>
           </v-list-item>
           <v-list-item>
             <v-switch
+              inset
+              :loading="loadBasemap"
+              v-model="showBasemap"
               @change="toggleDistrictsOverlay()"
               label="Districts"
             ></v-switch>
@@ -512,6 +531,9 @@
           </v-list-item> -->
           <v-list-item>
             <v-switch
+              inset
+              :loading="loadNationalWaters"
+              v-model="showNationalWaters"
               @change="toggleNationalWatersOverlay()"
               label="National waters"
             ></v-switch>
@@ -542,6 +564,7 @@
       </v-menu>
     </div>
 
+    <!-- search functionality -->
     <div
       class="options-menu"
       v-bind:class="{ 'options-menu-opened': drawer === true }"
@@ -550,7 +573,25 @@
         <v-icon class="material-icons" color="black">search</v-icon>
       </v-btn>
     </div>
+
+    <!-- alerts -->
+    <v-alert
+      v-model="alertVisible"
+      :type="alertType"
+      dismissible
+      transition="scale-transition"
+      style="
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+      "
+    >
+      [[ alertMessage ]]
+    </v-alert>
   </v-app>
+
 </div>
 
 {% endblock %} {% block localjavascript %}
@@ -606,7 +647,7 @@
         tooltipAnchor: [0, -34]
       }),
       showWindBarbs: true,
-      popupOptions: { closeButton: false, className: 'windbarbPopup', autoClose: false, closeOnClick: false },
+      popupOptions: { closeButton: false, className: 'windbarbPopup', autoClose: false, closeOnClick: false, autoPan: false },
       tooltipOptions: { permanent: false, direction: 'top', className: '' },
       menu: false,
       lastUpdate: null,
@@ -635,7 +676,7 @@
         }
       ],
       timezone: "{{ TIMEZONE_NAME|escapejs }}",
-      zoom: "{{ MAP_ZOOM|safe }}",
+      zoom: Number("{{ MAP_ZOOM }}"),
       center: L.latLng("{{ MAP_LATITUDE|safe }}", "{{ MAP_LONGITUDE|safe }}"),
       url: "https://{s}.tile.osm.org/{z}/{x}/{y}.png",
       attribution:
@@ -643,6 +684,12 @@
       options: { zoomControl: false },
       zoomPosition: "topleft",
       menuDatePicker: false,
+
+      // Alert 
+      alertVisible: false,
+      alertMessage: "",
+      alertType: "warning",
+      alertTimeout: null,
 
       // LAYERS
 
@@ -657,6 +704,12 @@
       showBasemap: false,
       showRiver: false,
       showNationalWaters: false,
+
+      loadWatershed: false,
+      loadGroundwater: false,
+      loadBasemap: false,
+      loadRiver: false,
+      loadNationalWaters: false,
 
       selectedLayers: null,
 
@@ -695,9 +748,10 @@
         is_active: true,
         is_inactive: false,
         is_automatic: true,
-        is_manual: false,
+        is_manual: true,
         profile: [],
         region: [],
+        region_id: [],
         watershed: [],
         station_communications: [],
         inputSearch: "",
@@ -739,6 +793,8 @@
       STATION_MAP_FILTER_REGION:  "{{ STATION_MAP_FILTER_REGION|safe }}",
       STATION_MAP_FILTER_PROFILE:  "{{ STATION_MAP_FILTER_PROFILE|safe }}",
       STATION_MAP_FILTER_COMMUNICATION:  "{{ STATION_MAP_FILTER_COMMUNICATION|safe }}",
+
+      watershedEnabled: false,
     },
     computed: {
       filteredMarkers() {
@@ -758,8 +814,7 @@
             (marker.is_automatic === !this.defaultFilter.is_manual) === true
           ) &&
           (this.defaultFilter.profile.includes(marker.profile) || this.STATION_MAP_FILTER_PROFILE == 0) &&
-          (this.defaultFilter.region.includes(marker.region) || this.STATION_MAP_FILTER_REGION == 0) &&
-          (this.defaultFilter.watershed.includes(marker.watershed) || this.STATION_MAP_FILTER_WATERSHED == 0) &&
+          (this.defaultFilter.region_id.includes(marker.region) || this.STATION_MAP_FILTER_REGION == 0) &&
           (this.defaultFilter.station_communications.includes(marker.communication_type) || this.STATION_MAP_FILTER_COMMUNICATION == 0) &&
           (this.defaultFilter.inputSearch === "" || marker.name.toUpperCase().includes(this.defaultFilter.inputSearch.toUpperCase()))
         )
@@ -779,12 +834,12 @@
       Sandbox() {
         return this.sandbox;
       },
-      // Watershed() {
-      //   if (this.showWatershed === true) {
-      //     return true;
-      //   }
-      //   return false;
-      // },
+      Watershed() {
+        if (this.showWatershed === true) {
+          return true;
+        }
+        return false;
+      },
       Groundwater() {
         if (this.showGroundwater === true) {
           return true;
@@ -958,6 +1013,23 @@
         })
       },
       
+      // Alert popup control
+      showAlert(message, type = "warning") {
+        this.alertMessage = message;
+        this.alertType = type;
+        this.alertVisible = true;
+
+        // Clear any existing timeout if alert is triggered again
+        if (this.alertTimeout) {
+          clearTimeout(this.alertTimeout);
+        }
+
+        // Auto close after 2 seconds
+        this.alertTimeout = setTimeout(() => {
+          this.alertVisible = false;
+        }, 2000);
+      },
+
       // Function to format non-integer numeric values to one decimal place
       valueFormatting(value) {
         // Check if the value is a number and not an integer
@@ -992,6 +1064,8 @@
           tempMinUrl = 'api/last24hrsummaries/?search_type=variable&search_value=' + this.STATION_MAP_TEMP_MIN_ID;
           atmPressureUrl = 'api/last24hrsummaries/?search_type=variable&search_value=' + this.STATION_MAP_ATM_PRESSURE_ID;
           precipitationUrl = 'api/last24hrsummaries/?search_type=variable&search_value=' + this.STATION_MAP_PRECIPITATION_ID;
+
+          // console.log(wsUrl, wdUrl, tempMaxUrl, tempMinUrl, atmPressureUrl, precipitationUrl);
         } else {
           // dailySummary
           const today = date;
@@ -1002,6 +1076,7 @@
           tempMinUrl = `api/dailysummaries/?search_type=variable&search_value=${this.STATION_MAP_TEMP_MIN_ID}&search_date_start=${today}&search_date_end=${tomorrow}`;
           atmPressureUrl = `api/dailysummaries/?search_type=variable&search_value=${this.STATION_MAP_ATM_PRESSURE_ID}&search_date_start=${today}&search_date_end=${tomorrow}`;
           precipitationUrl = `api/dailysummaries/?search_type=variable&search_value=${this.STATION_MAP_PRECIPITATION_ID}&search_date_start=${today}&search_date_end=${tomorrow}`;
+        
         }
 
         let [ws, wd, tempMax, tempMin, atmPressure, precipitation] = await Promise.all([this.getAll(wsUrl), this.getAll(wdUrl), this.getAll(tempMaxUrl), this.getAll(tempMinUrl), this.getAll(atmPressureUrl), this.getAll(precipitationUrl)]);
@@ -1010,49 +1085,111 @@
       
       toggleWatershedOverlay() {
         if (!this.Watersheds_geojson) {
+          // display loading icon
+          this.loadWatershed = true;
+
+          // get the shapefile via axios request
           this.getGeoJson.watershed().then(data => {
             this.Watersheds_geojson = data.data;
+
+          }).catch(error => {
+            // if an error occurs alert the user
+            if (error.response.status == '404') {
+              this.showAlert("Watershed Shapefile Not Found");
+            } else {
+              this.showAlert(`Error Occured Accessing Watershed Shapefile - ${error.response.status}`);
+            }
+
+            // reset the button
+            this.showWatershed = false;
+          }).finally(() => {
+            // reset the button
+            this.loadWatershed = false;
           });
-
         }
-
-        this.showWatershed = !this.showWatershed;
       },
       
       toggleDistrictsOverlay() {
         if (!this.Basemap_geojson) {
+          // display loading icon
+          this.loadBasemap = true;
+
           this.getGeoJson.districts().then(data => {
             this.Basemap_geojson = data.data;
+
+          }).catch(error => {
+            // if an error occurs alert the user
+            if (error.response.status == '404') {
+              this.showAlert("District Shapefile Not Found");
+            } else {
+              this.showAlert(`Error Occured Accessing District Shapefile - ${error.response.status}`);
+            }
+
+            // reset the button
+            this.showBasemap = false;
+          }).finally(() => {
+            // reset the button
+            this.loadBasemap = false;
           });
+
         }
-        this.showBasemap = !this.showBasemap;
       },
       
       toggleGroundwaterOverlay() {
         if (!this.Groundwater_geojson) {
+          // display loading icon
+          this.loadGroundwater = true;
+
           this.getGeoJson.groundwater().then(data => {
             this.Groundwater_geojson = data.data;
+          }).catch(error => {
+            // if an error occurs alert the user
+            if (error.response.status == '404') {
+              this.showAlert("Groundwater Shapefile Not Found");
+            } else {
+              this.showAlert(`Error Occured Accessing Groundwater Shapefile - ${error.response.status}`);
+            }
+
+            // reset the button
+            this.showGroundwater = false;
+          }).finally(() => {
+            // reset the button
+            this.loadGroundwater = false;
           });
         }
-        this.showGroundwater = !this.showGroundwater;
       },
       
-      toggleRiverOverlay() {
-        if (!this.River_geojson) {
-          this.getGeoJson.river().then(data => {
-            this.River_geojson = data.data;
-          });
-        }
-        this.showRiver = !this.showRiver;
-      },
+      // toggleRiverOverlay() {
+      //   if (!this.River_geojson) {
+      //     this.getGeoJson.river().then(data => {
+      //       this.River_geojson = data.data;
+      //     });
+      //   }
+      //   this.showRiver = !this.showRiver;
+      // },
       
       toggleNationalWatersOverlay() {
         if (!this.NationalWaters_geojson) {
+          // display loading icon
+          this.loadNationalWaters = true;
+
           this.getGeoJson.nationalWaters().then(data => {
             this.NationalWaters_geojson = data.data;
+          }).catch(error => {
+            // if an error occurs alert the user
+            if (error.response.status == '404') {
+              this.showAlert("National Waters Shapefile Not Found");
+            } else {
+              this.showAlert(`Error Occured Accessing National Waters Shapefile - ${error.response.status}`);
+            }
+
+            // reset the button
+            this.showNationalWaters = false;
+          }).finally(() => {
+            // reset the button
+            this.loadNationalWaters = false;
           });
         }
-        this.showNationalWaters = !this.showNationalWaters;
       },
       
       changeTimeToggle() {
@@ -1088,6 +1225,7 @@
           this.regions = data;
           data.forEach(region => {
             this.defaultFilter.region.push(region.name);
+            this.defaultFilter.region_id.push(region.id);
           });
         });
       },
@@ -1105,8 +1243,12 @@
         this.getAll("api/station_communications/").then(data => {
           this.station_communications = data;
           data.forEach(station_communication => {
-            if(station_communication.name != 'None')
-              this.defaultFilter.station_communications.push(station_communication.name);
+            // does not automatically hide all stations which have "No Communication" set
+            this.defaultFilter.station_communications.push(station_communication.name);
+
+            // this automatically hides all station which have "No Communication" set
+            // if(station_communication.name != 'None')
+            //   this.defaultFilter.station_communications.push(station_communication.name);
           });
         });
       },
@@ -1238,46 +1380,119 @@
         }
       },
       
+      // to display the wind barbs
       showWindBarbSummaries(timeToggle, date) {
+        // Enable wind barb layer / UI state
         this.showWindBarbs = true;
+
+        // Generate a unique request id to prevent race conditions
+        // (older async responses should not overwrite newer ones)
+        const requestId = Date.now();
+        this._lastWindRequest = requestId;
+
+        // Fetch wind + weather summary data
         this.getWindBards(timeToggle, date).then((wind) => {
-          this.lastUpdate = moment(new Date()).format('L LT') ;
 
+          // If another request was made after this one, ignore this response
+          if (this._lastWindRequest !== requestId) return;
+
+          // Update "last updated" timestamp for the UI
+          this.lastUpdate = moment().format('L LT');
+
+          // Normalize station IDs to avoid:
+          // - string vs number mismatches
+          // - trailing whitespace issues
+          const normalizeId = id => String(id).trim();
+
+          // Destructure datasets for clarity instead of wind[0], wind[1], etc.
+          const [
+            windSpeedData,
+            windDirectionData,
+            tempMaxData,
+            tempMinData,
+            atmPressureData,
+            precipitationData
+          ] = wind;
+
+          // Convert arrays into Maps for O(1) station lookup
+          const toMap = arr =>
+            new Map(arr.map(d => [normalizeId(d.station), d]));
+
+          const windSpeedMap = toMap(windSpeedData);
+          const windDirectionMap = toMap(windDirectionData);
+          const tempMaxMap = toMap(tempMaxData);
+          const tempMinMap = toMap(tempMinData);
+          const atmPressureMap = toMap(atmPressureData);
+          const precipitationMap = toMap(precipitationData);
+
+          // Track stations that cannot display wind barbs (for debugging)
+          const missingWindBarbs = [];
+
+          // Loop through all map markers (weather stations)
           this.markers.forEach(marker => {
-            //marker.icon = L.WindBarb.icon();
-            marker.windSpeed = null;
-            marker.windDirection = null;
-            marker.tempMax = null;
-            marker.tempMin = null;
-            marker.atmPressure = null;
-            marker.precipitation = null;
+            const stationId = normalizeId(marker.id);
 
-            // proceed only IF Marker have windSpeed and windDirection
-            // if (wind[0].find(el => el.station === marker.id && wind[1].find(el => el.station === marker.id))) {
+            // Look up wind data for this station
+            const windSpeed = windSpeedMap.get(stationId);
+            const windDirection = windDirectionMap.get(stationId);
 
-              windSpeed = wind[0].find(el => el.station === marker.id);
-              windDirection = wind[1].find(el => el.station === marker.id);
-              tempMax = wind[2].find(el => el.station === marker.id);
-              tempMin = wind[3].find(el => el.station === marker.id);
-              atmPressure = wind[4].find(el => el.station === marker.id);
-              precipitation = wind[5].find(el => el.station === marker.id);
+            /*
+              IMPORTANT:
+              Do NOT blindly reset values every time.
+              If only one dataset is missing, keep the last valid value.
+              This prevents wind barbs from "appearing then disappearing".
+            */
+            if (!windSpeed && !windDirection) {
+              marker.windSpeed = null;
+              marker.windDirection = null;
+            } else {
+              marker.windSpeed = windSpeed ?? marker.windSpeed;
+              marker.windDirection = windDirection ?? marker.windDirection;
+            }
 
-              marker.windSpeed = windSpeed ? windSpeed : null;
-              marker.windDirection = windDirection ? windDirection : null;
-              marker.tempMax = tempMax ? tempMax.value.toFixed(1) : null;
-              marker.tempMin = tempMin ? tempMin.value.toFixed(1) : null;
-              marker.atmPressure = atmPressure ? atmPressure.value.toFixed(1) : null;
-              marker.precipitation = precipitation ? precipitation.value.toFixed(1) : null;
+            // Look up other weather summaries
+            const tempMax = tempMaxMap.get(stationId);
+            const tempMin = tempMinMap.get(stationId);
+            const atmPressure = atmPressureMap.get(stationId);
+            const precipitation = precipitationMap.get(stationId);
 
-              if (windSpeed && windDirection) {
-                marker.icon = L.WindBarb.icon({fillColor: 'black', pointRadius: 1, deg: marker.windDirection.value, speed: marker.windSpeed.value, iconAnchor: [16, 32],forceDir: true, autoClose: false, closeOnClick: false, closePopupOnClick: false});
-              } else {
-                marker.icon = L.icon({
-                  iconUrl: "{% static 'images/close.png' %}",
-                  iconSize: [8, 8],
-                });
-              }
+            // Assign values (formatted) or keep existing ones if missing
+            marker.tempMax = tempMax ? tempMax.value.toFixed(1) : marker.tempMax;
+            marker.tempMin = tempMin ? tempMin.value.toFixed(1) : marker.tempMin;
+            marker.atmPressure = atmPressure ? atmPressure.value.toFixed(1) : marker.atmPressure;
+            marker.precipitation = precipitation ? precipitation.value.toFixed(1) : marker.precipitation;
+
+            // Decide which icon to display
+            if (marker.windSpeed && marker.windDirection) {
+              // Both wind speed and direction exist → draw wind barb
+              marker.icon = L.WindBarb.icon({
+                fillColor: 'black',
+                pointRadius: 1,
+                deg: marker.windDirection.value,
+                speed: marker.windSpeed.value,
+                iconAnchor: [16, 32],
+                forceDir: true
+              });
+            } else {
+              // Missing wind data → track for debugging
+              missingWindBarbs.push({
+                station: stationId,
+                hasSpeed: !!windSpeed,
+                hasDirection: !!windDirection
+              });
+
+              // Optional: fallback icon (can be removed if undesired)
+              marker.icon = L.icon({
+                iconUrl: "{% static 'images/close.png' %}",
+                iconSize: [8, 8]
+              });
+            }
           });
+
+          // Log stations that could not render wind barbs and WHY
+          // if (missingWindBarbs.length) {
+          //  console.warn('Stations missing wind barbs:', missingWindBarbs);
+          // }
         });
       },
       
@@ -1424,6 +1639,7 @@
       });
 
       window.mapReference = this.$refs.myMap.mapObject;
+
       this.getProfiles();
       this.getRegions();
       this.getWatershed();

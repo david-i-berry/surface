@@ -3,10 +3,16 @@ import io
 import json
 import logging
 import os
+import zipfile
+import shutil
 import random
 import uuid
+import wx.export_surface_oscar as exso
+import pyoscar
+import time
 from datetime import datetime as datetime_constructor
-from datetime import timezone
+from datetime import timezone, timedelta, date
+import calendar
 
 import matplotlib
 
@@ -14,17 +20,28 @@ matplotlib.use("Agg")
 import cv2
 import matplotlib.pyplot as plt
 import pandas as pd
+from openpyxl import Workbook
+import tempfile
 import psycopg2
 import pytz
+from wx.decorators import wx_permission_required, wx_mapped_permission_required
+from django.contrib import messages
+from django.core.files.base import ContentFile
+from django.core.paginator import Paginator
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth import get_user_model
+from wx.mixins import WxPermissionRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.cache import cache
+from django.shortcuts import get_object_or_404
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import connection
-from django.http import HttpResponse, JsonResponse
+from django.db import connection, transaction, IntegrityError
+from django.http import HttpResponse, JsonResponse, FileResponse, HttpResponseNotAllowed, HttpResponseBadRequest, Http404
+from django.utils.http import http_date
 from django.template import loader
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
+from django.views import View
 from django.views.generic.base import TemplateView
 from django.views.generic.detail import DetailView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
@@ -35,44 +52,52 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.transforms import Bbox
 from metpy.interpolate import interpolate_to_grid
 from pandas import json_normalize
-from rest_framework import viewsets, status, generics, views
+from rest_framework import viewsets, status, generics, views, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.parsers import FileUploadParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from slugify import slugify
+from celery.result import AsyncResult
 
 from tempestas_api import settings
 from wx import serializers, tasks
-from wx.decoders import insert_raw_data_pgia
+from wx.decoders import insert_raw_data_pgia, insert_raw_data_synop
 from wx.decoders.hobo import read_file as read_file_hobo
 from wx.decoders.toa5 import read_file
 from wx.forms import StationForm
+from wx.permissions import IsSuperUser
 from wx.models import AdministrativeRegion, StationFile, Decoder, QualityFlag, DataFile, DataFileStation, \
-    DataFileVariable, StationImage, WMOStationType, WMORegion, WMOProgram, StationCommunication
-from wx.models import Country, Unit, Station, Variable, DataSource, StationVariable, \
-    StationProfile, Document, Watershed, Interval, Crop, Soil
+    DataFileVariable, StationImage, WMOStationType, WMORegion, WMOProgram, StationCommunication, CombineDataFile, ManualStationDataFile
+from wx.models import Country, Unit, Station, Variable, DataSource, StationVariable, StationDataFileStatus,\
+    StationProfile, Document, Watershed, Interval, CountryISOCode, Wis2BoxPublish, Wis2PublishOffset, LocalWisCredentials, RegionalWisCredentials,  Wis2BoxPublishLogs, Crop, Soil
 from wx.utils import get_altitude, get_watershed, get_district, get_interpolation_image, parse_float_value, \
     parse_int_value
 from .utils import get_raw_data, get_station_raw_data
 from wx.models import MaintenanceReport, VisitType, Technician
 from django.views.decorators.http import require_http_methods
+from django.utils.decorators import method_decorator
 from base64 import b64encode
 
 from wx.models import QualityFlag
 import time
 from wx.models import HighFrequencyData, MeasurementVariable
-from wx.tasks import fft_decompose
+from wx.tasks import fft_decompose, export_station_to_oscar, export_station_to_oscar_wigos, data_inventory_month_view
 import math
 import numpy as np
 
-from wx.models import Equipment, EquipmentType, Manufacturer, FundingSource, StationProfileEquipmentType
+from wx.models import Equipment, EquipmentType, EquipmentModel, Manufacturer, FundingSource, StationProfileEquipmentType
 from django.core.serializers import serialize
+from django.core.serializers.json import DjangoJSONEncoder
 from wx.models import MaintenanceReportEquipment
 from wx.models import QcRangeThreshold, QcStepThreshold, QcPersistThreshold
 from simple_history.utils import update_change_reason
 from django.db.models.functions import Cast
 from django.db.models import IntegerField
+from django.utils.timezone import localtime
+
+
+from wx.models import WMOCodeValue
 from jinja2 import Environment, FileSystemLoader
 
 from aquacrop import Crop as AquacropCrop
@@ -88,6 +113,9 @@ import re
 
 logger = logging.getLogger('surface.urls')
 
+# get user models
+User = get_user_model()
+
 # CONSTANT to be used in datetime to milliseconds conversion
 EPOCH = datetime_constructor(1970, 1, 1, tzinfo=timezone.utc)
 
@@ -97,13 +125,29 @@ def ScheduleDataExport(request):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
+    # access values from the response
     json_body = json.loads(request.body)
     station_ids = json_body['stations']  # array with station ids
-    data_source = json_body[
-        'source']  # one of raw_data, hourly_summary, daily_summary, monthly_summary or yearly_summary
+
+    data_source = json_body['source']  # could be either raw_data, hourly_summary, daily_summary, monthly_summary or yearly_summary
+
     start_date = json_body['start_datetime']  # in format %Y-%m-%d %H:%M:%S
+
     end_date = json_body['end_datetime']  # in format %Y-%m-%d %H:%M:%S
+
     variable_ids = json_body['variables']  # list of obj in format {id: Int, agg: Str}
+
+    aggregation = json_body['aggregation'] # sets which column in the db will be used when the source is a summary. 
+
+    displayUTC = json_body['displayUTC'] # determines whether an offset will be applied based on the truthines of displayUTC
+
+    aqc_checks = json_body['aqc_checks'] # determines whether the output should only consist of data which pass aqc checks
+    
+    mqc_checks = json_body['mqc_checks'] # determines whether the output should only consist of data which pass mqc checks
+
+    # If source is raw_data, this will be set to none
+    if data_source == 'raw_data':
+        aggregation = None
 
     data_interval_seconds = None
     if data_source == 'raw_data' and 'data_interval' in json_body:  # a number with the data interval in seconds. Only required for raw_data
@@ -114,6 +158,7 @@ def ScheduleDataExport(request):
     created_data_file_ids = []
     start_date_utc = pytz.UTC.localize(datetime.datetime.strptime(start_date, '%Y-%m-%d %H:%M:%S'))
     end_date_utc = pytz.UTC.localize(datetime.datetime.strptime(end_date, '%Y-%m-%d %H:%M:%S'))
+    current_utc_datetime = datetime.datetime.now(pytz.utc)
 
     if start_date_utc > end_date_utc:
         message = 'The initial date must be greater than final date.'
@@ -138,19 +183,60 @@ def ScheduleDataExport(request):
         prepared_by = request.user.username
 
     for station_id in station_ids:
-        newfile = DataFile.objects.create(ready=False, initial_date=start_date_utc, final_date=end_date_utc,
-                                          source=data_source_description, prepared_by=prepared_by,
-                                          interval_in_seconds=data_interval_seconds)
-        DataFileStation.objects.create(datafile=newfile, station_id=station_id)
+        if aggregation:
+            for agg in aggregation:
+                newfile = DataFile.objects.create(ready=False, 
+                                                  initial_date=start_date_utc, 
+                                                  final_date=end_date_utc,
+                                                  source=data_source_description, 
+                                                  prepared_by=prepared_by,
+                                                  interval_in_seconds=data_interval_seconds,
+                                                  aqc_checks = aqc_checks,
+                                                  mqc_checks = mqc_checks)
+                
+                DataFileStation.objects.create(datafile=newfile, station_id=station_id)
 
-        for variable_id in variable_ids:
-            variable = Variable.objects.get(pk=variable_id)
-            DataFileVariable.objects.create(datafile=newfile, variable=variable)
+                try:
+                    for variable_id in variable_ids:
+                        variable = Variable.objects.get(pk=variable_id)
+                        DataFileVariable.objects.create(datafile=newfile, variable=variable)
 
-        tasks.export_data.delay(station_id, data_source, start_date, end_date, variable_ids, newfile.id)
-        created_data_file_ids.append(newfile.id)
+                    tasks.export_data.delay(station_id, data_source, start_date, end_date, variable_ids, newfile.id, agg, aqc_checks, mqc_checks, displayUTC)
+                    created_data_file_ids.append(newfile.id)
+                except Exception as err:
+                    # if an error occuers udpate the datafile ready_at option whilst leaving ready = false
+                    # this shows that the operation failed
+                    # the function DataExportFiles users both "ready" and "ready_at to determin whether an error occured or not"
+                    # this prevents a possible error state from mascarading as a "processing" status
+                    newfile.ready_at = current_utc_datetime
+        else:
+            newfile = DataFile.objects.create(ready=False, 
+                                              initial_date=start_date_utc, 
+                                              final_date=end_date_utc,
+                                              source=data_source_description, 
+                                              prepared_by=prepared_by,
+                                              interval_in_seconds=data_interval_seconds,
+                                              aqc_checks = aqc_checks,
+                                              mqc_checks = mqc_checks
+                                            )
+            
+            DataFileStation.objects.create(datafile=newfile, station_id=station_id)
 
-    return HttpResponse(created_data_file_ids, status=status.HTTP_200_OK)
+            try:
+                for variable_id in variable_ids:
+                    variable = Variable.objects.get(pk=variable_id)
+                    DataFileVariable.objects.create(datafile=newfile, variable=variable)
+
+                tasks.export_data.delay(station_id, data_source, start_date, end_date, variable_ids, newfile.id, aggregation, aqc_checks, mqc_checks, displayUTC)
+                created_data_file_ids.append(newfile.id)
+            except Exception as err:
+                # if an error occuers udpate the datafile ready_at option whilst leaving ready = false
+                # this shows that the operation failed
+                # the function DataExportFiles users both "ready" and "ready_at to determin whether an error occured or not
+                # this prevents a possible error state from mascarading as a "processing" status
+                newfile.ready_at = current_utc_datetime
+
+    return JsonResponse({'data': created_data_file_ids}, status=status.HTTP_200_OK)
 
 
 @api_view(('GET',))
@@ -179,12 +265,14 @@ def DataExportFiles(request):
             'station': current_station_name,
             'variables': [],
             'status': file_status,
+            'aqc_checks': df['aqc_checks'],
+            'mqc_checks': df['mqc_checks'],
             'initial_date': df['initial_date'],
             'final_date': df['final_date'],
             'source': {'text': df['source'],
                        'value': 0 if df['source'] == 'Raw data' else (1 if df['source'] == 'Hourly summary' else 2)},
             'lines': df['lines'],
-            'prepared_by': df['prepared_by']
+            'prepared_by': df['prepared_by'],
         }
         if f['ready_date'] is not None:
             f['ready_date'] = f['ready_date']
@@ -197,17 +285,220 @@ def DataExportFiles(request):
 
 def DownloadDataFile(request):
     file_id = request.GET.get('id', None)
-    file_path = os.path.join('/data', 'exported_data', str(file_id) + '.csv')
+    # for combine xlsx downloads
+    if 'combine' in str(file_id):
+        file_path = os.path.join('/data', 'exported_data', str(file_id) + '.xlsx')
+    else:
+        file_path = os.path.join('/data', 'exported_data', str(file_id) + '.csv')
     if os.path.exists(file_path):
-        with open(file_path, 'rb') as fh:
-            response = HttpResponse(fh.read(), content_type="text/csv")
-            response['Content-Disposition'] = 'inline filename=' + os.path.basename(file_path)
-            return response
+        # with open(file_path, 'rb') as fh:
+        #     response = HttpResponse(fh.read(), content_type="text/csv")
+        #     response['Content-Disposition'] = 'inline; filename=' + os.path.basename(file_path)
+        #     return response
+        return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=os.path.basename(file_path))
     return JsonResponse({}, status=status.HTTP_404_NOT_FOUND)
 
 
+# download .xlsx version of the data file
+def DownloadDataFileXLSX(request):
+    # file id of the csv to be converted to .xlsx
+    file_id = request.GET.get('id', None)
+    # path to the xlsx file
+    xlsx_file_path = os.path.join('/data', 'exported_data', str(file_id) + '.xlsx')
+    # path to the csv file
+    file_path = os.path.join('/data', 'exported_data', str(file_id) + '.csv')
+
+    try:
+        if not os.path.exists(xlsx_file_path):
+            # if the .xlsx file does not exist then create it
+            tasks.convert_csv_xlsx(file_path, file_id, file_id)
+
+        return FileResponse(open(xlsx_file_path, 'rb'), as_attachment=True, filename=os.path.basename(xlsx_file_path))
+    
+    except Exception as e:
+        logger.error(f"An error occured while trying to download {file_id}.xlsx. Error code: {e}")
+    
+    # return 404 on error
+    return JsonResponse({}, status=status.HTTP_404_NOT_FOUND)
+
+
+# combine csv files into a .xlsx file and then download them
+@csrf_exempt
+def CombineFilesXLSX(request):
+    # ensure that the request method is post
+    if request.method != 'POST':
+        # else return the "method not allowed" error in response
+        return HttpResponse(status=405)
+    
+    # processing the request
+    try:
+        # ensuring that the start date and the end date are valid
+        json_body = json.loads(request.body)
+        # grabbing the start and the end date
+        start_date = json_body['start_datetime']  # in format %Y-%m-%d %H:%M:%S
+
+        end_date = json_body['end_datetime']  # in format %Y-%m-%d %H:%M:%S
+
+        start_date_utc = pytz.UTC.localize(datetime.datetime.strptime(start_date, '%Y-%m-%d %H:%M:%S'))
+        end_date_utc = pytz.UTC.localize(datetime.datetime.strptime(end_date, '%Y-%m-%d %H:%M:%S'))
+        # ensuring that the start date and the end date are valid
+        if start_date_utc > end_date_utc:
+            message = 'The initial date must be greater than final date.'
+            return JsonResponse(data={"message": message}, status=status.HTTP_400_BAD_REQUEST)
+
+        station_ids = json_body['stations']  # array with station ids
+
+        data_source = json_body['source']  # could be either raw_data, hourly_summary, daily_summary, monthly_summary or yearly_summary
+
+        variable_ids = json_body['variables']  # list of obj in format {id: Int, agg: Str}
+
+        aggregation = json_body['aggregation'] # sets which column in the db will be used when the source is a summary. 
+
+        displayUTC = json_body['displayUTC'] # determins wheter an offset will be applied based on the truthines of displayUTC
+
+        aqc_checks = json_body['aqc_checks'] # determines whether the output should only consist of data which pass aqc checks
+        
+        mqc_checks = json_body['mqc_checks'] # determines whether the output should only consist of data which pass mqc checks
+
+        # If source is raw_data, aggregation will be set to none
+        if data_source == 'raw_data':
+            aggregation = ""
+
+        data_interval_seconds = None
+        if data_source == 'raw_data' and 'data_interval' in json_body:  # a number with the data interval in seconds. Only required for raw_data
+            data_interval_seconds = json_body['data_interval']
+        elif data_source == 'raw_data':
+            data_interval_seconds = 300
+
+        prepared_by = None
+        if request.user.first_name and request.user.last_name:
+            prepared_by = f'{request.user.first_name} {request.user.last_name}'
+        else:
+            prepared_by = request.user.username
+
+        data_source_dict = {
+            "raw_data": "Raw Data",
+            "hourly_summary": "Hourly Summary",
+            "daily_summary": "Daily Summary",
+            "monthly_summary": "Monthly Summary",
+            "yearly_summary": "Yearly Summary",
+        }
+
+        data_source_description = data_source_dict[data_source]
+
+        # converting the station_ids into a string to pass to the new entry
+        station_ids_string = ""
+        for x in station_ids:
+            station_ids_string += str(x) + "_"
+
+        # converting the variable_ids into a string to pass to the new entry
+        variable_ids_string = ""
+        for y in variable_ids:
+            variable_ids_string += str(y) + "_"
+
+        # add this file entry to the combine data file model
+        new_entry = CombineDataFile.objects.create(ready=False, 
+                                                   initial_date=start_date_utc, 
+                                                   final_date=end_date_utc,
+                                                   source=data_source_description, 
+                                                   prepared_by=prepared_by,
+                                                   stations_ids=station_ids_string, 
+                                                   variable_ids=variable_ids_string, 
+                                                   aggregation="  ".join(aggregation).upper(),                                                  
+                                                   aqc_checks=aqc_checks,
+                                                   mqc_checks=mqc_checks)
+
+        # send the MAIN task unto celery
+        combine_task = tasks.combine_xlsx_files.delay(station_ids, data_source, start_date, end_date, variable_ids, aggregation, displayUTC, data_interval_seconds, prepared_by, data_source_description, aqc_checks, mqc_checks, new_entry.id)
+
+        return JsonResponse({'data': new_entry.id}, status=status.HTTP_200_OK)
+    except Exception as e:
+        logger.error(f'An error occured while attempting to schedule combine task. Error = {e}')
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+# get an update on the combine files
+@api_view(('GET',))
+def combineDataExportFiles(request):
+    files = []
+    try:
+        for df in CombineDataFile.objects.all().order_by('-created_at').values()[:100:1]:
+            if df['ready'] and df['ready_at']:
+                file_status = {'text': "Ready", 'value': 1}
+            elif df['ready_at']:
+                file_status = {'text': "Error", 'value': 2}
+            else:
+                file_status = {'text': "Processing", 'value': 0}
+
+            # getting the stations list
+            current_station_names_list = []
+            try:
+                station_ids = str(df['stations_ids']).split('_')
+
+                for x in station_ids:
+                    if x:
+                        current_station_names_list.append(Station.objects.get(pk=int(x)).name)
+
+            except ObjectDoesNotExist:
+                current_station_names_list = ["Stations not found"]
+
+
+            # getting variables list
+            variable_list = []
+            try:
+                variable_ids = str(df['variable_ids']).split('_')
+
+                for y in variable_ids:
+                    if y:
+                        variable_list.append(Variable.objects.get(pk=int(y)).name)
+
+            except Exception as e:
+                # logger.warning(f'An warning occurd during variable list creation: {variable_ids}')
+                variable_list = ["No variables"]
+
+            f = {
+                'id': df['id'],
+                'request_date': df['created_at'],
+                'ready_date': df['ready_at'],
+                'station': current_station_names_list,
+                'aqc_checks': df['aqc_checks'],
+                'mqc_checks': df['mqc_checks'],
+                'variables': variable_list,
+                'status': file_status,
+                'initial_date': df['initial_date'],
+                'final_date': df['final_date'],
+                'source': {'text': df['source'],
+                        'value': 0 if df['source'] == 'Raw data' else (1 if df['source'] == 'Hourly summary' else 2)},
+                'lines': df['lines'],
+                'prepared_by': df['prepared_by'],
+                'aggregation': df['aggregation'],
+            }
+            if f['ready_date'] is not None:
+                f['ready_date'] = f['ready_date']
+            files.append(f)
+
+        return Response(files, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        logger.warning(f"An error occured while attempting to update the combined .xlsx files table. Error - {e}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+# to delete data file
 def DeleteDataFile(request):
     file_id = request.GET.get('id', None)
+
+    if 'combine' in str(file_id):
+        entry_id = int(str(file_id).split('-')[-1])
+
+        CombineDataFile.objects.get(pk=entry_id).delete()
+
+        file_path = os.path.join('/data', 'exported_data', str(file_id) + '.xlsx')
+
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        return JsonResponse({}, status=status.HTTP_200_OK)
+
     df = DataFile.objects.get(pk=file_id)
     DataFileStation.objects.filter(datafile=df).delete()
     DataFileVariable.objects.filter(datafile=df).delete()
@@ -219,244 +510,44 @@ def DeleteDataFile(request):
 
 
 def GetInterpolationData(request):
-    start_datetime = request.GET.get('start_datetime', None)
-    end_datetime = request.GET.get('end_datetime', None)
-    variable_id = request.GET.get('variable_id', None)
-    agg = request.GET.get('agg', "instant")
-    source = request.GET.get('source', "raw_data")
-    quality_flags = request.GET.get('quality_flags', None)
+    params = {
+        'start_datetime': request.GET.get('start_datetime'),
+        'end_datetime': request.GET.get('end_datetime'),
+        'variable_id': request.GET.get('variable_id'),
+        'agg': request.GET.get('agg', 'instant'),
+        'source': request.GET.get('source', 'raw_data'),
+        'quality_flags': request.GET.get('quality_flags'),
+    }
 
-    where_query = ""
-    if source == "raw_data":
-        dt_query = "datetime"
-        value_query = "measured"
-        source_query = "raw_data"
-        if quality_flags:
-            try:
-                [int(qf) for qf in quality_flags.split(',')]
-            except ValueError:
-                return JsonResponse({"message": "Invalid quality_flags value."}, status=status.HTTP_400_BAD_REQUEST)
-            where_query = f" measured != {settings.MISSING_VALUE} AND quality_flag IN ({quality_flags}) AND "
-        else:
-            where_query = f" measured != {settings.MISSING_VALUE} AND "
-    else:
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT sampling_operation_id
-                FROM wx_variable
-                WHERE id=%(variable_id)s
-                """,
-                           params={'variable_id': variable_id}
-                           )
-            sampling_operation = cursor.fetchone()[0]
+    task = tasks.fetch_interpolation_data_task.delay(**params)
 
-        if sampling_operation in [6, 7]:
-            value_query = "sum_value"
-        elif sampling_operation == 3:
-            value_query = "min_value"
-        elif sampling_operation == 4:
-            value_query = "max_value"
-        else:
-            value_query = "avg_value"
-
-        if source == "hourly":
-            dt_query = "datetime"
-            source_query = "hourly_summary"
-
-        elif source == "daily":
-            dt_query = "day"
-            source_query = "daily_summary"
-
-        elif source == "monthly":
-            dt_query = "date"
-            source_query = "monthly_summary"
-
-        elif source == "yearly":
-            dt_query = "date"
-            source_query = "yearly_summary"
-
-    if agg == "instant":
-        where_query += "variable_id=%(variable_id)s AND " + dt_query + "=%(datetime)s"
-        params = {'datetime': start_datetime, 'variable_id': variable_id}
-    else:
-        where_query += "variable_id=%(variable_id)s AND " + dt_query + " >= %(start_datetime)s AND " + dt_query + " <= %(end_datetime)s"
-        params = {'start_datetime': start_datetime, 'end_datetime': end_datetime, 'variable_id': variable_id}
-
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT a.station_id,b.name,b.code,b.latitude,b.longitude,a.""" + value_query + """ as measured
-            FROM """ + source_query + """ a INNER JOIN wx_station b ON a.station_id=b.id
-            WHERE """ + where_query + "",
-                       params=params
-                       )
-        climate_data = {}
-        # if agg == "instant":
-        raw_data = cursor.fetchall()
-        climate_data['data'] = []
-        for item in raw_data:
-            climate_data['data'].append({
-                'station_id': item[0],
-                'name': item[1],
-                'code': item[2],
-                'latitude': item[3],
-                'longitude': item[4],
-                'measured': item[5],
-            })
-
-    if agg != "instant" and len(raw_data) > 0:
-        columns = ['station_id', 'name', 'code', 'latitude', 'longitude', 'measured']
-        df_climate = json_normalize([
-            dict(zip(columns, row))
-            for row in raw_data
-        ])
-
-        climate_data['data'] = json.loads(
-            df_climate.groupby(['station_id', 'name', 'code', 'longitude', 'latitude']).agg(
-                agg).reset_index().sort_values('name').to_json(orient="records"))
-
-    return JsonResponse(climate_data)
+    return JsonResponse({"task_id": task.id})
 
 
 def GetInterpolationImage(request):
-    start_datetime = request.GET.get('start_datetime', None)
-    end_datetime = request.GET.get('end_datetime', None)
-    variable_id = request.GET.get('variable_id', None)
-    cmap = request.GET.get('cmap', 'Spectral_r')
-    hres = request.GET.get('hres', 0.01)
-    minimum_neighbors = request.GET.get('minimum_neighbors', 1)
-    search_radius = request.GET.get('search_radius', 0.7)
-    agg = request.GET.get('agg', "instant")
-    source = request.GET.get('source', "raw_data")
-    vmin = request.GET.get('vmin', 0)
-    vmax = request.GET.get('vmax', 30)
-    quality_flags = request.GET.get('quality_flags', None)
 
-    stations_df = pd.read_sql_query("""
-        SELECT id,name,alias_name,code,latitude,longitude
-        FROM wx_station
-        WHERE longitude!=0
-        """,
-                                    con=connection
-                                    )
-    stations = geopandas.GeoDataFrame(
-        stations_df, geometry=geopandas.points_from_xy(stations_df.longitude, stations_df.latitude))
-    stations.crs = 'epsg:4326'
+    params = {
+        'start_datetime': request.GET.get('start_datetime', None),
+        'end_datetime': request.GET.get('end_datetime', None),
+        'variable_id': request.GET.get('variable_id', None),
+        'cmap': request.GET.get('cmap', 'Spectral_r'),
+        'hres': request.GET.get('hres', 0.01),
+        'minimum_neighbors': request.GET.get('minimum_neighbors', 1),
+        'search_radius': request.GET.get('search_radius', 0.7),
+        'agg': request.GET.get('agg', "instant"),
+        'source': request.GET.get('source', "raw_data"),
+        'vmin': request.GET.get('vmin', 0),
+        'vmax': request.GET.get('vmax', 30),
+        'quality_flags': request.GET.get('quality_flags', None),
+        'stands_llat': settings.SPATIAL_ANALYSIS_INITIAL_LATITUDE,
+        'stands_llon': settings.SPATIAL_ANALYSIS_INITIAL_LONGITUDE,
+        'stands_ulat': settings.SPATIAL_ANALYSIS_FINAL_LATITUDE,
+        'stands_ulon': settings.SPATIAL_ANALYSIS_FINAL_LONGITUDE,
+    }
 
-    stands_llat = settings.SPATIAL_ANALYSIS_INITIAL_LATITUDE
-    stands_llon = settings.SPATIAL_ANALYSIS_INITIAL_LONGITUDE
-    stands_ulat = settings.SPATIAL_ANALYSIS_FINAL_LATITUDE
-    stands_ulon = settings.SPATIAL_ANALYSIS_FINAL_LONGITUDE
+    task = tasks.fetch_interpolation_img_task.delay(**params)
 
-    where_query = ""
-    if source == "raw_data":
-        dt_query = "datetime"
-        value_query = "measured"
-        source_query = "raw_data"
-        if quality_flags:
-            try:
-                [int(qf) for qf in quality_flags.split(',')]
-            except ValueError:
-                return JsonResponse({"message": "Invalid quality_flags value."}, status=status.HTTP_400_BAD_REQUEST)
-            where_query = f" measured != {settings.MISSING_VALUE} AND quality_flag IN ({quality_flags}) AND "
-        else:
-            where_query = f" measured != {settings.MISSING_VALUE} AND "
-    else:
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT sampling_operation_id
-                FROM wx_variable
-                WHERE id=%(variable_id)s
-                """,
-                           params={'variable_id': variable_id}
-                           )
-            sampling_operation = cursor.fetchone()[0]
-
-        if sampling_operation in [6, 7]:
-            value_query = "sum_value"
-        elif sampling_operation == 3:
-            value_query = "min_value"
-        elif sampling_operation == 4:
-            value_query = "max_value"
-        else:
-            value_query = "avg_value"
-
-        if source == "hourly":
-            dt_query = "datetime"
-            source_query = "hourly_summary"
-
-        elif source == "daily":
-            dt_query = "day"
-            source_query = "daily_summary"
-
-        elif source == "monthly":
-            dt_query = "date"
-            source_query = "monthly_summary"
-
-        elif source == "yearly":
-            dt_query = "date"
-            source_query = "yearly_summary"
-
-    if agg == "instant":
-        where_query += "variable_id=%(variable_id)s AND " + dt_query + "=%(datetime)s"
-        params = {'datetime': start_datetime, 'variable_id': variable_id}
-    else:
-        where_query += "variable_id=%(variable_id)s AND " + dt_query + " >= %(start_datetime)s AND " + dt_query + " <= %(end_datetime)s"
-        params = {'start_datetime': start_datetime, 'end_datetime': end_datetime, 'variable_id': variable_id}
-
-    climate_data = pd.read_sql_query(
-        "SELECT station_id,variable_id," + dt_query + "," + value_query + """
-        FROM """ + source_query + """
-        WHERE """ + where_query + "",
-        params=params,
-        con=connection
-    )
-
-    if len(climate_data) == 0:
-        with open("/surface/static/images/no-interpolated-data.png", "rb") as f:
-            img_data = f.read()
-
-        return HttpResponse(img_data, content_type="image/jpeg")
-
-    df_merged = pd.merge(left=climate_data, right=stations, how='left', left_on='station_id', right_on='id')
-    df_climate = df_merged[["station_id", dt_query, "longitude", "latitude", value_query]]
-
-    if agg != "instant":
-        df_climate = df_climate.groupby(['station_id', 'longitude', 'latitude'], as_index=False).agg({value_query: agg})
-
-    gx, gy, img = interpolate_to_grid(
-        df_climate["longitude"],
-        df_climate["latitude"],
-        df_climate[value_query],
-        interp_type='cressman',
-        minimum_neighbors=int(minimum_neighbors),
-        hres=float(hres),
-        search_radius=float(search_radius),
-        boundary_coords={'west': stands_llon, 'east': stands_ulon, 'south': stands_llat, 'north': stands_ulat}
-    )
-
-    fig = plt.figure(frameon=False)
-    ax = plt.Axes(fig, [0., 0., 1., 1.])
-    ax.set_axis_off()
-    fig.add_axes(ax)
-    ax.imshow(img, origin='lower', cmap=cmap, vmin=vmin, vmax=vmax)
-    fname = str(uuid.uuid4())
-    fig.savefig("/surface/static/images/" + fname + ".png", dpi='figure', format='png', transparent=True,
-                bbox_inches=Bbox.from_bounds(2, 0, 2.333, 4.013))
-    image1 = cv2.imread("/surface/static/images/" + fname + ".png", cv2.IMREAD_UNCHANGED)
-    image2 = cv2.imread(settings.SPATIAL_ANALYSIS_SHAPE_FILE_PATH, cv2.IMREAD_UNCHANGED)
-    image1 = cv2.resize(image1, dsize=(image2.shape[1], image2.shape[0]))
-    for i in range(image1.shape[0]):
-        for j in range(image1.shape[1]):
-            image1[i][j][3] = image2[i][j][3]
-    cv2.imwrite("/surface/static/images/" + fname + "-output.png", image1)
-
-    with open("/surface/static/images/" + fname + "-output.png", "rb") as f:
-        img_data = f.read()
-
-    os.remove("/surface/static/images/" + fname + ".png")
-    os.remove("/surface/static/images/" + fname + "-output.png")
-
-    return HttpResponse(img_data, content_type="image/jpeg")
+    return JsonResponse({"task_id": task.id})
 
 
 def GetColorMapBar(request):
@@ -517,102 +608,32 @@ def InterpolatePostData(request):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
-    stands_llat = settings.SPATIAL_ANALYSIS_INITIAL_LATITUDE
-    stands_llon = settings.SPATIAL_ANALYSIS_INITIAL_LONGITUDE
-    stands_ulat = settings.SPATIAL_ANALYSIS_FINAL_LATITUDE
-    stands_ulon = settings.SPATIAL_ANALYSIS_FINAL_LONGITUDE
-
     json_body = json.loads(request.body)
-    parameters = json_body['parameters']
-    vmin = json_body['vmin']
-    vmax = json_body['vmax']
-    df_climate = json_normalize(json_body['data'])
-    try:
-        df_climate = df_climate[["station_id", "longitude", "latitude", "measured"]]
-    except KeyError:
-        return HttpResponse("no-interpolated-data.png")
 
-    gx, gy, img = interpolate_to_grid(
-        df_climate["longitude"],
-        df_climate["latitude"],
-        df_climate["measured"],
-        interp_type='cressman',
-        minimum_neighbors=int(parameters["minimum_neighbors"]),
-        hres=float(parameters["hres"]),
-        search_radius=float(parameters["search_radius"]),
-        boundary_coords={'west': stands_llon, 'east': stands_ulon, 'south': stands_llat, 'north': stands_ulat}
-    )
+    params = {
+        'stands_llat': settings.SPATIAL_ANALYSIS_INITIAL_LATITUDE,
+        'stands_llon': settings.SPATIAL_ANALYSIS_INITIAL_LONGITUDE,
+        'stands_ulat': settings.SPATIAL_ANALYSIS_FINAL_LATITUDE,
+        'stands_ulon': settings.SPATIAL_ANALYSIS_FINAL_LONGITUDE,
+        'parameters': json_body['parameters'],
+        'vmin': json_body['vmin'],
+        'vmax': json_body['vmax'],
+        'json_body_data': json_body['data'],
+    }
 
-    fig = plt.figure(frameon=False)
-    ax = plt.Axes(fig, [0., 0., 1., 1.])
-    ax.set_axis_off()
-    fig.add_axes(ax)
-    ax.imshow(img, origin='lower', cmap=parameters["cmap"]["value"], vmin=vmin, vmax=vmax)
-    for filename in os.listdir('/surface/static/images'):
-        try:
-            if datetime.datetime.now() - datetime.datetime.strptime(filename.split('_')[0],
-                                                                    "%Y-%m-%dT%H:%M:%SZ") > datetime.timedelta(
-                minutes=5):
-                os.remove('/surface/static/images/' + filename)
-        except ValueError:
-            continue
-    fname = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ_") + str(uuid.uuid4())
-    fig.savefig("/surface/static/images/" + fname + ".png", dpi='figure', format='png', transparent=True,
-                bbox_inches=Bbox.from_bounds(2, 0, 2.333, 4.013))
-    image1 = cv2.imread("/surface/static/images/" + fname + ".png", cv2.IMREAD_UNCHANGED)
-    image2 = cv2.imread('/surface/static/images/blz_shape.png', cv2.IMREAD_UNCHANGED)
-    image1 = cv2.resize(image1, dsize=(image2.shape[1], image2.shape[0]))
-    for i in range(image1.shape[0]):
-        for j in range(image1.shape[1]):
-            image1[i][j][3] = image2[i][j][3]
-    cv2.imwrite("/surface/static/images/" + fname + "-output.png", image1)
+    task = tasks.fetch_mod_interpolation_img_task.delay(**params)
 
-    return HttpResponse(fname + "-output.png")
-
-
-@permission_classes([IsAuthenticated])
-def GetImage(request):
-    image = request.GET.get('image', None)
-    try:
-        with open("/surface/static/images/" + image, "rb") as f:
-            return HttpResponse(f.read(), content_type="image/jpeg")
-    except IOError:
-        red = Image.new('RGBA', (1, 1), (255, 0, 0, 0))
-        response = HttpResponse(content_type="image/jpeg")
-        red.save(response, "JPEG")
-        return response
-
-
-@permission_classes([IsAuthenticated])
-def DailyFormView(request):
-    template = loader.get_template('wx/daily_form.html')
-
-    station_list = Station.objects.filter(is_automatic=False, is_active=True)
-    station_list = station_list.values('id', 'name', 'code')
+    return JsonResponse({"task_id": task.id})
     
-    # for station in station_list:
-    #     station['code'] = int(station['code'])
 
-    context = {'station_list': station_list}
-
-    return HttpResponse(template.render(context, request))
-
-
-class SynopCaptureView(LoginRequiredMixin, TemplateView):
-    template_name = "wx/synopcapture.html"
-
-
-@permission_classes([IsAuthenticated])
-def DataCaptureView(request):
-    template = loader.get_template('wx/data_capture.html')
-    return HttpResponse(template.render({}, request))
 
 
 class DataExportView(LoginRequiredMixin, TemplateView):
     template_name = "wx/data_export.html"
 
-    def get(self, request, *args, **kwargs):
-        context = self.get_context_data(**kwargs)
+    def get_context_data(self, **kwargs):
+        context =  super().get_context_data(**kwargs)
+
         context['station_list'] = Station.objects.select_related('profile').all()
         context['variable_list'] = Variable.objects.select_related('unit').all()
 
@@ -623,7 +644,304 @@ class DataExportView(LoginRequiredMixin, TemplateView):
         interval_list = Interval.objects.filter(seconds__lte=3600).order_by('seconds')
         context['interval_list'] = interval_list
 
-        return self.render_to_response(context)
+        return context
+    
+
+# view to display manual upload page
+class ManualDataImportView(WxPermissionRequiredMixin, LoginRequiredMixin, TemplateView):
+    '''view for uploading daily data for manual station (file format is xlsx)'''
+
+    template_name = "wx/data/manual_data_import.html"
+    
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(**kwargs)
+
+    # reseting the directory which holds uploaded files before processing
+    UPLOAD_DIR = '/data/documents/ingest/manual/check'
+
+    def dispatch(self, request, *args, **kwargs):
+        '''Ensure the directory exists before handling a request'''
+        if os.path.exists(self.UPLOAD_DIR):  # Check if the directory exists
+            shutil.rmtree(self.UPLOAD_DIR)
+            logger.info(f"Directory '{self.UPLOAD_DIR}' deleted. (Prep work for Manual Import)")
+
+        try:
+            os.makedirs(self.UPLOAD_DIR, exist_ok=True)
+            logger.info(f"Created directory '{self.UPLOAD_DIR}'.")
+        except PermissionError as e:
+            logger.error(f"Permission denied: {e}")
+            return HttpResponse("Server error: Unable to create directory.", status=500)
+
+        return super().dispatch(request, *args, **kwargs)
+    
+
+# retrieves manual data files metadata
+@api_view(('GET',))
+@wx_mapped_permission_required
+def ManualDataFiles(request):
+    files = []
+    for df in ManualStationDataFile.objects.all().order_by('-created_at').values()[:100:1]:
+
+        file_status = df['status_id']
+
+        status_dict = {
+            1:"Pending",
+            2:"Processing",
+            3:"Processed",
+            4:"Error",
+        }
+
+        def chunk_stations(stations_str):
+            stations = stations_str.split("       ")  # Split by multiple spaces
+            return [",  ".join(stations[i:i+5]) for i in range(0, len(stations), 5)]
+
+        # Example usage
+        formatted_station = chunk_stations(df['stations_list'])
+
+        f = {
+            'id': df['id'],
+            'upload_date': df['upload_date'],
+            'file_name': df['file_name'],
+            'status': status_dict[file_status],
+            'stations_list': formatted_station,
+            'observation': df['observation'],
+            'month': df['month'],
+            'override_data_on_conflict': "Yes!" if df['override_data_on_conflict'] else "No!",
+        }
+
+        files.append(f)
+
+    return Response(files, status=status.HTTP_200_OK)
+
+
+# delete manual data file
+@wx_mapped_permission_required
+def DeleteManualDataFile(request):
+    file_id = request.GET.get('id', None)
+
+    df = ManualStationDataFile.objects.get(pk=file_id)
+
+    df.delete()
+
+    return JsonResponse({}, status=status.HTTP_200_OK)
+
+
+# recieve files from the manual import page, run some checks and return a success response
+@csrf_exempt
+@wx_mapped_permission_required
+def CheckManualImportView(request):
+    # print("DATA_UPLOAD_MAX_MEMORY_SIZE:", django.conf.settings.DATA_UPLOAD_MAX_MEMORY_SIZE)
+    # print("FILE_UPLOAD_MAX_MEMORY_SIZE:", django.conf.settings.FILE_UPLOAD_MAX_MEMORY_SIZE)
+    if request.method == "POST":
+        uploaded_files = {}
+        unsupported_files = ''
+        duplicate_files = ''
+        non_existent_stations = []
+        UPLOAD_DIR = '/data/documents/ingest/manual/check'
+        # dictionary of allowed file types
+        allowed_file_types = {
+            ".xlsx":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }
+
+        # Process each file in the request
+        for file_name, file_obj in request.FILES.items():
+            if file_obj.content_type not in allowed_file_types.values():
+                unsupported_files = unsupported_files + file_name + ", "
+
+                continue # skip to the next execution
+
+            # check for any duplicate files and skip
+            if file_name in os.listdir(UPLOAD_DIR):
+                duplicate_files = duplicate_files + file_name + ", "
+
+                continue # skip to the next execution
+
+            file_path = os.path.join(UPLOAD_DIR, file_name)
+            
+            # Write file manually
+            with open(file_path, "wb") as destination:
+                for chunk in file_obj.chunks():  # Write file in chunks
+                    destination.write(chunk)
+
+            missing_stations = [] # list holding the stations which do not exist in the database
+            excel_df = pd.ExcelFile(file_path) # the excel file into a dataframe
+            excel_sheet_names = excel_df.sheet_names # grab all the sheet names
+
+            # Loop through the sheet names in the file 
+            for sheet in excel_sheet_names:
+                
+                sheet = sheet.strip() # removing any trailing or leading whitespace
+
+                # Check for an exact match on the station's primary name.
+                # We require EXACTLY ONE match.
+                name_count = Station.objects.filter(
+                    name=sheet,
+                    is_automatic=False
+                ).count()
+
+                # If exactly one station matches by name, this sheet name
+                # can be safely resolved to a single station.
+                # Continue processing the next sheet.
+                if name_count == 1:
+                    continue
+
+
+                # If no unique match was found using the primary station name,
+                # attempt the same check using the station's alias name.
+                alias_count = Station.objects.filter(
+                    alias_name=sheet,
+                    is_automatic=False
+                ).count()
+
+                # If exactly one station matches by alias,
+                # the station is considered valid and unambiguous.
+                # Continue processing the next sheet.
+                if alias_count == 1:
+                    continue
+
+                # zero OR multiple matches then invalid
+                missing_stations.append(sheet)
+
+            if missing_stations:
+                os.remove(file_path) # delete the file
+                non_existent_stations.append(f"""
+                                             File [{file_name}] contains one or more stations that are invalid.
+                                             Stations must be existing, manual, and uniquely identifiable. 
+                                             Please correct the mistake and re-upload: {', '.join(missing_stations)}
+                                        """)
+
+                continue # skip to the next execution
+
+            file_size = round(os.stat(file_path).st_size / (1024*1024), 4)
+
+            uploaded_files[file_name] = file_size # Store file name and size (size in MB)
+
+        return JsonResponse({"uploaded_files": uploaded_files, 
+                             "duplicate_files": duplicate_files, 
+                             "unsupported_files": unsupported_files, 
+                             "non_existent_stations": non_existent_stations}, 
+                             status=201
+                            )
+    
+    return JsonResponse({"error": "Invalid request method"}, status=400)
+
+
+# remove manual data files
+@csrf_exempt
+@wx_mapped_permission_required
+def RemoveManualDataFile(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            file_name = data.get('file')
+            remaining_files = {}
+            UPLOAD_DIR = '/data/documents/ingest/manual/check'  #Directory path
+
+            # check if the request it to reset the entire folder
+            if file_name == 'reset':
+                if os.path.exists(UPLOAD_DIR):  # Check if the directory exists
+                    shutil.rmtree(UPLOAD_DIR) # remove the directory
+                    logger.info(f"Directory '{UPLOAD_DIR}' deleted. (Prep work for Manual Import)")
+
+                try:
+                    os.makedirs(UPLOAD_DIR, exist_ok=True)
+                    logger.info(f"Created directory '{UPLOAD_DIR}'.")
+                except PermissionError as e:
+                    logger.error(f"Permission denied: {e}")
+                    return JsonResponse({"error": "Unable to create directory."}, status=500)
+                
+                return JsonResponse({"uploaded_files": remaining_files}, status=201)
+
+            if not file_name:  # Check if file_name was provided
+                return JsonResponse({'error': 'A file name is required'}, status=400)
+
+            file_path = os.path.join(UPLOAD_DIR, file_name)
+
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                    logger.info(f"File removed: {file_path}")
+
+                    # Get updated file list
+                    # remaining_files = [f for f in os.listdir(UPLOAD_DIR ) if os.path.isfile(os.path.join(UPLOAD_DIR , f))]
+                    for f in os.listdir(UPLOAD_DIR):
+                        if os.path.isfile(os.path.join(UPLOAD_DIR , f)):
+                            path = os.path.join(UPLOAD_DIR , f)
+                            file_size = round(os.stat(path).st_size / (1024), 2)
+                            remaining_files[f] = file_size # Store file name and size (size in MB)
+
+                    return JsonResponse({"uploaded_files": remaining_files}, status=201)
+
+
+                except OSError as e: # Handle potential file system errors
+                    logger.error(f"Error removing file: {e}")
+                    return JsonResponse({'error': f"Error removing {file_name}"}, status=500) # Internal Server Error
+
+            else:
+                return JsonResponse({'error': f'File "{file_name}" not found'}, status=404)  # Not Found
+
+        except Exception as e:
+            logger.error(f"Error: {e}")
+            logger.info(f"this is the file name: {file_name}")
+            # logger.info(f"this is the file name: {file_name}")
+            return JsonResponse({'error': 'Invalid request data'}, status=400)
+
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+# process the uploaded manual data files
+@csrf_exempt
+@wx_mapped_permission_required
+def UploadManualDataFile(request):
+    UPLOAD_DIR = '/data/documents/ingest/manual/check'  #Upload Directory path
+    PROCESS_DIR = '/data/documents/ingest/manual/process'  #Process Directory path 
+
+    try:
+        if request.method == "POST":
+            data = json.loads(request.body)
+            override_data = data.get('override_on_conflict')
+
+            data_file_id_list=[] # holds ManualStationDataFile id's
+
+            # create PROCESS_DIR if it does not exist
+            if os.path.exists(UPLOAD_DIR):
+                os.makedirs(PROCESS_DIR, exist_ok=True) # create the process dir if it does not exist
+
+                # loop through files in the UPLOAD DIR and create a New ManualStationDataFile object and move the file to the PROCESS DIR
+                for filename in os.listdir(UPLOAD_DIR):
+                    source_path = os.path.join(UPLOAD_DIR, filename)
+
+                    # Check if it's a file
+                    if os.path.isfile(source_path):
+                        # create ManualStationDataFile object
+                        new_data_file = ManualStationDataFile.objects.create(file_name=filename, status_id=1, override_data_on_conflict=override_data)
+
+                        destination_path = os.path.join(PROCESS_DIR, str(new_data_file.id) + '.xlsx') # create the destination path based on the file id
+
+                        new_data_file.filepath = destination_path # update the objects file path to be the destination path
+                        new_data_file.save()
+
+                        # moving (note that the file name changes)
+                        shutil.move(source_path, destination_path)
+                        logger.info(f"Moved for manual upload processing: {filename}")
+
+                        data_file_id_list.append(new_data_file.id)
+
+                # call celery task to begin file processing
+                tasks.ingest_manual_station_files.delay(data_file_id_list)
+                
+
+            else:
+                return JsonResponse({'error': 'Error occured during file upload! There are no files to upload'}, status=400)
+            
+
+            return JsonResponse({"success": "success"}, status=202)
+        else:
+            raise
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        return JsonResponse({'error': 'Error occured during file upload!'}, status=400)
+
 
 
 class CountryViewSet(viewsets.ModelViewSet):
@@ -2010,6 +2328,7 @@ def qc_list(request):
                         station_timezone = pytz.FixedOffset(station.utc_offset_minutes)
 
                     date = req_datetime.astimezone(station_timezone).date()
+
                     cursor.execute("""
                         INSERT INTO wx_dailysummarytask (station_id, date, updated_at, created_at)
                         VALUES (%s, %s, %s, %s)
@@ -2210,39 +2529,173 @@ def capture_forms_values_patch(request):
     return JsonResponse({'message': 'Only the GET and PATCH methods is allowed.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
+class StationOscarExportView(LoginRequiredMixin, ListView):
+    model = Station
+
+    template_name = 'wx/station_oscar_export.html'
+
+    def get_queryset(self):
+        # filter out all stations which don't have a wigos, wmo_region, and reporting_status
+        oscar_stations = Station.objects.filter(
+                                                wigos__isnull=False,
+                                                wmo_region__isnull=False,
+                                                reporting_status__isnull=False,
+                                                wmo_station_type__isnull=False
+                                            )
+        
+        # filter out all stations which are already in OSCAR into a list
+        export_ready_stations = [obj for obj in oscar_stations if not exso.check_station(obj.wigos, pyoscar.OSCARClient())]
+
+        # extract primary keys of the filtered objects
+        filtered_ids = [obj.id for obj in export_ready_stations]
+
+        # convert filtered list back to a queryset
+        filtered_queryset = Station.objects.filter(id__in=filtered_ids)
+
+        return filtered_queryset
+    
+
+    def post(self, request, *args, **kwargs):
+
+        try:
+            # run station export task
+            oscar_status_msg = export_station_to_oscar(request)
+
+            # run slight text formating on the status messages
+            for station_info in oscar_status_msg:
+                if station_info.get('logs'):
+                    station_info['logs'] = station_info['logs'].replace('\n', '<br/>')
+
+                elif station_info.get('description'):
+                    station_info['description'] = station_info['description'].replace('\n', '<br/>')
+
+            # get the names of the stations with status messages
+            status_station_names = list(Station.objects.filter(wigos__in=request.POST.getlist('selected_ids[]')).values_list('name', flat=True))
+
+            response_data = {
+                'success': True,
+                'oscar_status_msg': oscar_status_msg,
+                'status_station_names': status_station_names,
+            }
+
+        except Exception as e:
+            response_data = {
+                'success': False,
+                'oscar_status_msg': [{'code': 406, 'description': 'An error occured when attempting to add stations to OSCAR'}],
+                'message': f'An error occured when attempting to add stations to OSCAR: {e}',
+            }
+            
+        return JsonResponse(response_data)
+
+    
 class StationListView(LoginRequiredMixin, ListView):
     model = Station
+    
 
 
 class StationDetailView(LoginRequiredMixin, DetailView):
     model = Station
+    template_name = 'wx/station_detail.html'  # Use the appropriate template
+    context_object_name = 'station'
+
+    # Define the same layout as in the UpdateView
+    layout = Layout(
+        Fieldset('Station Information',
+                 Row('latitude', 'longitude'),
+                 Row('name', 'alias_name'),
+                 Row('code', 'wigos'),
+                 Row('begin_date', 'end_date', 'relocation_date'),
+                 Row('wmo', 'reporting_status'),
+                 Row('is_active', 'is_automatic', 'is_synoptic', 'international_exchange'),
+                 Row('synoptic_code', 'synoptic_type'),
+                 Row('network', 'wmo_station_type'),
+                 Row('profile', 'communication_type'),
+                 Row('elevation', 'country'),
+                 Row('region', 'watershed'),
+                 Row('wmo_region', 'utc_offset_minutes'),
+                 Row('wmo_station_plataform', 'data_type'),
+                 Row('observer', 'organization'),
+                ),
+        Fieldset('Local Environment',
+                 Row('local_land_use'),
+                 Row('soil_type'),
+                 Row('site_description'),
+                ),
+        Fieldset('Instrumentation and Maintenance'),
+        Fieldset('Observing Practices'),
+        Fieldset('Data Processing'),
+        Fieldset('Historical Events'),
+        Fieldset('Other Metadata',
+                 Row('hydrology_station_type', 'ground_water_province'),
+                 Row('existing_gauges', 'flow_direction_at_station'),
+                 Row('flow_direction_above_station', 'flow_direction_below_station'),
+                 Row('bank_full_stage', 'bridge_level'),
+                 Row('temporary_benchmark', 'mean_sea_level'),
+                 Row('river_code', 'river_course'),
+                 Row('catchment_area_station', 'river_origin'),
+                 Row('easting', 'northing'),
+                 Row('river_outlet', 'river_length'),
+                 Row('z', 'land_surface_elevation'),
+                 Row('top_casing_land_surface', 'casing_diameter'),
+                 Row('screen_length', 'depth_midpoint'),
+                 Row('casing_type', 'datum'),
+                 Row('zone')
+                 )
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Disable all fields
+        station_form = StationForm(instance=self.object)
+        for field in station_form.fields:
+            station_form.fields[field].widget.attrs['disabled'] = 'disabled'
+            # Add a custom class to apply the dashed border via CSS
+            station_form.fields[field].widget.attrs['class'] = 'dashed-border-field'
+
+        context['form'] = station_form
+        context['station_name'] = Station.objects.values('pk', 'name')  # Fetch only pk and name
+        # context['layout'] = self.layout
+        return context
 
 
 class StationCreate(LoginRequiredMixin, SuccessMessageMixin, CreateView):
     model = Station
 
     success_message = "%(name)s was created successfully"
+    # form_class = StationCreateForm(instance=self.object)
     form_class = StationForm
 
     layout = Layout(
-        Fieldset('Editing station',
+        Fieldset('SURFACE Requirements',
                  Row('latitude', 'longitude'),
-                 Row('name'),
-                 Row('is_active', 'is_automatic'),
-                 Row('alias_name'),
-                 Row('code', 'profile'),
-                 Row('wmo', 'organization'),
-                 Row('wigos', 'observer'),
-                 Row('begin_date', 'data_source'),
-                 Row('end_date', 'communication_type')
+                 Row('name', 'code'),
+                 Row('is_active', 'is_automatic', 'is_synoptic', 'international_exchange'),
+                 Row('synoptic_code', 'synoptic_type'),
+                 Row('region', 'elevation'),
+                 Row('country', 'communication_type'),
+                 Row('utc_offset_minutes', 'begin_date'),
                  ),
-        Fieldset('Other information',
-                 Row('elevation', 'watershed'),
-                 Row('country', 'region'),
-                 Row('utc_offset_minutes', 'local_land_use'),
-                 Row('soil_type', 'station_details'),
-                 Row('site_description', 'alternative_names')
+        Fieldset('Additional Options',
+                #  Row('wigos'),
+                 Row('wigos_part_1', 'wigos_part_2', 'wigos_part_3', 'wigos_part_4'),
+                 Row('wmo_region'),
+                 Row('wmo_station_type', 'reporting_status'),
                  ),
+        Fieldset('OSCAR Specific Settings',
+                #  Row(''),
+                ),
+        Fieldset('WIS2BOX Specific Settings',
+                #  Row(''),
+                )
+        # Fieldset('Other information',
+        #          Row('alias_name', 'observer'),
+        #          Row('wmo', 'organization'),
+        #          Row('profile', 'data_source'),
+        #          Row('end_date', 'local_land_use'),
+        #          Row('soil_type', 'station_details'),
+        #          Row('site_description', 'alternative_names')
+        #          ),
         # Fieldset('Hydrology information',
         #          Row('hydrology_station_type', 'ground_water_province'),
         #          Row('existing_gauges', 'flow_direction_at_station'),
@@ -2261,41 +2714,147 @@ class StationCreate(LoginRequiredMixin, SuccessMessageMixin, CreateView):
         #          )
     )
 
-    # passing required context for watershed and region autocomplete fields
+    # Override dispatch to initialize variables
+    def dispatch(self, request, *args, **kwargs):
+        # Initialize your instance variable oscar_error_message
+        self.oscar_error_msg = ""
+        self.is_oscar_error_msg = False
+        
+        # Call the parent class's dispatch method to ensure the default behavior is preserved
+        return super().dispatch(request, *args, **kwargs)
+    
+
+    # ################
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        context['watersheds'] = Watershed.objects.all()
-        context['regions'] = AdministrativeRegion.objects.all()
+        # context['watersheds'] = Watershed.objects.all()
+        # context['regions'] = AdministrativeRegion.objects.all()
+
+        # to show station management buttons beneath the title
+        context['is_create'] = True
 
         return context
 
 
+    # form_valid function
+    def form_valid(self, form):
+
+        # retrieve api token and wigos_id
+        oscar_api_token = self.request.POST.get('oscar_api_token')
+
+        station_wigos_id = [f"{str(form.cleaned_data['wigos_part_1'])}-{str(CountryISOCode.objects.filter(name=form.cleaned_data['wigos_part_2']).values_list('notation', flat=True).first())}-{str(form.cleaned_data['wigos_part_3'])}-{str(form.cleaned_data['wigos_part_4'])}"]
+
+        if oscar_api_token:
+            try:
+                # run station export task
+                oscar_response_dict = export_station_to_oscar_wigos(station_wigos_id, oscar_api_token, form.cleaned_data)
+
+                # check if station was succesfully added to OSCAR or not
+                oscar_check = self.check_oscar_push(oscar_response_dict)
+
+                # if oscar push was unsuccessful
+                if not oscar_check[0]:
+
+                    # get the error message (why the oscar push failed)
+                    self.oscar_error_msg = oscar_check[1]['error_message']
+                    # oscar has recieved failed and therefore recieved an error message
+                    self.is_oscar_error_msg = True
+
+                    # execute the form_invalid option
+                    return self.form_invalid(form)
+
+            except Exception as e:
+
+                print(f"An error occured when attempting to add a station to OSCAR during station create!\nError: {e}")
+
+                self.oscar_error_msg = 'An error occured when attempting to add a station to OSCAR during station creation!'
+
+                self.is_oscar_error_msg = True
+
+                return self.form_invalid(form)
+
+        return super().form_valid(form)
+
+
+    def form_invalid(self, form):
+        # default behavior catches form errors
+        response = super().form_invalid(form)
+
+        response.context_data['oscar_error_msg'] = self.oscar_error_msg
+        response.context_data['is_oscar_error_msg'] = self.is_oscar_error_msg
+
+        return response
+
+
+    # fxn to check if station was successfully added to oscar
+    def check_oscar_push(self, oscar_response):
+        oscar_response_message = {'error_message': ""}
+
+        if oscar_response.get('code'):
+            if oscar_response['code'] == 401:
+                oscar_response_message['error_message'] = "Incorrect API token!\nTo be able to access OSCAR a valid API token is required.\nEnter the correct API token or please contact OSCAR service desk!"
+            elif oscar_response['code'] == 412:
+                oscar_response_message['error_message'] = oscar_response['description']
+            else:
+                oscar_response_message['error_message'] = "An error occured when attempting to add a station to OSCAR during station creation!"
+
+
+        # return true is oscar push was successful
+        elif oscar_response.get('xmlStatus'):
+
+            if  oscar_response['xmlStatus'] == 'SUCCESS':
+                return [True]
+            else:
+                oscar_response_message['error_message'] = oscar_response['logs']
+        
+        # otherwise return false
+        return [False, oscar_response_message]
+
+
 
 class StationUpdate(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
+    template_name = "wx/station_update.html"
     model = Station
+
     success_message = "%(name)s was updated successfully"
     form_class = StationForm
 
     layout = Layout(
-        Fieldset('Editing station',
+        Fieldset('Station Information',
                  Row('latitude', 'longitude'),
-                 Row('name', 'is_active'),
-                 Row('alias_name', 'is_automatic'),
-                 Row('code', 'profile'),
-                 Row('wmo', 'organization'),
-                 Row('wigos', 'observer'),
-                 Row('begin_date', 'data_source'),
-                 Row('end_date', 'communication_type')
-                 ),
-        Fieldset('Other information',
-                 Row('elevation', 'watershed'),
-                 Row('country', 'region'),
-                 Row('utc_offset_minutes', 'local_land_use'),
-                 Row('soil_type', 'station_details'),
-                 Row('site_description', 'alternative_names')
-                 ),
-        Fieldset('Hydrology information',
+                 Row('name', 'alias_name'),
+                 Row('code', 'wigos'),
+                 Row('begin_date', 'end_date', 'relocation_date'),
+                 Row('wmo', 'reporting_status'),
+                 Row('is_active', 'is_automatic', 'is_synoptic', 'international_exchange'),
+                 Row('synoptic_code', 'synoptic_type'),
+                 Row('network', 'wmo_station_type'),
+                 Row('profile', 'communication_type'),
+                 Row('elevation', 'country'),
+                 Row('region', 'watershed'),
+                 Row('wmo_region', 'utc_offset_minutes'),
+                 Row('wmo_station_plataform', 'data_type'),
+                 Row('observer', 'organization'),
+                ),
+        Fieldset('Local Environment',
+                 Row('local_land_use'),
+                 Row('soil_type'),
+                 Row('site_description'),
+                ),
+        Fieldset('Instrumentation and Maintenance',
+                #  Row(''),
+                ),
+        Fieldset('Observing Practices',
+                #  Row(''),
+                ),
+        Fieldset('Data Processing',
+                #  Row(''),
+                ),
+        Fieldset('Historical Events',
+                #  Row(''),
+                ),
+        Fieldset('Other Metadata',
                  Row('hydrology_station_type', 'ground_water_province'),
                  Row('existing_gauges', 'flow_direction_at_station'),
                  Row('flow_direction_above_station', 'flow_direction_below_station'),
@@ -2311,110 +2870,49 @@ class StationUpdate(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
                  Row('casing_type', 'datum'),
                  Row('zone')
                  )
+    #     Fieldset('Editing station',
+    #              Row('latitude', 'longitude'),
+    #              Row('name', 'is_active'),
+    #              Row('alias_name', 'is_automatic'),
+    #              Row('code', 'profile'),
+    #              Row('wmo', 'organization'),
+    #              Row('wigos', 'observer'),
+    #              Row('begin_date', 'data_source'),
+    #              Row('end_date', 'communication_type')
+    #              ),
+    #     Fieldset('Other information',
+    #              Row('elevation', 'watershed'),
+    #              Row('country', 'region'),
+    #              Row('utc_offset_minutes', 'local_land_use'),
+    #              Row('soil_type', 'station_details'),
+    #              Row('site_description', 'alternative_names')
+    #              ),
+    #     Fieldset('Hydrology information',
+    #              Row('hydrology_station_type', 'ground_water_province'),
+    #              Row('existing_gauges', 'flow_direction_at_station'),
+    #              Row('flow_direction_above_station', 'flow_direction_below_station'),
+    #              Row('bank_full_stage', 'bridge_level'),
+    #              Row('temporary_benchmark', 'mean_sea_level'),
+    #              Row('river_code', 'river_course'),
+    #              Row('catchment_area_station', 'river_origin'),
+    #              Row('easting', 'northing'),
+    #              Row('river_outlet', 'river_length'),
+    #              Row('z', 'land_surface_elevation'),
+    #              Row('top_casing_land_surface', 'casing_diameter'),
+    #              Row('screen_length', 'depth_midpoint'),
+    #              Row('casing_type', 'datum'),
+    #              Row('zone')
+    #              )
+        )
 
-    )
+       
+    # passing context to display menu buttons beneat the title
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
 
+        context['is_update'] = True
 
-@api_view(['POST'])
-def pgia_update(request):
-    try:
-        hours_dict = request.data['table']
-        now_utc = datetime.datetime.now().astimezone(pytz.UTC) + datetime.timedelta(
-            hours=settings.PGIA_REPORT_HOURS_AHEAD_TIME)
-
-        pgia = Station.objects.get(id=4)
-        datetime_offset = pytz.FixedOffset(pgia.utc_offset_minutes)
-
-        day = datetime.datetime.strptime(request.data['date'], '%Y-%m-%d')
-        station_id = pgia.id
-        seconds = 3600
-
-        records_list = []
-        for hour, hour_data in hours_dict.items():
-            data_datetime = day.replace(hour=int(hour))
-            data_datetime = datetime_offset.localize(data_datetime)
-            if data_datetime <= now_utc:
-                if hour_data:
-                    if 'action' in hour_data.keys():
-                        hour_data.pop('action')
-
-                    if 'remarks' in hour_data.keys():
-                        remarks = hour_data.pop('remarks')
-                    else:
-                        remarks = None
-
-                    if 'observer' in hour_data.keys():
-                        observer = hour_data.pop('observer')
-                    else:
-                        observer = None
-
-                    for variable_id, measurement in hour_data.items():
-                        if measurement is None:
-                            measurement_value = settings.MISSING_VALUE
-                            measurement_code = settings.MISSING_VALUE_CODE
-
-                        try:
-                            measurement_value = float(measurement)
-                            measurement_code = measurement
-                        except Exception:
-                            measurement_value = settings.MISSING_VALUE
-                            measurement_code = settings.MISSING_VALUE_CODE
-                        records_list.append((
-                            station_id, variable_id, seconds, data_datetime, measurement_value, 1, None,
-                            None, None, None, None, None, None, None, False, remarks, observer,
-                            measurement_code))
-
-        insert_raw_data_pgia.insert(raw_data_list=records_list, date=day, station_id=station_id,
-                                    override_data_on_conflict=True, utc_offset_minutes=pgia.utc_offset_minutes)
-    except Exception as e:
-        logger.error(repr(e))
-        return HttpResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    return HttpResponse(status=status.HTTP_200_OK)
-
-
-@api_view(['GET'])
-def pgia_load(request):
-    try:
-        date = datetime.datetime.strptime(request.GET['date'], '%Y-%m-%d')
-    except ValueError as e:
-        logger.error(repr(e))
-        return HttpResponse(status=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        logger.error(repr(e))
-        return HttpResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    pgia = Station.objects.get(id=4)
-    datetime_offset = pytz.FixedOffset(pgia.utc_offset_minutes)
-    request_datetime = datetime_offset.localize(date)
-
-    start_datetime = request_datetime
-    end_datetime = request_datetime + datetime.timedelta(days=1)
-
-    with psycopg2.connect(settings.SURFACE_CONNECTION_STRING) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                f"""
-                    SELECT (datetime + interval '{pgia.utc_offset_minutes} minutes') at time zone 'utc',
-                        variable_id,
-                        CASE WHEN var.variable_type ilike 'code' THEN code ELSE measured::varchar END as value,
-                        remarks,
-                        observer
-                    FROM raw_data
-                    JOIN wx_variable var ON raw_data.variable_id=var.id
-                    WHERE station_id = %(station_id)s
-                      AND datetime >= %(start_date)s 
-                      AND datetime < %(end_date)s
-                """,
-                {
-                    'start_date': start_datetime,
-                    'end_date': end_datetime,
-                    'station_id': pgia.id
-                })
-
-            response = cursor.fetchall()
-
-    return JsonResponse(response, status=status.HTTP_200_OK, safe=False)
+        return context
 
 
 @api_view(['GET'])
@@ -2429,7 +2927,14 @@ def MonthlyFormLoad(request):
 
     station = Station.objects.get(id=station_id)
     datetime_offset = pytz.FixedOffset(station.utc_offset_minutes)
-    end_date = start_date.replace(month=start_date.month + 1) - datetime.timedelta(days=1)
+
+    # catch for December Edgecase
+    if start_date.month == 12:
+        next_month = start_date.replace(year=start_date.year + 1, month=1)
+    else:
+        next_month = start_date.replace(month=start_date.month + 1)
+
+    end_date = next_month - datetime.timedelta(days=1)
 
     with psycopg2.connect(settings.SURFACE_CONNECTION_STRING) as conn:
         with conn.cursor() as cursor:
@@ -2492,6 +2997,7 @@ def MonthlyFormUpdate(request):
 
 class StationDelete(LoginRequiredMixin, DeleteView):
     model = Station
+
     fields = ['code', 'name', 'profile', ]
 
     def get_success_url(self):
@@ -2515,6 +3021,7 @@ class StationFileList(LoginRequiredMixin, ListView):
 
 class StationFileCreate(LoginRequiredMixin, SuccessMessageMixin, CreateView):
     model = StationFile
+
     # fields = "__all__"
     fields = ('name', 'file')
     success_message = "%(name)s was created successfully"
@@ -2545,6 +3052,7 @@ class StationFileCreate(LoginRequiredMixin, SuccessMessageMixin, CreateView):
 
 class StationFileDelete(LoginRequiredMixin, DeleteView):
     model = StationFile
+
     success_message = "%(name)s was deleted successfully"
 
     def get_context_data(self, **kwargs):
@@ -2575,6 +3083,7 @@ class StationVariableListView(LoginRequiredMixin, ListView):
 
 class StationVariableCreateView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
     model = StationVariable
+
     fields = ('variable',)
     success_message = "%(variable)s was created successfully"
     layout = Layout(
@@ -2603,6 +3112,7 @@ class StationVariableCreateView(LoginRequiredMixin, SuccessMessageMixin, CreateV
 
 class StationVariableDeleteView(LoginRequiredMixin, DeleteView):
     model = StationVariable
+
     success_message = "%(action)s was deleted successfully"
 
     def get_context_data(self, **kwargs):
@@ -2673,7 +3183,7 @@ def station_report_data(request):
                 if current_unit not in y_axis_unit_dict.keys():
                     chart['yAxis'].append({
                         'labels': {
-                            'format': '{value} ' + variable_data['unit']
+                            'format': '{value} ' + variable_data['unit'],
                         },
                         'title': {
                             'text': None
@@ -2702,7 +3212,7 @@ def station_report_data(request):
                         chart['xAxis'] = {
                             'type': 'datetime',
                             'labels': {
-                                'format': '{value:%Y-%b}'
+                                'format': '{value:%Y-%b}',
                             },
                             'title': {
                                 'text': 'Y'
@@ -2717,7 +3227,7 @@ def station_report_data(request):
                         chart['xAxis'] = {
                             'type': 'datetime',
                             'labels': {
-                                'format': '{value:%Y-%b}'
+                                'format': '{value:%Y-%b}',
                             },
                             'title': {
                                 'text': 'Reference'
@@ -2812,7 +3322,7 @@ def variable_report_data(request):
                 if current_unit not in y_axis_unit_dict.keys():
                     chart['yAxis'].append({
                         'labels': {
-                            'format': '{value} ' + variable_data['unit']
+                            'format': '{value} ' + variable_data['unit'],
                         },
                         'title': {
                             'text': None
@@ -2841,7 +3351,7 @@ def variable_report_data(request):
                         chart['xAxis'] = {
                             'type': 'datetime',
                             'labels': {
-                                'format': '{value:%Y-%b}'
+                                'format': '{value:%Y-%b}',
                             },
                             'title': {
                                 'text': 'Y'
@@ -2856,7 +3366,7 @@ def variable_report_data(request):
                         chart['xAxis'] = {
                             'type': 'datetime',
                             'labels': {
-                                'format': '{value:%Y-%b}'
+                                'format': '{value:%Y-%b}',
                             },
                             'title': {
                                 'text': 'Reference'
@@ -2888,9 +3398,11 @@ def variable_report_data(request):
 class StationReportView(LoginRequiredMixin, TemplateView):
     template_name = "wx/products/station_report.html"
 
-    def get(self, request, *args, **kwargs):
-        context = self.get_context_data(**kwargs)
-        context['station_id'] = request.GET.get('station_id', 'null')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context['station_id'] = self.request.GET.get('station_id', 'null')
 
         station_list = Station.objects.all()
         context['station_list'] = station_list
@@ -2913,14 +3425,15 @@ class StationReportView(LoginRequiredMixin, TemplateView):
 
         context['station_variable_list'] = station_variable_list
 
-        return self.render_to_response(context)
+        return context
+
 
 
 class VariableReportView(LoginRequiredMixin, TemplateView):
     template_name = "wx/products/variable_report.html"
-
-    def get(self, request, *args, **kwargs):
-        context = self.get_context_data(**kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
 
         quality_flag_query = QualityFlag.objects.all()
         quality_flag_colors = {}
@@ -2931,7 +3444,8 @@ class VariableReportView(LoginRequiredMixin, TemplateView):
         context['variable_list'] = Variable.objects.all()
         context['station_list'] = Station.objects.all()
 
-        return self.render_to_response(context)
+        return context
+
 
 
 class ProductReportView(LoginRequiredMixin, TemplateView):
@@ -2941,8 +3455,9 @@ class ProductReportView(LoginRequiredMixin, TemplateView):
 class ProductCompareView(LoginRequiredMixin, TemplateView):
     template_name = 'wx/products/compare.html'
 
-    def get(self, request, *args, **kwargs):
-        context = self.get_context_data(**kwargs)
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
         context['station_list'] = Station.objects.select_related('profile').all()
         context['variable_list'] = Variable.objects.select_related('unit').all()
 
@@ -2950,21 +3465,23 @@ class ProductCompareView(LoginRequiredMixin, TemplateView):
         context['station_watershed_list'] = Watershed.objects.all()
         context['station_district_list'] = AdministrativeRegion.objects.all()
 
-        return self.render_to_response(context)
+        return context
 
 
 class QualityControlView(LoginRequiredMixin, TemplateView):
     template_name = 'wx/quality_control/validation.html'
 
-    def get(self, request, *args, **kwargs):
-        context = self.get_context_data(**kwargs)
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
         context['station_list'] = Station.objects.select_related('profile').all()
 
         context['station_profile_list'] = StationProfile.objects.all()
         context['station_watershed_list'] = Watershed.objects.all()
         context['station_district_list'] = AdministrativeRegion.objects.all()
 
-        return self.render_to_response(context)
+        return context
+
 
 
 @csrf_exempt
@@ -3007,6 +3524,7 @@ def get_yearly_average(request):
 
 class YearlyAverageReport(LoginRequiredMixin, TemplateView):
     template_name = 'wx/reports/yearly_average.html'
+    
 
 
 class StationVariableStationViewSet(viewsets.ModelViewSet):
@@ -3422,7 +3940,114 @@ def query_stationsmonitoring_station(data_type, time_type, date_picked, station_
                          'suspicious': r[3],
                          'bad': r[4],
                          'not_checked': r[5]} for r in results]
-    
+    elif data_type=='Visits':
+        query = """
+            WITH ordered_reports AS (
+                SELECT 
+                    id
+                    ,station_id
+                    ,visit_type_id
+                    ,visit_date
+                    ,initial_time
+                    ,end_time
+                    ,responsible_technician_id
+                    ,next_visit_date
+                    ,ROW_NUMBER() OVER (PARTITION BY station_id ORDER BY visit_date DESC) AS rn
+                FROM wx_maintenancereport
+                WHERE status='A'AND station_id=%s
+            )
+            ,latest_report AS(
+                SELECT 
+                    *
+                FROM ordered_reports
+                WHERE rn=1    
+            )
+            SELECT 
+                r.id
+                ,p.name
+                ,s.is_automatic
+                ,r.visit_date
+                ,v.name
+                ,r.initial_time
+                ,r.end_time
+                ,t.name
+                ,r.next_visit_date
+            FROM latest_report r
+            LEFT JOIN wx_station s ON r.station_id = s.id
+            LEFT JOIN wx_stationprofile p ON p.id=s.profile_id
+            LEFT JOIN wx_technician t ON r.responsible_technician_id = t.id
+            LEFT JOIN wx_visittype v ON r.visit_type_id = v.id
+        """
+
+        with connection.cursor() as cursor:
+            cursor.execute(query, (station_id,))
+            results = cursor.fetchall()
+        
+        station_data = [{'Maintenance Report ID': r[0],
+                         'Station Profile': r[1],
+                         'Station Type': 'Automatic' if r[2] else 'Manual',
+                         'Visit Date': r[3],
+                         'Visit Type': r[4],
+                         'Initial Time': r[5],
+                         'End Time': r[6],
+                         'Responsible Technician': r[7],
+                         'Next Visit Date': r[8]} for r in results]
+        
+        if len(station_data)>0:
+            station_data = station_data[0]
+        else:
+            station_data = {}
+    elif data_type=='Equipment':
+        query = """
+            WITH ordered_reports AS (
+                SELECT 
+                    id
+                    ,ROW_NUMBER() OVER (PARTITION BY station_id ORDER BY visit_date DESC) AS rn
+                FROM wx_maintenancereport
+                WHERE status='A'AND station_id=%s
+            )
+            ,latest_report AS(
+                SELECT 
+                    id
+                FROM ordered_reports
+                WHERE rn=1    
+            )
+            SELECT 
+                e.model
+                ,e.serial_number
+                ,et.name
+                ,se.classification
+                ,q.color
+            FROM latest_report r
+            LEFT JOIN wx_maintenancereportequipment se ON se.maintenance_report_id=r.id
+            LEFT JOIN wx_equipment e ON e.id = se.new_equipment_id
+            LEFT JOIN wx_equipmenttype et ON et.id = se.equipment_type_id
+            LEFT JOIN
+                    wx_qualityflag q ON 
+                    CASE
+                        WHEN se.classification='N' THEN q.symbol = 'B'
+                        WHEN se.classification='P' THEN q.symbol = 'S'
+                        WHEN se.classification='F' THEN q.symbol = 'G'
+                        ELSE q.symbol = '-'
+                    END
+            ORDER BY se.equipment_type_id, se.equipment_order
+        """
+
+        with connection.cursor() as cursor:
+            cursor.execute(query, (station_id,))
+            results = cursor.fetchall()
+
+        classification_dict = {
+            'F':  'Fully Functional',
+            'P':  'Partially Functional',
+            'N':  'Not Functional'
+        }
+        
+        station_data = [{'model': r[0],
+                         'serial_number': r[1],
+                         'equipment_type': r[2],
+                         'classification': classification_dict[r[3]],
+                         'color': r[4]} for r in results]        
     return station_data
 
 
@@ -3525,10 +4150,111 @@ def query_stationsmonitoring_map(data_type, time_type, date_picked):
                 LEFT JOIN qf ON s.id = qf.station_id
                 WHERE s.is_active
             """
+        elif data_type=='Visits':
+            query = """
+                WITH ordered_reports AS (
+                    SELECT 
+                        id
+                        ,station_id
+                        ,visit_date
+                        ,next_visit_date
+                        ,ROW_NUMBER() OVER (PARTITION BY station_id ORDER BY visit_date DESC) AS rn
+                    FROM wx_maintenancereport
+                    WHERE status='A'
+                )
+                ,latest_reports AS(
+                    SELECT 
+                        id
+                        ,station_id
+                        ,visit_date
+                        ,next_visit_date
+                        ,rn
+                    FROM ordered_reports
+                    WHERE rn=1    
+                )
+                SELECT 
+                    s.id
+                    ,s.name
+                    ,s.code
+                    ,s.latitude
+                    ,s.longitude                    
+                    ,q.color AS color
+                FROM wx_station s
+                LEFT JOIN latest_reports l ON l.station_id = s.id
+                LEFT JOIN wx_qualityflag q ON
+                    CASE
+                        WHEN l.next_visit_date IS NULL THEN q.symbol = '-'
+                        WHEN l.next_visit_date > NOW() THEN q.symbol = 'G'
+                        WHEN l.next_visit_date >= NOW() - INTERVAL '1 month' AND l.next_visit_date <= NOW() THEN q.symbol = 'S'
+                        WHEN l.next_visit_date < NOW() - INTERVAL '1 month' THEN q.symbol = 'B'
+                    END
+                WHERE s.is_active
+            """
+        elif data_type == 'Equipment':
+            query = """
+                WITH ordered_reports AS (
+                    SELECT 
+                        id
+                        ,station_id
+                        ,visit_date
+                        ,next_visit_date
+                        ,ROW_NUMBER() OVER (PARTITION BY station_id ORDER BY visit_date DESC) AS rn
+                    FROM wx_maintenancereport
+                    WHERE status='A'
+                )
+                ,latest_reports AS(
+                    SELECT 
+                        id
+                        ,station_id
+                        ,visit_date
+                        ,next_visit_date
+                        ,rn
+                    FROM ordered_reports
+                    WHERE rn=1    
+                )
+                ,station_equipment AS (
+                    SELECT 
+                        r.station_id
+                        ,COUNT(*) AS count_eq
+                        ,SUM(CASE WHEN re.classification = 'F' THEN 1 ELSE 0 END) AS count_f
+                        ,SUM(CASE WHEN re.classification = 'P' THEN 1 ELSE 0 END) AS count_p
+                        ,SUM(CASE WHEN re.classification = 'N' THEN 1 ELSE 0 END) AS count_n
+                    FROM latest_reports r
+                    LEFT JOIN wx_maintenancereportequipment re 
+                        ON  re.maintenance_report_id = r.id
+                    GROUP BY r.station_id
+                )
+                SELECT
+                    s.id,
+                    s.name,
+                    s.code,
+                    s.latitude,
+                    s.longitude,
+                    q.color AS color
+                FROM
+                    wx_station s
+                LEFT JOIN
+                    station_equipment se ON se.station_id = s.id
+                LEFT JOIN
+                    wx_qualityflag q ON 
+                    CASE
+                        WHEN se.count_eq IS NULL THEN q.symbol = '-'
+                        WHEN se.count_n > 0 THEN q.symbol = 'B'
+                        WHEN se.count_p > 0 THEN q.symbol = 'S'
+                        ELSE q.symbol = 'G'
+                    END
+                WHERE
+                    s.is_active
+            """            
+            
 
         if data_type in ['Communication', 'Quality Control']:
             with connection.cursor() as cursor:
                 cursor.execute(query, (datetime_picked, datetime_picked, ))
+                results = cursor.fetchall()
+        elif data_type in ['Visits', 'Equipment']:
+            with connection.cursor() as cursor:
+                cursor.execute(query)
                 results = cursor.fetchall()
     else:
         if data_type=='Communication':
@@ -3635,36 +4361,65 @@ def get_stationsmonitoring_map_data(request):
     return JsonResponse(response, status=status.HTTP_200_OK)
 
 
-def stationsmonitoring_form(request):
-    template = loader.get_template('wx/stations/stations_monitoring.html')
+# old stationsmonitoring_form fbv
+# def stationsmonitoring_form(request):
+#     template = loader.get_template('wx/stations/stations_monitoring.html')
 
-    flags = {
-      'good': QualityFlag.objects.get(name='Good').color,
-      'suspicious': QualityFlag.objects.get(name='Suspicious').color,
-      'bad': QualityFlag.objects.get(name='Bad').color,
-      'not_checked': QualityFlag.objects.get(name='Not checked').color,
-    }
+#     flags = {
+#       'good': QualityFlag.objects.get(name='Good').color,
+#       'suspicious': QualityFlag.objects.get(name='Suspicious').color,
+#       'bad': QualityFlag.objects.get(name='Bad').color,
+#       'not_checked': QualityFlag.objects.get(name='Not checked').color,
+#     }
 
-    context = {'flags': flags}
+#     context = {'flags': flags}
 
-    return HttpResponse(template.render(context, request))
+#     return HttpResponse(template.render(context, request))
+
+
+class stationsmonitoring_form(LoginRequiredMixin, TemplateView):
+    template_name = "wx/stations/stations_monitoring.html"
+
+    def get_context_data(self, **kwargs):
+        # call the base implementation to get a context dict
+        context = super().get_context_data(**kwargs)
+
+        # add flags
+        context['flags'] = {
+            'good': QualityFlag.objects.get(name='Good').color,
+            'suspicious': QualityFlag.objects.get(name='Suspicious').color,
+            'bad': QualityFlag.objects.get(name='Bad').color,
+            'not_checked': QualityFlag.objects.get(name='Not checked').color,
+        }
+        return context
 
 
 class ComingSoonView(LoginRequiredMixin, TemplateView):
     template_name = "coming-soon.html"
 
-def get_wave_data_analysis(request):
-    template = loader.get_template('wx/products/wave_data.html')
 
 
-    variable = Variable.objects.get(name="Sea Level") # Sea Level
-    station_ids = HighFrequencyData.objects.filter(variable_id=variable.id).values('station_id').distinct()
+# not authorized view, if user fails permision checks
+class NotAuthView(LoginRequiredMixin, TemplateView):
+    template_name = "not_authorized.html"
 
-    station_list = Station.objects.filter(id__in=station_ids)
 
-    context = {'station_list': station_list}
+class get_wave_data_analysis(LoginRequiredMixin, TemplateView):
+    template_name = 'wx/products/wave_data.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
 
-    return HttpResponse(template.render(context, request))
+        variable = Variable.objects.get(name="Sea Level") # Sea Level
+        station_ids = HighFrequencyData.objects.filter(variable_id=variable.id).values('station_id').distinct()
+
+        station_list = Station.objects.filter(id__in=station_ids)
+
+        context['station_list'] = station_list        
+
+        return context
+
+
 
 def format_wave_data_var(variable_id, data):
     variable = Variable.objects.get(id=variable_id)
@@ -3913,7 +4668,7 @@ def create_wave_chart(dataset):
             if current_unit not in y_axis_unit_dict.keys():
                 chart['yAxis'].append({
                     'labels': {
-                        'format': '{value} ' + variable_data['unit']
+                        'format': '{value} ' + variable_data['unit'],
                     },
                     'title': {
                         'text': None
@@ -4000,12 +4755,8 @@ def get_wave_data(request):
     return JsonResponse(charts)
 
 
-@require_http_methods(["GET"])
-def get_equipment_inventory(request):
-    template = loader.get_template('wx/maintenance_reports/equipment_inventory.html')
-    context = {}
-
-    return HttpResponse(template.render(context, request))
+class get_equipment_inventory(LoginRequiredMixin, TemplateView):
+    template_name = 'wx/maintenance_reports/equipment_inventory.html'
 
 
 def get_value(variable):
@@ -4062,208 +4813,330 @@ def get_equipment_location(equipment):
 
 @require_http_methods(["GET"])
 def get_equipment_inventory_data(request):
-    equipment_types = EquipmentType.objects.all()
-    manufacturers = Manufacturer.objects.all()
-    equipments = Equipment.objects.all().order_by('equipment_type', 'serial_number')
-    funding_sources = FundingSource.objects.all()
-    stations = Station.objects.all()
+    """
+    Returns all data required to render the Equipment Inventory page.
 
+    This endpoint intentionally returns BOTH:
+    1. Inventory data (actual equipment rows)
+    2. Lookup / metadata tables (types, models, manufacturers, etc.)
+
+    These are kept separate on purpose:
+    - Inventory data is optimized for performance
+    - Lookup data must include *unused* rows for dropdowns
+    """
+
+    # MAIN INVENTORY QUERY
+    # IMPORTANT:
+    # - select_related ONLY pulls related rows that are actually used
+    #   by existing Equipment records.
+    # - It does NOT replace separate queries for lookup tables.
+    #
+    equipments = (
+        Equipment.objects
+        .select_related(
+            "equipment_type",  
+            "model",           
+            "manufacturer",     
+            "funding_source",   
+            "location",         # FK → Location (nullable)
+        )
+        .order_by("equipment_type__name", "serial_number")
+    )
+
+    # This list will be serialized directly to JSON.
     equipment_list = []
+
+    # SERIALIZE EACH EQUIPMENT ROW
     for equipment in equipments:
-        try:
-            equipment_type = equipment_types.get(id=equipment.equipment_type_id)
-            funding_source = funding_sources.get(id=equipment.funding_source_id)
-            manufacturer = manufacturers.get(id=equipment.manufacturer_id)
-            station = get_equipment_location(equipment)
 
-            equipment_dict = {
-                'equipment_id': equipment.id,
-                'equipment_type': equipment_type.name,
-                'equipment_type_id': equipment_type.id,
-                'funding_source': funding_source.name,
-                'funding_source_id': funding_source.id,            
-                'manufacturer': manufacturer.name,
-                'manufacturer_id': manufacturer.id,
-                'model': equipment.model,
-                'serial_number': equipment.serial_number,
-                'acquisition_date': equipment.acquisition_date,
-                'first_deploy_date': equipment.first_deploy_date,
-                'last_calibration_date': equipment.last_calibration_date,
-                'next_calibration_date': equipment.next_calibration_date,
-                'decommission_date': equipment.decommission_date,
-                'last_deploy_date': equipment.last_deploy_date,
-                'location': f"{station.name} - {station.code}" if station else 'Office',
-                'location_id': station.id if station else None,
-                'classification': equipment_classification(equipment.classification),
-                'classification_id': equipment.classification,
-            }
-            equipment_list.append(equipment_dict)            
-        except ObjectDoesNotExist:
-            pass
+        equipment_list.append({
+            # Primary identifiers
+            "equipment_id": equipment.id,
 
+            # Equipment type (FK). equipment type can be Null / None
+            "equipment_type": equipment.equipment_type.name if equipment.equipment_type else None,
+            "equipment_type_id": equipment.equipment_type.id if equipment.equipment_type else None,
+
+            # Funding source (FK). Funding source can be Null / None
+            "funding_source": equipment.funding_source.name if equipment.funding_source else None,
+            "funding_source_id": equipment.funding_source.id if equipment.funding_source else None,
+
+            # Manufacturer (FK). Manufacturer can be Null / None
+            "manufacturer": equipment.manufacturer.name if equipment.manufacturer else None,
+            "manufacturer_id": equipment.manufacturer.id if equipment.manufacturer else None,
+
+            # Equipment model (FK). Models can be Null / None
+            "equipment_model_id": equipment.model.id if equipment.model else None,
+            "equipment_model": equipment.model.name if equipment.model else None,
+
+            # Equipment fields
+            "serial_number": equipment.serial_number,
+            "acquisition_date": equipment.acquisition_date,
+            "first_deploy_date": equipment.first_deploy_date,
+            "last_calibration_date": equipment.last_calibration_date,
+            "next_calibration_date": equipment.next_calibration_date,
+            "decommission_date": equipment.decommission_date,
+            "last_deploy_date": equipment.last_deploy_date,
+
+            # Location (nullable FK)
+            # If no location exists, we treat the equipment as being
+            # in the office.
+            "location": equipment.location.name if equipment.location else "Office",
+            "location_id": equipment.location_id if equipment.location else None,
+
+            # Classification
+            # classification is stored as a short code (e.g. 'F', 'P', 'N')
+            # equipment_classification() converts it into a human-readable label
+            "classification": equipment_classification(equipment.classification),
+            "classification_id": equipment.classification,
+        })
+
+    # STATIC / ENUM-LIKE DATA
+    # These classifications are not stored in a table and are used
+    # primarily for UI rendering (dropdowns, labels, etc.).
     equipment_classifications = [
-        {'name': 'Fully Functional', 'id': 'F'},
-        {'name': 'Partially Functional', 'id': 'P'},
-        {'name': 'Not Functional', 'id': 'N'},
+        {"name": "Fully Functional", "id": "F"},
+        {"name": "Partially Functional", "id": "P"},
+        {"name": "Not Functional", "id": "N"},
     ]
 
-    station_list = [{'name': f"{station.name} - {station.code}",
-                     'id': station.id} for station in stations]
-
+    # RESPONSE PAYLOAD
+    # IMPORTANT DESIGN NOTE:
+    # - Dropdowns must include unused rows
+    # - New equipment may reference currently-unused models/types
     response = {
-        'equipments': equipment_list,
-        'equipment_types': list(equipment_types.values()),
-        'manufacturers': list(manufacturers.values()),
-        'funding_sources': list(funding_sources.values()),
-        'stations': station_list,
-        'equipment_classifications': equipment_classifications,
+        # Inventory data (optimized via select_related)
+        "equipment": equipment_list,
+
+        # Lookup / metadata tables (complete datasets)
+        "equipment_types": list(EquipmentType.objects.values()),
+        "manufacturers": list(Manufacturer.objects.values()),
+        "funding_sources": list(FundingSource.objects.values()),
+        "equipment_models": list(EquipmentModel.objects.values()),
+
+        # Stations formatted specifically for UI display
+        "stations": [
+            {"name": f"{s.name} - {s.code}", "id": s.id}
+            for s in Station.objects.all()
+        ],
+
+        # Static classification list
+        "equipment_classifications": equipment_classifications,
     }
+
     return JsonResponse(response, status=status.HTTP_200_OK)
+
 
 
 @require_http_methods(["POST"])
 def create_equipment(request):
-    equipment_type_id = request.GET.get('equipment_type', None)
-    manufacturer_id = request.GET.get('manufacturer', None)
-    funding_source_id = request.GET.get('funding_source', None)
-    model = request.GET.get('model', None)
-    serial_number = request.GET.get('serial_number', None)
-    acquisition_date = request.GET.get('acquisition_date', None)
-    first_deploy_date = request.GET.get('first_deploy_date', None)
-    last_calibration_date = request.GET.get('last_calibration_date', None)
-    next_calibration_date = request.GET.get('next_calibration_date', None)
-    decommission_date = request.GET.get('decommission_date', None)
-    location_id = request.GET.get('location', None)
-    classification = request.GET.get('classification', None)
-    last_deploy_date = request.GET.get('last_deploy_date', None)  
+    """
+    Creates a new Equipment record.
+    """
 
-    equipment_type = EquipmentType.objects.get(id=equipment_type_id)
-    manufacturer = Manufacturer.objects.get(id=manufacturer_id)   
-    funding_source = FundingSource.objects.get(id=funding_source_id)
+    # READ INPUT DATA
+    equipment_type_id = request.GET.get("equipment_type")
+    manufacturer_id = request.GET.get("manufacturer")
+    funding_source_id = request.GET.get("funding_source")
+    equipment_model_id = request.GET.get("model")
+    serial_number = request.GET.get("serial_number")
 
-    location = None
-    if location_id:
-        location = Station.objects.get(id=location_id)
+    acquisition_date = request.GET.get("acquisition_date")
+    first_deploy_date = request.GET.get("first_deploy_date")
+    last_calibration_date = request.GET.get("last_calibration_date")
+    next_calibration_date = request.GET.get("next_calibration_date")
+    decommission_date = request.GET.get("decommission_date")
+    last_deploy_date = request.GET.get("last_deploy_date")
 
-    try:
-        equipment = Equipment.objects.get(
-            equipment_type=equipment_type,
-            serial_number = serial_number,
+    location_id = request.GET.get("location")
+    classification = request.GET.get("classification")
+
+    # BASIC VALIDATION (MINIMUM REQUIRED FIELDS)
+    if not equipment_type_id or not serial_number:
+        return JsonResponse(
+            {"message": "equipment_type and serial_number are required"},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
-        message = 'Already exist an equipment of equipment type '
-        message += equipment_type.name
-        message += ' and serial number '
-        message += equipment.serial_number
-
-        response = {'message': message}
-
-        return JsonResponse(response, status=status.HTTP_400_BAD_REQUEST)   
-
-    except ObjectDoesNotExist:
-        now = datetime.datetime.now()
-
+    # CREATE EQUIPMENT
+    try:
         equipment = Equipment.objects.create(
-                created_at = now,
-                updated_at = now,
-                equipment_type = equipment_type,
-                manufacturer = manufacturer,
-                funding_source = funding_source,
-                model = model,
-                serial_number = serial_number,
-                acquisition_date = acquisition_date,
-                first_deploy_date = first_deploy_date,
-                last_calibration_date = last_calibration_date,
-                next_calibration_date = next_calibration_date,
-                decommission_date = decommission_date,
-                # location = location,
-                classification = classification,
-                last_deploy_date = last_deploy_date,
-            )
+            # ForeignKeys assigned by *_id to avoid extra queries
+            equipment_type_id=equipment_type_id,
+            manufacturer_id=manufacturer_id,
+            funding_source_id=funding_source_id,
+            model_id=equipment_model_id,
+            location_id=location_id,
 
-        response = {'equipment_id': equipment.id}
+            # Scalar fields
+            serial_number=serial_number,
+            acquisition_date=acquisition_date,
+            first_deploy_date=first_deploy_date,
+            last_calibration_date=last_calibration_date,
+            next_calibration_date=next_calibration_date,
+            decommission_date=decommission_date,
+            last_deploy_date=last_deploy_date,
+            classification=classification,
 
-    return JsonResponse(response, status=status.HTTP_200_OK)   
+            # Timestamps should ideally be handled by the model:
+            # created_at = auto_now_add
+            # updated_at = auto_now
+        )
+
+    except IntegrityError:
+        # DUPLICATE EQUIPMENT HANDLING
+        # If we reach here, the database rejected the insert due to a
+        # uniqueness violation.
+        # This is safer and faster than doing a pre-check SELECT.
+        return JsonResponse(
+            {
+                "message": (
+                    "An equipment with this equipment type and serial number "
+                    "already exists."
+                )
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # SUCCESS RESPONSE
+    return JsonResponse(
+        {"equipment_id": equipment.id},
+        status=status.HTTP_201_CREATED,
+    )
 
 
 @require_http_methods(["POST"])
 def update_equipment(request):
-    equipment_id = request.GET.get('equipment_id', None)
-    equipment_type_id = request.GET.get('equipment_type', None)
-    manufacturer_id = request.GET.get('manufacturer', None)
-    funding_source_id = request.GET.get('funding_source', None)
-    serial_number = request.GET.get('serial_number', None)
+    """
+    Updates an existing Equipment record.
+    """
 
-    equipment_type = EquipmentType.objects.get(id=equipment_type_id)
-    manufacturer = Manufacturer.objects.get(id=manufacturer_id)   
-    funding_source = FundingSource.objects.get(id=funding_source_id)
+    # READ INPUT DATA
+    equipment_id = request.GET.get("equipment_id")
+    equipment_type_id = request.GET.get("equipment_type")
+    equipment_model_id = request.GET.get("model")
+    manufacturer_id = request.GET.get("manufacturer")
+    funding_source_id = request.GET.get("funding_source")
+    serial_number = request.GET.get("serial_number")
+    location_id = request.GET.get("location")
 
-    try:
-        equipment = Equipment.objects.get(equipment_type=equipment_type, serial_number=serial_number)
+    # Optional date fields
+    acquisition_date = request.GET.get("acquisition_date")
+    first_deploy_date = request.GET.get("first_deploy_date")
+    last_calibration_date = request.GET.get("last_calibration_date")
+    next_calibration_date = request.GET.get("next_calibration_date")
+    decommission_date = request.GET.get("decommission_date")
+    last_deploy_date = request.GET.get("last_deploy_date")
+    classification = request.GET.get("classification")
 
-        if int(equipment_id) != equipment.id:
-            message = f"Could not update. Already exist an equipment of \
-                        equipment type {equipment_type.name} and serial \
-                        number {equipment.serial_number}"
+    # BASIC VALIDATION
+    if not equipment_id:
+        return JsonResponse(
+            {"message": "equipment_id is required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
-            response = {'message': message}
-
-            return JsonResponse(response, status=status.HTTP_400_BAD_REQUEST)
-    except ObjectDoesNotExist:
-        pass
-
+    # FETCH EQUIPMENT ONCE
+    # We retrieve the target row exactly once.
+    # If it does not exist, we fail immediately.
     try:
         equipment = Equipment.objects.get(id=equipment_id)
+    except Equipment.DoesNotExist:
+        return JsonResponse(
+            {"message": "Equipment not found"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
-        now = datetime.datetime.now()
+    # UPDATE FIELDS
+    # IMPORTANT:
+    # - We do NOT check for duplicate (equipment_type, serial_number)
+    # - The database enforces this via unique_together
+    # - If a conflict exists, save() will raise IntegrityError
+    equipment.equipment_type_id = equipment_type_id
+    equipment.manufacturer_id = manufacturer_id
+    equipment.funding_source_id = funding_source_id
+    equipment.model_id = equipment_model_id
+    equipment.location_id = location_id
 
-        equipment.updated_at = now
-        equipment.equipment_type = equipment_type
-        equipment.manufacturer = manufacturer
-        equipment.funding_source = funding_source         
-        equipment.serial_number = serial_number
-        equipment.model = request.GET.get('model', None)
-        equipment.acquisition_date = request.GET.get('acquisition_date', None)
-        equipment.first_deploy_date = request.GET.get('first_deploy_date', None)
-        equipment.last_calibration_date = request.GET.get('last_calibration_date', None)
-        equipment.next_calibration_date = request.GET.get('next_calibration_date', None)
-        equipment.decommission_date = request.GET.get('decommission_date', None)
-        equipment.classification = request.GET.get('classification', None)
-        equipment.last_deploy_date = request.GET.get('last_deploy_date', None)
+    equipment.serial_number = serial_number
+    equipment.acquisition_date = acquisition_date
+    equipment.first_deploy_date = first_deploy_date
+    equipment.last_calibration_date = last_calibration_date
+    equipment.next_calibration_date = next_calibration_date
+    equipment.decommission_date = decommission_date
+    equipment.last_deploy_date = last_deploy_date
+    equipment.classification = classification
+
+    # SAVE (DB ENFORCES UNIQUENESS)
+    try:
         equipment.save()
-        update_change_reason(equipment, f"Source of change: Front end")
 
+        # Audit / change tracking
+        update_change_reason(
+            equipment,
+            "Source of change: Front end"
+        )
 
-        response = {}
-        return JsonResponse(response, status=status.HTTP_200_OK)             
+    except IntegrityError:
+        # This happens if (equipment_type, serial_number)
+        # violates the unique_together constraint
+        return JsonResponse(
+            {
+                "message": (
+                    "Could not update. An equipment with this equipment type "
+                    "and serial number already exists."
+                )
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
-    except ObjectDoesNotExist:
-        message =  "Object not found"
-        response = {'message': message}
-        return JsonResponse(response, status=status.HTTP_400_BAD_REQUEST)   
-
-    response = {}
-    return JsonResponse(response, status=status.HTTP_200_OK) 
+    # SUCCESS RESPONSE
+    return JsonResponse(
+        {},
+        status=status.HTTP_200_OK,
+    )
 
 
 @require_http_methods(["POST"])
 def delete_equipment(request):
-    equipment_id = request.GET.get('equipment_id', None)
+    """
+    Deletes an Equipment record.
+    """
+
+    # READ INPUT DATA
+    equipment_id = request.GET.get("equipment_id")
+
+    # BASIC VALIDATION
+    if not equipment_id:
+        return JsonResponse(
+            {"message": "equipment_id is required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # FETCH & DELETE
+    # We intentionally do NOT wrap this in a broad try/except.
+    # If the object does not exist, we return a clear error.
     try:
         equipment = Equipment.objects.get(id=equipment_id)
-        equipment.delete()
-    except ObjectDoesNotExist:
-        pass
+    except Equipment.DoesNotExist:
+        return JsonResponse(
+            {"message": "Equipment not found"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
-    response = {}
-    return JsonResponse(response, status=status.HTTP_200_OK)
+    # Perform the delete.
+    equipment.delete()
+
+    # SUCCESS RESPONSE
+    # We return 200 OK with an empty body to match existing behavior.
+    return JsonResponse(
+        {},
+        status=status.HTTP_200_OK,
+    )
 
 
-@require_http_methods(["GET"])
-def get_maintenance_reports(request): # Maintenance report page
-    template = loader.get_template('wx/maintenance_reports/maintenance_reports.html')
-    context = {}
-    return HttpResponse(template.render(context, request))
+class get_maintenance_reports(LoginRequiredMixin, TemplateView):
+    template_name = 'wx/maintenance_reports/maintenance_reports.html'
 
 
 @require_http_methods(["PUT"])
@@ -4360,17 +5233,19 @@ def get_maintenance_report_view(request, id, source): # Maintenance report view
     profile = StationProfile.objects.get(pk=station.profile_id)
     responsible_technician = Technician.objects.get(pk=maintenance_report.responsible_technician_id)
     visit_type = VisitType.objects.get(pk=maintenance_report.visit_type_id)
-    maintenance_report_station_components = MaintenanceReportStationComponent.objects.filter(maintenance_report_id=maintenance_report.id)
 
-    # maintenance_report_station_component_list = []    
-    # for maintenance_report_station_component in maintenance_report_station_components:
-    #     dictionary = {'condition': maintenance_report_station_component.condition,
-    #                   'component_classification': maintenance_report_station_component.component_classification,
-    #                  }
-    #     maintenance_report_station_component_list.append(dictionary)
+    maintenance_report_station_equipments = MaintenanceReportEquipment.objects.filter(maintenance_report_id=maintenance_report.id)
 
-    maintenance_report_station_component_list = get_component_list(maintenance_report)
+    maintenance_report_station_equipment_list = []
 
+    for maintenance_report_station_equipment in maintenance_report_station_equipments:
+        new_equipment_id =  maintenance_report_station_equipment.new_equipment_id
+        new_equipment = Equipment.objects.get(id=new_equipment_id)
+        dictionary = {'condition': maintenance_report_station_equipment.condition,
+                      'component_classification': maintenance_report_station_equipment.classification,
+                      'name': ' '.join([new_equipment.model.name, new_equipment.serial_number])
+                     }
+        maintenance_report_station_equipment_list.append(dictionary)
 
     other_technicians_ids = [maintenance_report.other_technician_1_id,
                              maintenance_report.other_technician_2_id,
@@ -4416,7 +5291,7 @@ def get_maintenance_report_view(request, id, source): # Maintenance report view
         "latitude": station.latitude,
         "elevation": station.elevation,
         "longitude": station.longitude,
-        "district": station.region,
+        "district": station.region.name,
         "transmission_type": "---",
         "transmission_ID": "---",
         "transmission_interval": "---",
@@ -4427,7 +5302,8 @@ def get_maintenance_report_view(request, id, source): # Maintenance report view
 
     context['contact_information'] = maintenance_report.contacts  
 
-    context['equipment_records'] = maintenance_report_station_component_list
+    context['equipment_records'] = maintenance_report_station_equipment_list
+    # context['equipment_records'] = maintenance_report_station_component_list
 
     # JSON
     # return JsonResponse(context, status=status.HTTP_200_OK)
@@ -4461,15 +5337,17 @@ def get_maintenance_report_obj(maintenance_report):
     return station, station_profile, technician, visit_type
 
 
-def get_maintenance_report_form(request): # New maintenance report form page
-    template = loader.get_template('wx/maintenance_reports/new_report.html')
+class get_maintenance_report_form(LoginRequiredMixin, TemplateView):
+    template_name = 'wx/maintenance_reports/new_report.html'
 
-    context = {}
-    context['station_list'] = Station.objects.select_related('profile').all()
-    context['visit_type_list'] = VisitType.objects.all()
-    context['technician_list'] = Technician.objects.all()
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
 
-    return HttpResponse(template.render(context, request))
+        context['station_list'] = Station.objects.select_related('profile').all()
+        context['visit_type_list'] = VisitType.objects.all()
+        context['technician_list'] = Technician.objects.all()
+
+        return context
 
 
 def get_station_contacts(station_id):
@@ -4507,11 +5385,11 @@ def get_maintenance_report_equipment_data(maintenance_report, equipment_type, eq
 
         if maintenancereport_equipment.old_equipment_id:
             equipment = Equipment.objects.get(id=maintenancereport_equipment.old_equipment_id)
-            equipment_data['old_equipment_name'] = ' '.join([equipment.model, equipment.serial_number]) 
+            equipment_data['old_equipment_name'] = ' '.join([equipment.model.name, equipment.serial_number]) 
 
         if maintenancereport_equipment.new_equipment_id:
             equipment = Equipment.objects.get(id=maintenancereport_equipment.new_equipment_id)
-            equipment_data['new_equipment_name'] = ' '.join([equipment.model, equipment.serial_number]) 
+            equipment_data['new_equipment_name'] = ' '.join([equipment.model.name, equipment.serial_number]) 
     except ObjectDoesNotExist:
         pass
 
@@ -4522,7 +5400,7 @@ def get_maintenance_report_equipment_data(maintenance_report, equipment_type, eq
 
 def get_available_equipments(equipment_type_id):
     equipments = Equipment.objects.filter(equipment_type_id=equipment_type_id)
-    available_equipments = [{'id': equipment.id, 'name': ' '.join([equipment.model, equipment.serial_number])}
+    available_equipments = [{'id': equipment.id, 'name': ' '.join([equipment.model.name, equipment.serial_number])}
         for equipment in equipments if get_equipment_location(equipment) is None]
 
     return available_equipments
@@ -4534,7 +5412,7 @@ def get_available_equipments(equipment_type_id, station):
     available_equipments = []
     for equipment in equipments:
         if is_equipment_available(equipment, station):
-            available_equipments.append({'id': equipment.id, 'name': ' '.join([equipment.model, equipment.serial_number])})
+            available_equipments.append({'id': equipment.id, 'name': ' '.join([equipment.model.name, equipment.serial_number])})
 
     return available_equipments
 
@@ -4695,27 +5573,25 @@ def update_maintenance_report_equipment_type(maintenance_report, equipment_type,
 
 @require_http_methods(["POST"])
 def update_maintenance_report_equipment_type_data(request):
-    maintenance_report_id = request.GET.get('maintenance_report_id', None)
-    equipment_type_id = request.GET.get('equipment_type_id', None)
-    equipment_order = request.GET.get('equipment_order', None),
+    form_data = json.loads(request.body.decode())
 
-    if type(equipment_order) is tuple:
+    maintenance_report_id = form_data['maintenance_report_id'] 
+    equipment_type_id = form_data['equipment_type_id'] 
+    equipment_order = form_data['equipment_order'] 
+    if isinstance(equipment_order, tuple):
         equipment_order = equipment_order[0]
-    elif not type(equipment_order) is str:
+    elif not isinstance(equipment_order, str):
         logger.error("Error in equipment order during maintenance report equipment update")
-
     equipment_data = {
-        'new_equipment_id': request.GET.get('new_equipment_id', None),
-        'old_equipment_id': request.GET.get('old_equipment_id', None),
-        'condition': request.GET.get('condition', None),
-        'classification': request.GET.get('classification', None),
+        'new_equipment_id': form_data['new_equipment_id'], 
+        'old_equipment_id': form_data['old_equipment_id'], 
+        'condition': form_data['condition'], 
+        'classification': form_data['classification'], 
     }
 
     maintenance_report = MaintenanceReport.objects.get(id=maintenance_report_id)
     equipment_type = EquipmentType.objects.get(id=equipment_type_id)
-
     update_maintenance_report_equipment_type(maintenance_report, equipment_type, equipment_order, equipment_data)
-
     response = {}
     return JsonResponse(response, status=status.HTTP_200_OK)
 
@@ -4788,7 +5664,7 @@ def get_maintenance_report(request, id):
         "latitude": station.latitude,
         "elevation": station.elevation,
         "longitude": station.longitude,
-        "district": station.region,
+        "district": station.region.name,
         "transmission_type": "---",
         "transmission_ID": "---",
         "transmission_interval": "---",
@@ -4926,12 +5802,13 @@ def update_maintenance_report_summary(request, id):
 
 class SpatialAnalysisView(LoginRequiredMixin, TemplateView):
     template_name = "wx/spatial_analysis.html"
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
 
-    def get(self, request, *args, **kwargs):
-        context = self.get_context_data(**kwargs)
         context['quality_flags'] = QualityFlag.objects.all()
 
-        return self.render_to_response(context)
+        return context
 
 
 @api_view(['GET'])
@@ -4991,29 +5868,16 @@ class StationsMapView(LoginRequiredMixin, TemplateView):
 
 class StationMetadataView(LoginRequiredMixin, TemplateView):
     template_name = "wx/station_metadata.html"
+    model = Station
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
 
-    def get(self, request, *args, **kwargs):
-        context = self.get_context_data(**kwargs)
-        context['station_id'] = kwargs.get('pk', 'null')
-        print('kwargs', context['station_id'])
+        context['station_name'] = Station.objects.values('pk', 'name')  # Fetch only pk and name
 
-        wmo_station_type_list = WMOStationType.objects.all()
-        context['wmo_station_type_list'] = wmo_station_type_list
+        context['is_metadata'] = True
 
-        wmo_region_list = WMORegion.objects.all()
-        context['wmo_region_list'] = wmo_region_list
-
-        wmo_program_list = WMOProgram.objects.all()
-        context['wmo_program_list'] = wmo_program_list
-
-        station_profile_list = StationProfile.objects.all()
-        context['station_profile_list'] = station_profile_list
-
-        station_communication_list = StationCommunication.objects.all()
-        context['station_communication_list'] = station_communication_list
-
-        return self.render_to_response(context)
-
+        return context
 
 @api_view(['GET'])
 def latest_data(request, variable_id):
@@ -5090,12 +5954,14 @@ class StationFileViewSet(viewsets.ModelViewSet):
 
 class ExtremesMeansView(LoginRequiredMixin, TemplateView):
     template_name = 'wx/products/extremes_means.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
 
-    def get(self, request, *args, **kwargs):
-        context = self.get_context_data(**kwargs)
         context['station_list'] = Station.objects.values('id', 'name', 'code')
 
-        return self.render_to_response(context)
+        return context
+
 
 
 def get_months():
@@ -5367,17 +6233,33 @@ def range_threshold_view(request): # For synop and daily data captures
     return Response([], status=status.HTTP_200_OK)
 
 
-def get_range_threshold_form(request):
-    template = loader.get_template('wx/quality_control/range_threshold.html')
+class get_range_threshold_form(LoginRequiredMixin, TemplateView):
+    template_name = "wx/quality_control/range_threshold.html"
 
-    context = {}
-    context['station_list'] = Station.objects.select_related('profile').all()
-    context['station_profile_list'] = StationProfile.objects.all()
-    context['station_watershed_list'] = Watershed.objects.all()
-    context['station_district_list'] = AdministrativeRegion.objects.all()
-    context['interval_list'] = Interval.objects.filter(seconds__gt=1).order_by('seconds')    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
 
-    return HttpResponse(template.render(context, request))
+        context['station_list'] = Station.objects.select_related('profile').all()
+        context['station_profile_list'] = StationProfile.objects.all()
+        context['station_watershed_list'] = Watershed.objects.all()
+        context['station_district_list'] = AdministrativeRegion.objects.all()
+        context['interval_list'] = Interval.objects.filter(seconds__gt=1).order_by('seconds')    
+
+        return context
+
+
+
+# def get_range_threshold_form(request):
+#     template = loader.get_template('wx/quality_control/range_threshold.html')
+
+#     context = {}
+#     context['station_list'] = Station.objects.select_related('profile').all()
+#     context['station_profile_list'] = StationProfile.objects.all()
+#     context['station_watershed_list'] = Watershed.objects.all()
+#     context['station_district_list'] = AdministrativeRegion.objects.all()
+#     context['interval_list'] = Interval.objects.filter(seconds__gt=1).order_by('seconds')    
+
+#     return HttpResponse(template.render(context, request))
 
 
 def get_range_threshold_list(station_id, variable_id, interval, is_reference=False):
@@ -5583,17 +6465,20 @@ def delete_range_threshold(request):
     return JsonResponse(response, status=status.HTTP_200_OK)
 
 
-def get_step_threshold_form(request):
-    template = loader.get_template('wx/quality_control/step_threshold.html')
 
-    context = {}
-    context['station_list'] = Station.objects.select_related('profile').all()
-    context['station_profile_list'] = StationProfile.objects.all()
-    context['station_watershed_list'] = Watershed.objects.all()
-    context['station_district_list'] = AdministrativeRegion.objects.all()
-    context['interval_list'] = Interval.objects.filter(seconds__gt=1).order_by('seconds')    
+class get_step_threshold_form(LoginRequiredMixin, TemplateView):
+    template_name = "wx/quality_control/step_threshold.html"
 
-    return HttpResponse(template.render(context, request))
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context['station_list'] = Station.objects.select_related('profile').all()
+        context['station_profile_list'] = StationProfile.objects.all()
+        context['station_watershed_list'] = Watershed.objects.all()
+        context['station_district_list'] = AdministrativeRegion.objects.all()
+        context['interval_list'] = Interval.objects.filter(seconds__gt=1).order_by('seconds')    
+
+        return context
 
 
 def get_step_threshold_entry(station_id, variable_id, interval, is_reference=False):
@@ -5757,17 +6642,20 @@ def delete_step_threshold(request):
     return JsonResponse(response, status=status.HTTP_200_OK)
 
 
-def get_persist_threshold_form(request):
-    template = loader.get_template('wx/quality_control/persist_threshold.html')
 
-    context = {}
-    context['station_list'] = Station.objects.select_related('profile').all()
-    context['station_profile_list'] = StationProfile.objects.all()
-    context['station_watershed_list'] = Watershed.objects.all()
-    context['station_district_list'] = AdministrativeRegion.objects.all()
-    context['interval_list'] = Interval.objects.filter(seconds__gt=1).order_by('seconds')    
+class get_persist_threshold_form(LoginRequiredMixin, TemplateView):
+    template_name = "wx/quality_control/persist_threshold.html"
 
-    return HttpResponse(template.render(context, request))
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context['station_list'] = Station.objects.select_related('profile').all()
+        context['station_profile_list'] = StationProfile.objects.all()
+        context['station_watershed_list'] = Watershed.objects.all()
+        context['station_district_list'] = AdministrativeRegion.objects.all()
+        context['interval_list'] = Interval.objects.filter(seconds__gt=1).order_by('seconds')    
+
+        return context
 
 
 def get_persist_threshold_entry(station_id, variable_id, interval, is_reference=False):
@@ -6150,7 +7038,7 @@ def daily_means_data_view(request):
     station = Station.objects.get(pk=station_id)
     res['station'] = {
         "name": station.name,
-        "district": station.region,
+        "district": station.region.name,
         "latitude": station.latitude,
         "longitude": station.longitude,
         "elevation": station.elevation,
@@ -6168,12 +7056,13 @@ def daily_means_data_view(request):
 class DataInventoryView(LoginRequiredMixin, TemplateView):
     template_name = "wx/data_inventory.html"
 
-    def get(self, request, *args, **kwargs):
-        context = self.get_context_data(**kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
 
         context['variable_list'] = Variable.objects.all()
 
-        return self.render_to_response(context)
+        return context
 
 
 @api_view(['GET'])
@@ -6185,21 +7074,22 @@ def get_data_inventory(request):
     result = []
 
     query = """
-       SELECT EXTRACT('YEAR' from station_data.datetime)
-              ,station.id
-              ,station.name
-              ,station.code
-              ,station.is_automatic
-              ,station.begin_date
-              ,station.watershed
-              ,TRUNC(AVG(station_data.record_count_percentage)::numeric, 2)
+        SELECT EXTRACT('YEAR' from station_data.datetime) AS year
+            ,station.id
+            ,station.name
+            ,station.code
+            ,station.is_automatic
+            ,station.begin_date
+            ,region.name
+            ,TRUNC(AVG(station_data.record_count_percentage)::numeric, 2) AS avg_record_count
         FROM wx_stationdataminimuminterval AS station_data
         JOIN wx_station AS station ON station.id = station_data.station_id
+        JOIN wx_administrativeregion AS region ON region.id = station.region_id
         WHERE EXTRACT('YEAR' from station_data.datetime) >= %(start_year)s
-          AND EXTRACT('YEAR' from station_data.datetime) <  %(end_year)s
-          AND station.is_automatic = %(is_automatic)s
-        GROUP BY 1, station.id
-        ORDER BY station.watershed, station.name
+        AND EXTRACT('YEAR' from station_data.datetime) <  %(end_year)s
+        AND station.is_automatic = %(is_automatic)s
+        GROUP BY 1, station.id, region.name
+        ORDER BY region.name, station.name
     """
 
     with connection.cursor() as cursor:
@@ -6215,7 +7105,7 @@ def get_data_inventory(request):
                     'code': row[3],
                     'is_automatic': row[4],
                     'begin_date': row[5],
-                    'watershed': row[6],
+                    'region': row[6],
                 },
                 'percentage': row[7],
             }
@@ -6279,6 +7169,7 @@ def get_data_inventory_by_station(request):
 
     return Response(result, status=status.HTTP_200_OK)
 
+
 @api_view(['GET'])
 def get_station_variable_month_data_inventory(request):
     year = request.GET.get('year', None)
@@ -6329,174 +7220,2131 @@ def get_station_variable_day_data_inventory(request):
     station_id = request.GET.get('station_id', None)
     variable_id = request.GET.get('variable_id', None)
 
-    if station_id is None:
-        return JsonResponse({"message": "Invalid request. Station id must be provided"},
-                            status=status.HTTP_400_BAD_REQUEST)
+    # validate input
+    if not (year and month and station_id and variable_id):
+        return Response(
+            {"error": "year, month, station_id, and variable_id must be provided"},
+            status=400
+        )
 
-    query = """
-         WITH data AS (
-             SELECT EXTRACT('DAY' FROM station_data.datetime) AS day
-                   ,EXTRACT('DOW' FROM station_data.datetime) AS dow
-                   ,TRUNC(station_data.record_count_percentage::numeric, 2) as percentage
-                   ,station_data.record_count
-                   ,station_data.ideal_record_count
-                   ,(select COUNT(1) from raw_data rd where rd.station_id = station_data.station_id and rd.variable_id = station_data.variable_id and rd.datetime between station_data.datetime  and station_data.datetime + '1 DAY'::interval and coalesce(rd.manual_flag, rd.quality_flag) in (1, 4)) qc_passed_amount
-                   ,(select COUNT(1) from raw_data rd where rd.station_id = station_data.station_id and rd.variable_id = station_data.variable_id and rd.datetime between station_data.datetime  and station_data.datetime + '1 DAY'::interval) qc_amount
-            FROM wx_stationdataminimuminterval AS station_data
-            WHERE EXTRACT('YEAR' from station_data.datetime) = %(year)s
-              AND EXTRACT('MONTH' from station_data.datetime) = %(month)s 
-              AND station_data.station_id = %(station_id)s
-              AND station_data.variable_id = %(variable_id)s
-            ORDER BY station_data.datetime)
-         SELECT available_days.custom_day
-               ,data.dow
-               ,COALESCE(data.percentage, 0) AS percentage
-               ,COALESCE(data.record_count, 0) AS record_count
-               ,COALESCE(data.ideal_record_count, 0) AS ideal_record_count
-               ,case when data.qc_amount = 0 then 0 
-                     else TRUNC((data.qc_passed_amount / data.qc_amount::numeric) * 100, 2) end as qc_passed_percentage
-         FROM (SELECT custom_day FROM unnest( ARRAY[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] ) AS custom_day) AS available_days
-         LEFT JOIN data ON data.day = available_days.custom_day
-         
-    """
+    # cast to int
+    year = int(year)
+    month = int(month)
+    station_id = int(station_id)
+    variable_id = int(variable_id)
 
-    days = []
-    day_with_data = None
-    with connection.cursor() as cursor:
-        cursor.execute(query, {"year": year, "station_id": station_id, "month": month, "variable_id": variable_id})
-        rows = cursor.fetchall()
+    try:
+        # kick off async task
+        task = data_inventory_month_view.delay(int(year), int(month), int(station_id), int(variable_id))
 
-        for row in rows:
-            obj = {
-                'day': row[0],
-                'dow': row[1],
-                'percentage': row[2],
-                'record_count': row[3],
-                'ideal_record_count': row[4],
-                'qc_passed_percentage': row[5],
+        return Response({"task_id": task.id}, status=202)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
+# check the status of celery tasks
+@api_view(['GET'])
+def get_task_status(request, task_id):
+    result = AsyncResult(task_id)
+
+    if result.state == "PENDING":
+        return Response({"status": "pending"}, status=202)
+
+    elif result.state == "SUCCESS":
+        return Response({"status": "completed", "data": result.result}, status=200)
+
+    elif result.state == "FAILURE":
+        return Response({"status": "failed", "error": str(result.result)}, status=500)
+
+    else:
+        return Response({"status": result.state}, status=202)
+
+
+class UserInfo(views.APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        username = request.user.username
+        return Response({'username': username})
+
+
+class AvailableDataView(views.APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        try:
+            json_data = json.loads(request.body)
+
+            initial_date = json_data['initial_date']
+            final_date = json_data['final_date']
+            data_source = json_data['data_source']
+            sv_list = [(row['station_id'], row['variable_id']) for row in json_data['series']]
+
+            if (data_source=="monthly_summary"):
+                initial_date = initial_date[:-2]+'01'
+                final_date = final_date[:-2]+'01'
+            elif (data_source=="yearly_summary"):
+                initial_date = initial_date[:-5]+'01-01'
+                final_date = final_date[:-5]+'01-01'
+
+            initial_datetime = datetime.datetime.strptime(initial_date, '%Y-%m-%d')
+            final_datetime = datetime.datetime.strptime(final_date, '%Y-%m-%d')
+
+            num_days = (final_datetime-initial_datetime).days + 1            
+
+            ret_data =  {
+                'initial_date': initial_date,
+                'final_date': final_date,
+                'data_source': data_source,
+                'sv_list': sv_list
             }
 
-            if row[1] is not None and day_with_data is None:
-                day_with_data = obj
-            days.append(obj)
+            query = f"""
+                WITH series AS (
+                    SELECT station_id, variable_id
+                    FROM UNNEST(ARRAY{sv_list}) AS t(station_id int, variable_id int)
+                ),
+                daily_summ AS(
+                    SELECT
+                        MIN(day) AS first_day
+                        ,MAX(day) AS last_day
+                        ,station_id
+                        ,variable_id
+                        ,100*COUNT(*)/{num_days}::float AS percentage
+                    FROM daily_summary
+                    WHERE day >= '{initial_date}'
+                      AND day <= '{final_date}'
+                      AND (station_id, variable_id) IN (SELECT station_id, variable_id FROM series)
+                    GROUP BY station_id, variable_id
+                )
+                SELECT
+                    daily_summ.first_day 
+                    ,daily_summ.last_day
+                    ,series.station_id
+                    ,series.variable_id
+                    ,COALESCE(daily_summ.percentage, 0)
+                FROM series
+                LEFT JOIN daily_summ ON daily_summ.station_id = series.station_id AND daily_summ.variable_id = series.variable_id
+            """
 
-    if day_with_data is None:
-        return JsonResponse({"message": "No data found"},
-                            status=status.HTTP_404_NOT_FOUND)
+            result = []
 
-    for day in days:
-        current_day = day.get('day', None)
-        current_dow = day.get('dow', None)
-        if current_dow is None:
-            day_with_data_day = day_with_data.get('day', None)
-            day_with_data_dow = day_with_data.get('dow', None)
-            day_difference = current_day - day_with_data_day
-            day["dow"] = (day_difference + day_with_data_dow) % 7
+            with connection.cursor() as cursor:
+                cursor.execute(query)
+                rows = cursor.fetchall()
+                for row in rows:
+                    new_entry = {
+                        'first_date': row[0],
+                        'last_date': row[1],
+                        'station_id': row[2],
+                        'variable_id': row[3],
+                        'percentage': round(row[4], 1)
+                    }
 
-    return Response(days, status=status.HTTP_200_OK)
+                    result.append(new_entry)
+
+            return JsonResponse({'data': result}, status=status.HTTP_200_OK)
+        except json.JSONDecodeError:
+            return Response({'error': 'Invalid JSON format'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+def DataExportQueryData(initial_datetime, final_datetime, data_source, series, interval):
+    DB_NAME=os.getenv('SURFACE_DB_NAME')
+    DB_USER=os.getenv('SURFACE_DB_USER')
+    DB_PASSWORD=os.getenv('SURFACE_DB_PASSWORD')
+    DB_HOST=os.getenv('SURFACE_DB_HOST')
+    config = f"dbname={DB_NAME} user={DB_USER} password={DB_PASSWORD} host={DB_HOST}"
+
+    config = settings.SURFACE_CONNECTION_STRING
+
+    series = [(row['station_id'], row['variable_id']) for row in series]
+
+    if (data_source=='raw_data'):
+      dfs = []
+      ini_day = initial_datetime;
+      while (ini_day <= final_datetime):
+        fin_day = ini_day + datetime.timedelta(days=1)
+        fin_day = fin_day.replace(hour=0, minute=0, second=0, microsecond=0) 
+
+        fin_day = min(fin_day, final_datetime)
+
+        query = f"""
+          WITH time_series AS(
+            SELECT 
+              timestamp AS datetime
+            FROM
+              GENERATE_SERIES(
+                '{ini_day}'::TIMESTAMP
+                ,'{fin_day}'::TIMESTAMP
+                ,'{interval} SECONDS'
+              ) AS timestamp
+            WHERE timestamp BETWEEN '{ini_day}' AND '{fin_day}'
+          )          
+          ,series AS (
+              SELECT station_id, variable_id
+              FROM UNNEST(ARRAY{series}) AS t(station_id int, variable_id int)
+          )
+          ,processed_data AS (
+            SELECT datetime
+                ,station_id
+                ,var.id as variable_id
+                ,COALESCE(CASE WHEN var.variable_type ilike 'code' THEN data.code ELSE data.measured::varchar END, '-99.9') AS value
+            FROM raw_data data
+            LEFT JOIN wx_variable var ON data.variable_id = var.id
+            WHERE (data.datetime >= '{ini_day}')
+              AND ((data.datetime < '{fin_day}') OR (data.datetime='{fin_day}' AND {fin_day > final_datetime}))
+              AND (station_id, variable_id) IN (SELECT station_id, variable_id FROM series)
+          )
+          SELECT 
+            ts.datetime AS datetime
+            ,series.variable_id AS variable_id
+            ,series.station_id AS station_id
+            ,COALESCE(data.value, '-99.9') AS value
+          FROM time_series ts
+          CROSS JOIN series
+          LEFT JOIN processed_data AS data
+            ON data.datetime = ts.datetime
+            AND data.variable_id = series.variable_id
+            AND data.station_id = series.station_id;
+        """
+        with psycopg2.connect(config) as conn:
+          with conn.cursor() as cursor:
+            logging.info(query)
+            cursor.execute(query)
+            data = cursor.fetchall()
+
+        dfs.append(pd.DataFrame(data))
+
+        ini_day += datetime.timedelta(days=1)
+        ini_day = ini_day.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        if ini_day == final_datetime:
+          break
+
+      df = pd.concat(dfs)
+      return df
+    else:
+      if (data_source=='hourly_summary'):
+        query = f'''
+            WITH time_series AS(
+              SELECT 
+                timestamp AS datetime
+              FROM
+                GENERATE_SERIES(
+                  DATE_TRUNC('HOUR', '{initial_datetime}'::TIMESTAMP)
+                  ,DATE_TRUNC('HOUR', '{final_datetime}'::TIMESTAMP)
+                  ,'1 HOUR'
+                ) AS timestamp
+              WHERE timestamp BETWEEN '{initial_datetime}' AND '{final_datetime}'
+            )       
+            ,series AS (
+                SELECT station_id, variable_id
+                FROM UNNEST(ARRAY{series}) AS t(station_id int, variable_id int)
+            )
+            ,processed_data AS (
+              SELECT
+                datetime
+                ,station_id
+                ,var.id as variable_id
+                ,COALESCE(CASE 
+                  WHEN var.sampling_operation_id in (1,2) THEN data.avg_value::real
+                  WHEN var.sampling_operation_id = 3      THEN data.min_value
+                  WHEN var.sampling_operation_id = 4      THEN data.max_value
+                  WHEN var.sampling_operation_id = 6      THEN data.sum_value
+                  ELSE data.sum_value END, '-99.9') as value
+              FROM hourly_summary data
+              LEFT JOIN wx_variable var ON data.variable_id = var.id
+              WHERE data.datetime BETWEEN '{initial_datetime}' AND '{final_datetime}'
+                AND (station_id, variable_id) IN (SELECT station_id, variable_id FROM series)
+            )
+            SELECT 
+              ts.datetime AS datetime
+              ,series.variable_id AS variable_id
+              ,series.station_id AS station_id
+              ,COALESCE(data.value, '-99.9') AS value
+            FROM time_series ts
+            CROSS JOIN series
+            LEFT JOIN processed_data AS data
+              ON data.datetime = ts.datetime
+              AND data.variable_id = series.variable_id
+              AND data.station_id = series.station_id;
+        '''    
+      elif (data_source=='daily_summary'):      
+        query = f'''
+            WITH time_series AS(
+              SELECT 
+                timestamp::DATE AS date
+              FROM
+                GENERATE_SERIES(
+                  DATE_TRUNC('DAY', '{initial_datetime}'::TIMESTAMP)
+                  ,DATE_TRUNC('DAY', '{final_datetime}'::TIMESTAMP)
+                  ,'1 DAY'
+                ) AS timestamp
+              WHERE timestamp BETWEEN '{initial_datetime}' AND '{final_datetime}'
+            )       
+            ,series AS (
+                SELECT station_id, variable_id
+                FROM UNNEST(ARRAY{series}) AS t(station_id int, variable_id int)
+            )
+            ,processed_data AS (
+              SELECT
+                day
+                ,station_id
+                ,var.id as variable_id
+                ,COALESCE(CASE 
+                  WHEN var.sampling_operation_id in (1,2) THEN data.avg_value::real
+                  WHEN var.sampling_operation_id = 3      THEN data.min_value
+                  WHEN var.sampling_operation_id = 4      THEN data.max_value
+                  WHEN var.sampling_operation_id = 6      THEN data.sum_value
+                  ELSE data.sum_value END, '-99.9') as value
+              FROM daily_summary data
+              LEFT JOIN wx_variable var ON data.variable_id = var.id
+              WHERE data.day BETWEEN '{initial_datetime}' AND '{final_datetime}'
+                AND (station_id, variable_id) IN (SELECT station_id, variable_id FROM series)
+            )
+            SELECT 
+              ts.date AS date
+              ,series.variable_id AS variable_id
+              ,series.station_id AS station_id
+              ,COALESCE(data.value, '-99.9') AS value
+            FROM time_series ts
+            CROSS JOIN series
+            LEFT JOIN processed_data AS data
+              ON data.day = ts.date
+              AND data.variable_id = series.variable_id
+              AND data.station_id = series.station_id;
+        '''
+      elif (data_source=='monthly_summary'):
+        query = f'''
+            WITH time_series AS(
+              SELECT 
+                timestamp::DATE AS date
+              FROM
+                GENERATE_SERIES(
+                  DATE_TRUNC('MONTH', '{initial_datetime}'::TIMESTAMP)
+                  ,DATE_TRUNC('MONTH', '{final_datetime}'::TIMESTAMP)
+                  ,'1 MONTH'
+                ) AS timestamp
+              WHERE timestamp BETWEEN '{initial_datetime}' AND '{final_datetime}'
+            )       
+            ,series AS (
+                SELECT station_id, variable_id
+                FROM UNNEST(ARRAY{series}) AS t(station_id int, variable_id int)
+            )
+            ,processed_data AS (
+              SELECT
+                date
+                ,station_id
+                ,var.id as variable_id
+                ,COALESCE(CASE 
+                  WHEN var.sampling_operation_id in (1,2) THEN data.avg_value::real
+                  WHEN var.sampling_operation_id = 3      THEN data.min_value
+                  WHEN var.sampling_operation_id = 4      THEN data.max_value
+                  WHEN var.sampling_operation_id = 6      THEN data.sum_value
+                  ELSE data.sum_value END, '-99.9') as value
+              FROM monthly_summary data
+              LEFT JOIN wx_variable var ON data.variable_id = var.id
+              WHERE data.date BETWEEN '{initial_datetime}' AND '{final_datetime}'
+                AND (station_id, variable_id) IN (SELECT station_id, variable_id FROM series)
+            )
+            SELECT 
+              ts.date AS date
+              ,series.variable_id AS variable_id
+              ,series.station_id AS station_id
+              ,COALESCE(data.value, '-99.9') AS value
+            FROM time_series ts
+            CROSS JOIN series
+            LEFT JOIN processed_data AS data
+              ON data.date = ts.date
+              AND data.variable_id = series.variable_id
+              AND data.station_id = series.station_id;        
+        '''
+      elif (data_source=='yearly_summary'):
+        query = f'''
+            WITH time_series AS(
+              SELECT 
+                timestamp::DATE AS date
+              FROM
+                GENERATE_SERIES(
+                  DATE_TRUNC('YEAR', '{initial_datetime}'::TIMESTAMP)
+                  ,DATE_TRUNC('YEAR', '{final_datetime}'::TIMESTAMP)
+                  ,'1 YEAR'
+                ) AS timestamp
+              WHERE timestamp BETWEEN '{initial_datetime}' AND '{final_datetime}'
+            )       
+            ,series AS (
+                SELECT station_id, variable_id
+                FROM UNNEST(ARRAY{series}) AS t(station_id int, variable_id int)
+            )
+            ,processed_data AS (
+              SELECT
+                date
+                ,station_id
+                ,var.id as variable_id
+                ,COALESCE(CASE 
+                  WHEN var.sampling_operation_id in (1,2) THEN data.avg_value::real
+                  WHEN var.sampling_operation_id = 3      THEN data.min_value
+                  WHEN var.sampling_operation_id = 4      THEN data.max_value
+                  WHEN var.sampling_operation_id = 6      THEN data.sum_value
+                  ELSE data.sum_value END, '-99.9') as value
+              FROM yearly_summary data
+              LEFT JOIN wx_variable var ON data.variable_id = var.id
+              WHERE data.date BETWEEN '{initial_datetime}' AND '{final_datetime}'
+                AND (station_id, variable_id) IN (SELECT station_id, variable_id FROM series)
+            )
+            SELECT 
+              ts.date AS date
+              ,series.variable_id AS variable_id
+              ,series.station_id AS station_id
+              ,COALESCE(data.value, '-99.9') AS value
+            FROM time_series ts
+            CROSS JOIN series
+            LEFT JOIN processed_data AS data
+              ON data.date = ts.date
+              AND data.variable_id = series.variable_id
+              AND data.station_id = series.station_id;        
+        '''               
+
+      with psycopg2.connect(config) as conn:
+        with conn.cursor() as cursor:
+          logging.info(query)
+          cursor.execute(query)
+          data = cursor.fetchall()
+
+      df = pd.DataFrame(data)
+    return df
+
+
+class AppDataExportView(views.APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, *args, **kwargs):
+        serializer = serializers.DataExportSerializer(data=request.data)
+        if serializer.is_valid():
+            data_dict = {
+                key: [dict(item) for item in value] if key == 'series' else value
+                for key, value in serializer.validated_data.items()
+            }
+
+            initial_datetime = datetime.datetime.combine(data_dict['initial_date'],  data_dict['initial_time'])
+            final_datetime = datetime.datetime.combine(data_dict['final_date'],  data_dict['final_time'])
+
+            df = DataExportQueryData(initial_datetime, final_datetime, data_dict['data_source'], data_dict['series'], data_dict['interval'])
+
+            try:
+                file_format = data_dict.get('file_format')            
+                if(file_format == 'excel'):
+                    output = io.BytesIO()
+                    df.to_excel(output, index=False, engine='openpyxl')
+                    output.seek(0)
+
+                    return HttpResponse(
+                        output,
+                        content_type='application/vnd.ms-excel',
+                        headers={'Content-Disposition': 'attachment; filename="data.xlsx"'}
+                    )
+                elif(file_format == 'csv'):
+                    output = io.StringIO()
+                    df.to_csv(output, index=False)
+                    output.seek(0)
+
+                    return HttpResponse(
+                        output,
+                        content_type='text/csv',
+                        headers={'Content-Disposition': 'attachment; filename="data.csv"'}
+                    )                
+
+                elif(file_format == 'rinstat'):
+                    output = io.StringIO()
+                    df.to_csv(output, sep='\t', index=False)
+                    output.seek(0)
+                    
+                    return HttpResponse(
+                        output,
+                        content_type='text/tab-separated-values',
+                        headers={'Content-Disposition': 'attachment; filename="data.tsv"'}
+                    )
+                else:
+                    return HttpResponse('Unsupported file format', status=400)
+            except Exception as e:
+                return HttpResponse('An error occurred: {}'.format(e), status=500)
+        else:
+            return HttpResponse(
+                json.dumps({'message': 'Validation failed', 'errors': serializer.errors}),
+                content_type='application/json',
+                status=400
+            )
+
+
+class IntervalViewSet(viewsets.ModelViewSet):
+    permission_classes = (IsAuthenticated,)
+    queryset = Interval.objects.all().order_by('seconds')
+    serializer_class = serializers.IntervalSerializer
+
+
+@csrf_exempt
+def synop_pressure_calc(request):
+    if request.method == 'POST':
+        station_id = tuple([request.GET['station_id']])
+        data = json.loads(request.body)  # Parse JSON data
+        pressure_value = float(data.get('pressure_value')) 
+        date_value = data.get('date')
+
+        station = Station.objects.get(pk=station_id[0]) 
+        # Invert the station's UTC offset (minutes) to convert its local time to UTC.
+        offset = datetime.timedelta(minutes=(-1 * station.utc_offset_minutes))
+
+        # Convert the string to a datetime object:
+        dt_object = datetime.datetime.strptime(date_value, "%Y-%m-%d %H:%M")
+        dt_object = dt_object + offset
+
+        # Subtract 24 hours:
+        dt_24_hours_ago = dt_object - timedelta(days=1)
+
+        # Format the resulting datetime object back into a string:
+        formatted_date_string = dt_24_hours_ago.strftime("%Y-%m-%dT%H:%MZ")
+
+        pressure_variable_id = (61,)
+
+        # grab the query output for the Station pressure at sea level
+        dataset = get_station_raw_data('variable', pressure_variable_id, None, formatted_date_string, formatted_date_string,
+                                           station_id)
+
+        if dataset['results']:
+            pressure_data = dataset['results']['Pressure at Sea Level (hPa)']
+
+            # Since there's only one station, get the first (and only) key
+            station_name = next(iter(pressure_data))
+
+            value = pressure_data[station_name]['data'][0]['value']  
+
+            # return the pressure difference
+            # "value" is the pressure from 24 hrs ago
+            # "pressure_value" is the current pressure
+            pressure_difference = round((pressure_value - value), 1) if pressure_value != -99.9 and value != -99.9 else -99.9
+        else:
+            pressure_difference = 'no data'
+
+        # display the error message
+        if dataset['messages']:
+            logger.error(f"An error occured whilst retrieving 24hr baromatric change value: {dataset['messages']}")
+        
+    return JsonResponse({'dataset': pressure_difference}, status=status.HTTP_200_OK)
+
+
+
+@csrf_exempt
+def synop_precip_calc(request):
+    if request.method == 'POST':
+        station_id = int(request.GET['station_id'])
+        data = json.loads(request.body)  # Parse JSON data
+        # precip_value = float(data.get('precipitation_value')) 
+        precip_24_hr = 0
+        date_value = data.get('date')
+
+        station = Station.objects.get(pk=station_id) 
+        # Invert the station's UTC offset (minutes) to convert its local time to UTC.
+        offset = datetime.timedelta(minutes=(-1 * station.utc_offset_minutes))
+
+        # Convert the string to a datetime object:
+        dt_object = datetime.datetime.strptime(date_value, "%Y-%m-%d %H:%M")
+        dt_object = dt_object + offset
+
+        # Subtract 24 hours:
+        dt_24_hours_ago = dt_object - timedelta(days=1)
+
+        # Format the resulting datetime object back into a string:
+        formatted_dt_24_hours_ago = dt_24_hours_ago.strftime("%Y-%m-%dT%H:%MZ")
+
+        # Format the datetime object also
+        formatted_dt_object = dt_object.strftime("%Y-%m-%dT%H:%MZ")
+
+        precipitation_variable_id = 0
+
+        sql_string = """
+            SELECT measured
+            FROM raw_data
+            WHERE station_id = %s
+            AND variable_id = %s
+            AND datetime >= %s AND datetime < %s;
+        """
+
+        if sql_string:
+            with connection.cursor() as cursor:
+
+                cursor.execute(sql_string, [station_id, precipitation_variable_id, formatted_dt_24_hours_ago, formatted_dt_object])
+
+                rows = cursor.fetchall()
+            
+                # adding to get the total precipitation in 24 hours
+                precip_24_hr = sum(row[0] for row in rows if row[0] != -99.9)
+                # the below is leagacy code of the above
+                # precip_24_hr = sum(row[0] for row in rows if row[0] != -99.9) + precip_value
+        
+    return JsonResponse({'dataset': precip_24_hr}, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
-def delete_pgia_hourly_capture_row(request):
-    request_date = request.data['date']
-    hour = request.data['hour']
-    station_id = request.data['station_id']
-    variable_id_list = request.data['variable_ids']
-
+def synop_update(request):
     try:
-        request_date = datetime.datetime.strptime(request_date, '%Y-%m-%d')
-    except ValueError:
-        return JsonResponse({"message": "Invalid date format. The expected date format is 'YYYY-MM-DD'"},
-                            status=status.HTTP_400_BAD_REQUEST)
+        day = datetime.datetime.strptime(request.GET['date'], '%Y-%m-%d')
+        station_id = request.GET['station_id']
 
-    if station_id is None:
-        return JsonResponse({"message": "Invalid request. Station id must be provided"},
-                            status=status.HTTP_400_BAD_REQUEST)
+        hours_dict = request.data['table']
+        now_utc = datetime.datetime.now().astimezone(pytz.UTC)
+        now_utc+= datetime.timedelta(hours=settings.PGIA_REPORT_HOURS_AHEAD_TIME)
 
-    if hour is None:
-        return JsonResponse({"message": "Invalid request. Hour must be provided"}, status=status.HTTP_400_BAD_REQUEST)
+        station = Station.objects.get(id=station_id)
+        datetime_offset = pytz.FixedOffset(station.utc_offset_minutes)
 
-    if variable_id_list is None:
-        return JsonResponse({"message": "Invalid request. Variable ids must be provided"},
-                            status=status.HTTP_400_BAD_REQUEST)
+        seconds = 3600
 
-    variable_id_list = tuple(variable_id_list)
-    station = Station.objects.get(id=station_id)
-    datetime_offset = pytz.FixedOffset(station.utc_offset_minutes)
-    current_datetime = datetime_offset.localize(request_date.replace(hour=hour))
+        records_list = []
+        for hour, hour_data in hours_dict.items():
+            data_datetime = day.replace(hour=int(hour))
+            data_datetime = datetime_offset.localize(data_datetime)
+            if data_datetime <= now_utc:
+                if hour_data:
+                    if 'action' in hour_data.keys():
+                        hour_data.pop('action')
 
-    result = []
-    delete_query = """
-        DELETE FROM raw_data
-        WHERE station_id = %(station_id)s
-          AND variable_id IN %(variable_id_list)s
-          AND datetime = %(current_datetime)s
-    """
+                    if 'remarks' in hour_data.keys():
+                        remarks = hour_data.pop('remarks')
+                    else:
+                        remarks = None
 
-    get_last_updated_datetime_query = """
-        SELECT max(last_data_datetime)
-        FROM wx_stationvariable
-        WHERE station_id = %(station_id)s
-          AND variable_id IN %(variable_id_list)s
-        ORDER BY 1 DESC
-    """
+                    if 'observer' in hour_data.keys():
+                        observer = hour_data.pop('observer')
+                    else:
+                        observer = None
 
-    update_last_updated_datetime_query = """
-        WITH rd as (
-            SELECT station_id
-                  ,variable_id
-                  ,measured
-                  ,code
-                  ,datetime
-                  ,RANK() OVER (PARTITION BY station_id, variable_id ORDER BY datetime DESC) datetime_rank
-            FROM raw_data
-            WHERE station_id = %(station_id)s
-              AND variable_id IN %(variable_id_list)s)
-        UPDATE wx_stationvariable sv
-        SET last_data_datetime = rd.datetime
-           ,last_data_value    = rd.measured
-           ,last_data_code     = rd.code
-        FROM rd
-        WHERE sv.station_id = rd.station_id
-          AND sv.variable_id = rd.variable_id
-          AND rd.datetime_rank = 1
-    """
+                    for variable_id, measurement in hour_data.items():
+                        variable = Variable.objects.get(pk=variable_id)
+                        if measurement is None:
+                            measurement_value = settings.MISSING_VALUE
+                            measurement_code = settings.MISSING_VALUE_CODE
+                        else:
+                            if (variable.variable_type=='Numeric'):
+                                try:
+                                    measurement_value = float(measurement)
+                                    measurement_code = measurement
+                                except Exception:
+                                    measurement_value = settings.MISSING_VALUE
+                                    measurement_code = settings.MISSING_VALUE_CODE
+                            else:
+                                measurement_value = settings.MISSING_VALUE
+                                measurement_code = measurement
+                            
+                        records_list.append((
+                            station_id, variable_id, seconds, data_datetime, measurement_value, 1, None,
+                            None, None, None, None, None, None, None, False, remarks, observer,
+                            measurement_code))
 
-    create_daily_summary_task_query = """
-        INSERT INTO wx_dailysummarytask (station_id, date, created_at, updated_at)
-        VALUES (%(station_id)s, %(current_datetime)s, now(), now())
-        ON CONFLICT DO NOTHING
-    """
+        insert_raw_data_synop.insert(
+            raw_data_list=records_list,
+            date=day,
+            station_id=station_id,
+            override_data_on_conflict=True,
+            utc_offset_minutes=station.utc_offset_minutes
+        )
 
-    create_hourly_summary_task_query = """
-        INSERT INTO wx_hourlysummarytask (station_id, datetime, created_at, updated_at)
-        VALUES (%(station_id)s, %(current_datetime)s, now(), now())
-        ON CONFLICT DO NOTHING
-    """
+    except Exception as e:
+        logger.error(repr(e))
+        return HttpResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return HttpResponse(status=status.HTTP_200_OK)
+
+
+def get_synop_data(station, date, utc_offset_minutes=0):
+    datetime_offset = pytz.FixedOffset(utc_offset_minutes)
+    request_datetime = datetime_offset.localize(date)
+
+    start_datetime = request_datetime
+    end_datetime = request_datetime + datetime.timedelta(days=1)
 
     with psycopg2.connect(settings.SURFACE_CONNECTION_STRING) as conn:
         with conn.cursor() as cursor:
-            cursor.execute(delete_query, {"station_id": station_id, "variable_id_list": variable_id_list,
-                                          "current_datetime": current_datetime})
+            query = f"""
+                SELECT 
+                    (datetime + INTERVAL '{utc_offset_minutes} MINUTES') AT TIME ZONE 'utc',
+                    variable_id,
+                    CASE WHEN var.variable_type = 'Numeric' THEN measured::VARCHAR
+                        ELSE code
+                    END AS value,
+                    remarks,
+                    observer
+                FROM raw_data
+                JOIN wx_variable var ON raw_data.variable_id=var.id
+                WHERE station_id = {station.id}
+                    AND datetime >= '{start_datetime}'
+                    AND datetime < '{end_datetime}'
+                """
 
-            cursor.execute(create_daily_summary_task_query,
-                           {"station_id": station_id, "current_datetime": request_date})
-            cursor.execute(create_hourly_summary_task_query,
-                           {"station_id": station_id, "current_datetime": current_datetime})
+            cursor.execute(query)
+            data = cursor.fetchall()
+    return data
 
-            cursor.execute(get_last_updated_datetime_query,
-                           {"station_id": station_id, "variable_id_list": variable_id_list})
 
+@api_view(['GET'])
+def synop_load(request):
+    try:
+        date = datetime.datetime.strptime(request.GET['date'], '%Y-%m-%d')
+        station = Station.objects.get(id=request.GET['station_id'])
+    except ValueError as e:
+        logger.error(repr(e))
+        return HttpResponse(status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(repr(e))
+        return HttpResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    response = get_synop_data(station, date, station.utc_offset_minutes)
+
+    return JsonResponse(response, status=status.HTTP_200_OK, safe=False)
+
+
+@api_view(['POST'])
+def synop_delete(request):
+    # Extract data from the request
+    request_date_str = request.GET.get('date', None)
+    hour = request.GET.get('hour', None)
+    station_id = request.GET.get('station_id', None)
+    
+    hour = int(hour)
+
+    variable_id_list = request.data.get('variable_ids')
+
+    # Validate inputs
+    if (None in [request_date_str, hour, station_id, variable_id_list]):
+        message = "Invalid request. 'date', 'hour', 'station_id', and 'variable_ids' must be provided."
+        return JsonResponse({"message": message}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validate date format
+    try:
+        request_date = datetime.datetime.strptime(request_date_str, '%Y-%m-%d')
+    except ValueError:
+        message = "Invalid date format. The expected date format is 'YYYY-MM-DD'"
+        return JsonResponse({"message": message}, status=status.HTTP_400_BAD_REQUEST)
+    
+    variable_id_list = [int(v) for v in tuple(variable_id_list)]
+    station = Station.objects.get(id=station_id)
+    datetime_offset = pytz.FixedOffset(station.utc_offset_minutes)
+    request_datetime = datetime_offset.localize(request_date.replace(hour=hour))
+    request_start_range_dt = request_datetime - timedelta(days=10)
+    request_end_range_dt = request_datetime + timedelta(days=10)
+
+    queries = {
+        "grab_relevant_chunks": """
+            SELECT 
+            show_chunks('raw_data', newer_than => %s, older_than => %s)
+        """,
+        "delete_raw_data": """
+            DELETE FROM {raw_data_chunk}
+            WHERE station_id = %s
+            AND variable_id = ANY(%s)
+            AND datetime = %s
+        """,
+        "create_daily_summary": """
+            INSERT INTO wx_dailysummarytask (station_id, date, created_at, updated_at)
+            VALUES (%s, %s, now(), now())
+            ON CONFLICT DO NOTHING
+        """,
+        "create_hourly_summary": """
+            INSERT INTO wx_hourlysummarytask (station_id, datetime, created_at, updated_at)
+            VALUES (%s, %s, now(), now())
+            ON CONFLICT DO NOTHING
+        """,
+        "get_last_updated": """
+            SELECT max(last_data_datetime)
+            FROM wx_stationvariable
+            WHERE station_id = %s
+              AND variable_id = ANY(%s)
+            ORDER BY 1 DESC
+        """,
+        "update_last_updated": """
+            WITH rd AS (
+                SELECT station_id, variable_id, measured, code, datetime,
+                       RANK() OVER (PARTITION BY station_id, variable_id ORDER BY datetime DESC) AS datetime_rank
+                FROM {raw_data_chunk}
+                WHERE station_id = %s
+                  AND variable_id = ANY(%s)
+            )
+            UPDATE wx_stationvariable sv
+            SET last_data_datetime = rd.datetime,
+                last_data_value = rd.measured,
+                last_data_code = rd.code
+            FROM rd
+            WHERE sv.station_id = rd.station_id
+              AND sv.variable_id = rd.variable_id
+              AND rd.datetime_rank = 1
+        """
+    }
+
+    with psycopg2.connect(settings.SURFACE_CONNECTION_STRING) as conn:
+        with conn.cursor() as cursor:
+            # grab relevant chunks, holding data within 10 days of the request datetime
+            # this reduces the overhead of looking through the entire raw_data table
+            cursor.execute(queries['grab_relevant_chunks'], [request_start_range_dt, request_end_range_dt])
+            
+            chunks = [row[0] for row in cursor.fetchall()]
+
+            for chunk in chunks:
+                cursor.execute(queries['delete_raw_data'].format(raw_data_chunk=chunk), [station_id, variable_id_list, request_datetime])
+
+            # After deleting from raw_data, is necessary to update the daily and hourly summary tables.
+            cursor.execute(queries["create_daily_summary"], [station_id, request_datetime])
+            cursor.execute(queries["create_hourly_summary"], [station_id, request_datetime])
+            
+            # If succeed in inserting new data, it's necessary to update the 'last data' columns in wx_stationvariable tabl.
+            cursor.execute(queries["get_last_updated"], [station_id, variable_id_list])
+            
             last_data_datetime_row = cursor.fetchone()
-            if last_data_datetime_row is not None:
-                last_data_datetime = last_data_datetime_row[0]
 
-                if last_data_datetime == current_datetime:
-                    cursor.execute(update_last_updated_datetime_query,
-                                   {"station_id": station_id, "variable_id_list": variable_id_list})
+            if last_data_datetime_row and last_data_datetime_row[0] == request_datetime:
+                # loop through relevant chunks instead of the entire raw_data
+                for chunk in chunks:
+                    cursor.execute(queries["update_last_updated"].format(raw_data_chunk=chunk), [station_id, variable_id_list])
+
         conn.commit()
 
-    return Response(result, status=status.HTTP_200_OK)
+    return Response([], status=status.HTTP_200_OK)
+
+
+# def get_synop_form_config():
+#     nested_headers = [
+#         ["Report Indicator", "Date-Time or Time-UTC", "Wind Ind'r", "Station No. or Location Indicator",
+#             "6-Group Ind.", "7-Group Ind.", "Lowest Cloud height", "Visibility", "Total cloud", "Wind Direction",
+#             "Wind Speed", "Indicator and sign", "Air Temperature", "Indicator and sign", "Dew Point", 
+#             "V.P.", "R.H.", "Indicator", "QNH", "Indicator", "QNH",
+#             "Indicator", "Rainfall Since Last Report", "6-hr periods", "Indicator", "Present Weather",
+#             { 'label': "Past Weather", 'colspan': 2 }, "Indicator", "Amt. CL/CM", "CL Clouds", "CM Clouds", "CH Clouds",
+#             "SECTION 3 Indicator", "Indicator", "State of sky", "CL Direction", "CM Direction", "CH Direction",
+#             "Indicator and sign", "Maximum Temperature", "Indicator and sign", "Minimum Temperature", "Indicator",
+#             "24-hour Barometric change", "Indicator", "24-hour Rainfall at 00Z, 06Z, 12Z and 18Z",
+#             "Indicator", "Amt. of layer", "Form of layer", "Height of lowest layer", "Indicator",
+#             "Amt. of layer", "Form of layer", "Height of next layer", "Indicator", "Amt. of layer",
+#             "Form of layer", "Height of next layer", "Indicator", "Amt. of layer", "Form of layer",
+#             "Height of next layer", "Special Phenomena", "REMARKS", "Initails"
+#         ],
+#         ["Land Station-no distinction AAXX", "GGggYYGG", "iW", "IIiii", "iR", "iX", "h [In Meters]", "(VV) VV", "N",
+#             "ddd dd", "(fmfm) f f", "1sn", "T'T' TTT", "2sn", "T'dT'd Td TdTd", "UUU", "",
+#             "3", "POPOPOPO", "4", "PHPHPHPH PPPP", "6", "RRR", "Tr", "7", "ww", "W1", "W2", "8", "Nh", "CL",
+#             "CM", "CH", "333", "0", "CS", "DL", "DM", "DH", "1sn", "TXTXTX", "2sn", "TnTnTn", "5j1",
+#             "P24P24P24", "7", "R24R24R24R24", "8", "NS", "C", "hShS", "8", "NS", "C", "hShS", "8", "NS",
+#             "C", "hShS", "8", "NS", "C", "hShS", "9SPSPsPsP", "", ""
+#         ],
+#     ]
+
+#     number_of_columns = len(nested_headers[0])+1 # Adding the colspan
+
+#     columns = []
+#     for i in range(number_of_columns):
+#         new_column = {
+#             'data': i,
+#             'name': str(i),
+#             'type': 'text',
+#             'readOnly': 'true',
+#         }
+#         columns.append(new_column)
+
+#     context = {
+#         'nested_headers': nested_headers,
+#         'columns': columns,
+#         'number_of_columns': number_of_columns,
+#         'number_of_rows': 24
+#     }
+
+#     return context
+
+
+# class SynopFormView(LoginRequiredMixin, TemplateView):
+#     template_name = "wx/data/synop_form.html"
+
+#     def get(self, request, *args, **kwargs):
+#         context = self.get_context_data(**kwargs)
+#         context['station_list'] = Station.objects.filter(is_synoptic=True).values('id', 'name', 'code')
+#         context['handsontable_config'] = get_synop_form_config()
+        
+        
+#         # Get parameters from request or set default values
+#         station_id = request.GET.get('station_id', 'null')
+#         date = request.GET.get('date', datetime.date.today().isoformat())
+#         context['station_id'] = station_id
+#         context['date'] = date
+
+#         return self.render_to_response(context)
+
+
+def get_synop_pvd_data(station, date):
+    datetime_offset = pytz.FixedOffset(station.utc_offset_minutes)
+    request_datetime = datetime_offset.localize(date)
+
+    pvd_data = []
+    with psycopg2.connect(settings.SURFACE_CONNECTION_STRING) as conn:
+        with conn.cursor() as cursor:
+            query = f"""
+                SELECT
+                    (datetime + INTERVAL '{station.utc_offset_minutes} MINUTES') AT TIME ZONE 'utc',
+                    variable_id,
+                    CASE WHEN var.variable_type = 'Numeric' THEN measured::VARCHAR
+                        ELSE code
+                    END AS value
+                FROM raw_data
+                INNER JOIN wx_variable var ON raw_data.variable_id=var.id
+                WHERE datetime >='{request_datetime-datetime.timedelta(days=1)}'
+                  AND datetime < '{request_datetime}'
+                  AND station_id={station.id}
+                  AND var.symbol IN ('PRECSLR', 'PRECDUR', 'PRESSTN')
+            """
+            
+            cursor.execute(query)
+            pvd_data = cursor.fetchall()
+
+    return pvd_data
+
+
+# @api_view(['GET'])
+# def synop_load_form(request):
+#     # Functions that are used to format the data
+#     def alphaCalc(air_temp: float):
+#         return (17.27 * air_temp) / (air_temp + 237.3)
+    
+#     def vaporPressureCalc(air_temp: float, air_temp_wb: float, atm_pressure: float):
+#         E_w = 6.108 * math.exp(alphaCalc(air_temp_wb))
+#         VP = E_w - (0.00066 * (1 + 0.00115 * air_temp_wb) * (air_temp - air_temp_wb) * atm_pressure)
+#         return VP    
+
+#     def relativeHumidityCalc(air_temp: float, vapor_pressure: float):
+#         E_s = 6.108 * math.exp(alphaCalc(air_temp))
+#         RH = (vapor_pressure / E_s) * 100
+#         return RH
+
+#     def dewPointCalc(vapor_pressure: float):
+#         DP = (237.3*vapor_pressure)/(1-vapor_pressure)
+#         return DP
+
+#     def airTempCalc(value: float):
+#         return None if value is None else abs(round(10*value))
+
+#     def atmPressureCalc(atm_pressure: float):
+#         return None if atm_pressure is None else f"{round(atm_pressure*10) % 10000:04}"
+
+#     def windSpeedToCode(wind_speed_val: float):
+#         # It was requested by Akeisha and Dwayne to just use last two digits
+#         if wind_speed_val is None or str(wind_speed_val)==str(settings.MISSING_VALUE):
+#             return '/'
+#         return str(round(wind_speed_val%100)).zfill(2)
+            
+#         # Using WMO code 1200
+#         if wind_speed_val is None or str(wind_speed_val)==str(settings.MISSING_VALUE) :
+#             wind_speed_code = '/'
+#         elif 0 <= wind_speed_val < 90:
+#             wind_speed_code = str(math.floor(wind_speed_val/10))
+#         elif wind_speed_val >= 90:
+#             wind_speed_code = str(9)
+#         else:
+#             wind_speed_code = '/'
+
+#         return wind_speed_code
+
+#     def windDirToCode(wind_dir: float):
+#         # It was requested by Akeisha and Dwayne to just divide by 10
+#         if wind_dir is None or str(wind_dir)==str(settings.MISSING_VALUE) : 
+#             return None
+#         return str(round((wind_dir%360)/10)).zfill(2)
+    
+#         # Using WMO code 0877
+#         if wind_dir is None or str(wind_dir)==str(settings.MISSING_VALUE) : 
+#             return None
+#         elif 0 <= wind_dir<=360: 
+#             wind_dir_code = math.floor(((wind_dir-5)%360)/10)+1
+#             print(wind_dir_code)
+#         else:
+#             wind_dir_code = 99
+
+#         wind_dir_code = str(wind_dir_code).zfill(2)
+#         return wind_dir_code
+
+#     def lowestCloutHightToCode(lowest_ch: float):
+#         if lowest_ch is None or str(lowest_ch)==str(settings.MISSING_VALUE) :
+#             return '/'
+#         elif 0 <= lowest_ch < 50:
+#             return 0
+#         elif 50 <= lowest_ch < 100:
+#             return 1
+#         elif 100 <= lowest_ch < 200:
+#             return 2
+#         elif 200 <= lowest_ch < 300:
+#             return 3
+#         elif 300 <= lowest_ch < 600:
+#             return 4
+#         elif 600 <= lowest_ch < 1000:
+#             return 5
+#         elif 1000 <= lowest_ch < 1500:
+#             return 6
+#         elif 1500 <= lowest_ch < 2000:
+#             return 7
+#         elif 2000 <= lowest_ch < 2500:
+#             return 8
+#         elif 2500 <= lowest_ch:
+#             return 9
+
+#     def reinfallToCode(rainfall:float):
+#         # Rainfall in mm.
+#         if rainfall is None or rainfall < 0:
+#             return '///'
+#         elif rainfall==0:
+#             return '000'
+#         elif rainfall < 1:
+#             return f'99{round(rainfall*10)}'
+#         elif rainfall < 989:
+#             return f'{round(rainfall):03}'
+#         elif rainfall >= 989:
+#             return '989'
+#         else:
+#             return '///'
+
+#     def reinfall24hToCode(rainfall:float):
+#         # Rainfall in mm.
+#         if rainfall is None or rainfall < 0:
+#             return None
+
+#         rainfall *= 10
+#         if 0 < rainfall < 1:
+#             return 9999 # Trace
+        
+#         rainfall = round(rainfall)
+#         if rainfall < 9998:
+#             return f'{rainfall:04}'
+#         else:
+#             return '9998'
+        
+#     def precdurCodeToValue(code: str):
+#         # This dictionary must match WMO vlues for code 4019
+#         code_table = {
+#             '1': 6,
+#             '2': 12,
+#             '3': 18,
+#             '4': 24,
+#             '5': 1,
+#             '6': 2,
+#             '7': 3,
+#             '8': 9,
+#             '9': 15
+#         }
+#         if code not in code_table.keys():
+#             return None
+#         return code_table[code]
+        
+#     def reinfallLast24h(curr_datetime:datetime, rainfall_data:list, rainfall_dur_data:list ):
+#         # If there is precipitation was not measured at the exact datetime we can not infere what was the last 24h
+#         if (len([row for row in rainfall_data if row[0] == curr_datetime])!=1):
+#             return None
+
+#         last24h_datetime = curr_datetime-datetime.timedelta(hours=24)
+        
+#         prec24h_data = [row for row in rainfall_data if (last24h_datetime < row[0] <= curr_datetime)]
+#         prec24h_data = sorted(prec24h_data, key=lambda x: x[0], reverse=True)
+
+#         prec_sum = 0; precdur_sum = 0
+#         for prec_row in prec24h_data:
+#             prec_value = prec_row[2]
+
+#             if prec_value in [str(settings.MISSING_VALUE), settings.MISSING_VALUE_CODE]:
+#                 prec_value = None
+            
+#             if prec_value is not None:
+#                 prec_value = float(prec_value)
+#                 precdur_code = next((precdur_row[2] for precdur_row in rainfall_dur_data if precdur_row[0] == prec_row[0]),None)
+
+#                 # If there is precipitation and no duration then we can not infere what was the last 24h
+#                 if precdur_code is None or precdur_code==settings.MISSING_VALUE_CODE:
+#                     return None
+                
+#                 precdur_sum+=precdurCodeToValue(precdur_code)
+#                 prec_sum+=prec_value
+#                 if precdur_sum==24:
+#                     return reinfall24hToCode(prec_sum)
+                
+#                 # If duration exceeds 24h we can not infere what was the last 24h
+#                 elif precdur_sum>24:
+#                     return None
+            
+#         # If duration is below 24h we can not infere what was the last 24h
+#         return None
+
+#     try:
+#         date = datetime.datetime.strptime(request.GET['date'], '%Y-%m-%d')
+#         station = Station.objects.get(id=request.GET['station_id'])
+#     except ValueError as e:
+#         logger.error(repr(e))
+#         return HttpResponse(status=status.HTTP_400_BAD_REQUEST)
+#     except Exception as e:
+#         logger.error(repr(e))
+#         return HttpResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+#     # Current Day Data
+#     data =  get_synop_data(station, date, utc_offset_minutes=0)
+
+#     # Previous Day Data
+#     pvd_data = get_synop_pvd_data(station, date)
+
+#     variables = Variable.objects.all()
+
+#     # Precipitation Measurements
+#     rainfall_data = [row for row in pvd_data + data if row[1] == variables.get(symbol='PRECSLR').id and str(row[2]) != str(settings.MISSING_VALUE)]
+#     # Precipitation Duration Measurements
+#     rainfall_dur_data = [row for row in pvd_data + data if row[1] == variables.get(symbol='PRECDUR').id and str(row[2]) != str(settings.MISSING_VALUE)]
+
+#     # This is a table reference that is usedd to identify what is the type of the data.
+#     # Const is used for constant values.
+#     # Var is used for general variable.
+#     # Text is used for text values.
+#     # SpVar is used for special variable that need some formating.
+#     # Func is used for functions like Date-Hour, Vapor Pressure, etc.
+#     # 1sn, 2sn and 5j1 are used for signals, usualy following some variable value.
+#     reference = [
+#         {'type': 'Const', 'ref': station.synoptic_type}, {'type': 'Func', 'ref': 'DateHour'},
+#         {'type': 'Var', 'ref': 'WINDINDR'}, {'type': 'Const', 'ref': station.synoptic_code},
+#         {'type': 'Var', 'ref': 'PRECIND'}, {'type': 'Var', 'ref': 'STATIND'},
+#         {'type': 'SpVar', 'ref': 'LOWCLH'}, {'type': 'Var', 'ref': 'VISBY'}, {'type': 'Var', 'ref': 'CLDTOT'},
+#         {'type': 'SpVar', 'ref': 'WNDDIR'}, {'type': 'SpVar', 'ref': 'WNDSPD'},
+#         {'type': '1sn', 'ref': 'TEMP'}, {'type': 'SpVar', 'ref': 'TEMP'},
+#         {'type': '2sn', 'ref': 'TDEWPNT'},
+#         {'type': 'Func', 'ref': 'DP'}, {'type': 'Func', 'ref': 'VP'}, {'type': 'Func', 'ref': 'RH'},
+#         {'type': 'Const', 'ref': 3},
+#         {'type': 'SpVar', 'ref': 'PRESSTN'},
+#         {'type': 'Const', 'ref': 4},
+#         {'type': 'SpVar', 'ref': 'PRESSEA'},
+#         {'type': 'Const', 'ref': 6},
+#         {'type': 'SpVar', 'ref': 'PRECSLR'}, {'type': 'Var', 'ref': 'PRECDUR'},
+#         {'type': 'Const', 'ref': 7},
+#         {'type': 'Var', 'ref': 'PRSWX'}, {'type': 'Var', 'ref': 'W1'}, {'type': 'Var', 'ref': 'W2'},
+#         {'type': 'Const', 'ref': 8}, 
+#         {'type': 'Var', 'ref': 'Nh'},
+#         {'type': 'Var', 'ref': 'CL'}, {'type': 'Var', 'ref': 'CM'}, {'type': 'Var', 'ref': 'CH'},
+#         {'type': 'Const', 'ref': 333},  
+#         {'type': 'Const', 'ref': 0},
+#         {'type': 'Var', 'ref': 'STSKY'},
+#         {'type': 'Var', 'ref': 'DL'}, {'type': 'Var', 'ref': 'DM'}, {'type': 'Var', 'ref': 'DH'},
+#         {'type': '1sn', 'ref': 'TEMPMAX'}, {'type': 'SpVar', 'ref': 'TEMPMAX'},
+#         {'type': '2sn', 'ref': 'TEMPMIN'}, {'type': 'SpVar', 'ref': 'TEMPMIN'},
+#         {'type': '5j1', 'ref': None}, {'type': 'Func', 'ref': 'BarometricChange'},
+#         {'type': 'Const', 'ref': 7},
+#         # {'type': 'Func', 'ref': '24hRainfall'},
+#         {'type': 'SpVar', 'ref': 'PREC24H'},
+#         {'type': 'Const', 'ref': 8},
+#         {'type': 'Var', 'ref': 'N1'}, {'type': 'Var', 'ref': 'C1'}, {'type': 'Var', 'ref': 'hh1'},
+#         {'type': 'Const', 'ref': 8},
+#         {'type': 'Var', 'ref': 'N2'}, {'type': 'Var', 'ref': 'C2'}, {'type': 'Var', 'ref': 'hh2'},
+#         {'type': 'Const', 'ref': 8},
+#         {'type': 'Var', 'ref': 'N3'}, {'type': 'Var', 'ref': 'C3'},{'type': 'Var', 'ref': 'hh3'},
+#         {'type': 'Const', 'ref': 8},
+#         {'type': 'Var', 'ref': 'N4'}, {'type': 'Var', 'ref': 'C4'}, {'type': 'Var', 'ref': 'hh4'},
+#         {'type': 'Var', 'ref': 'SpPhenom'}, {'type': 'Text', 'ref': 'remarks'}, {'type': 'Text', 'ref': 'observer'},
+#     ]
+
+#     number_of_columns = len(reference)
+#     number_of_rows = 24
+
+#     hotData = []
+#     for i in range(number_of_rows):
+#         datetime_row = date+datetime.timedelta(hours=i)
+#         data_row = [row for row in data if row[0] == datetime_row]
+#         pvd_data_row = [row for row in pvd_data if row[0] == datetime_row-datetime.timedelta(days=1)]
+#         dayhour = f"{date.day:02}{i:02}"
+
+#         remarks, observer = (data_row[0][3], data_row[0][4]) if data_row else (None, None)
+
+#         air_temp = next((float(row[2]) for row in data_row if row[1] == variables.get(symbol='TEMP').id), None)
+#         air_temp_wb = next((float(row[2]) for row in data_row if row[1] == variables.get(symbol='TEMPWB').id), None)
+#         atm_pressure = next((float(row[2]) for row in data_row if row[1] == variables.get(symbol='PRESSTN').id), None)
+#         dew_point = next((float(row[2]) for row in data_row if row[1] == variables.get(symbol='TDEWPNT').id and str(row[2]) != str(settings.MISSING_VALUE)), None)
+#         pvd_atm_pressure = next((float(row[2]) for row in pvd_data_row if row[1] == variables.get(symbol='PRESSTN').id), None)
+#         relative_humidity = next((float(row[2]) for row in data_row if row[1] == variables.get(symbol='RH').id and str(row[2]) != str(settings.MISSING_VALUE)), None)
+
+
+#         # time solts to loop through to populate the 24hr brometric change column
+#         time_slots = [' 00:00', ' 01:00', ' 02:00', ' 03:00', ' 04:00', ' 05:00', ' 06:00', 
+#                         ' 07:00', ' 08:00', ' 09:00', ' 10:00', ' 11:00', ' 12:00', ' 13:00', 
+#                         ' 14:00', ' 15:00', ' 16:00', ' 17:00', ' 18:00', ' 19:00', ' 20:00', 
+#                         ' 21:00', ' 22:00', ' 23:00']
+        
+#         # calculate barometric change
+#         try:
+#             # current time slot will be in the form year-month-day hour:minute
+#             current_time_slot = request.GET['date'] + time_slots[i]
+
+#             # Invert the station's UTC offset (minutes) to convert its local time to UTC.
+#             offset = datetime.timedelta(minutes=(-1 * station.utc_offset_minutes))
+
+#             dt_object = datetime.datetime.strptime(current_time_slot, "%Y-%m-%d %H:%M")
+#             dt_object = dt_object + offset
+
+#             # Format the resulting datetime object back into a string:
+#             formatted_date_string = dt_object.strftime("%Y-%m-%dT%H:%MZ")
+
+#             dataset = get_station_raw_data('variable', (4057,), None, formatted_date_string, formatted_date_string,
+#                                     (int(request.GET['station_id']),))
+
+#             if dataset['results']:
+#                 pressure_data = dataset['results']['24-Hour Barometric Change']
+
+#                 # Since there's only one station, get the first (and only) key
+#                 station_name = next(iter(pressure_data))
+
+#                 value = pressure_data[station_name]['data'][0]['value']  
+
+#                 if value == -99.9:
+#                     barometric_change_24h = None
+#                 else:
+#                     barometric_change_24h = value
+#             else:
+#                 barometric_change_24h = None
+
+#         except Exception as e:
+#             logger.error(f"an error occured whilst calculating baraometric change: {e}")
+#             barometric_change_24h = None
+
+
+
+#         vars = [air_temp, air_temp_wb, atm_pressure]
+#         if all(vars) and settings.MISSING_VALUE not in vars:
+#             vapor_pressure = vaporPressureCalc(air_temp, air_temp_wb, atm_pressure)
+#         else:
+#             vapor_pressure = None
+
+#         if relative_humidity is None and vapor_pressure is not None:
+#             relative_humidity = relativeHumidityCalc(air_temp, vapor_pressure)
+
+#         if dew_point is None and vapor_pressure is not None:
+#             dew_point = dewPointCalc(vapor_pressure)
+
+#         hotRow = []
+#         for j in range(number_of_columns):
+#             column_type=reference[j]['type']
+#             if column_type=='Const':
+#                 value = reference[j]['ref']
+#             elif column_type=='1sn':
+#                 value=None
+#                 if data_row:
+#                     variable = variables.get(symbol=reference[j]['ref'])
+#                     value = next((float(row[2]) for row in data_row if row[1] == variable.id), None)
+#                     if str(value) == str(settings.MISSING_VALUE):
+#                         value = None
+                    
+#                     if value is not None:
+#                        value = '10' if value >= 0 else '11'
+#             elif column_type=='2sn':
+#                 value=None
+#                 if data_row:
+#                     variable = variables.get(symbol=reference[j]['ref'])
+#                     value = next((float(row[2]) for row in data_row if row[1] == variable.id), None)
+#                     if str(value) == str(settings.MISSING_VALUE):
+#                         value = None
+                    
+#                     if value is not None:
+#                        value = '20' if value >= 0 else '21'
+#                     elif variable.id == 19 and relative_humidity is not None:
+#                         value = '29'
+#             elif column_type=='5j1':
+#                 value = None
+#                 if data_row:
+#                     if barometric_change_24h is not None:
+#                         value = '58' if barometric_change_24h >= 0 else '59'    
+#             elif column_type=='Var':
+#                 value=None
+#                 if data_row:
+#                     variable = variables.get(symbol=reference[j]['ref'])
+#                     value = next((row[2] for row in data_row if row[1] == variable.id), None)
+#             elif column_type=='SpVar':
+#                 value=None
+#                 if data_row:
+#                     variable =  variables.get(symbol=reference[j]['ref'])
+#                     value = next((row[2] for row in data_row if row[1] == variable.id), None)
+                    
+#                     if value in [str(settings.MISSING_VALUE), settings.MISSING_VALUE_CODE]:
+#                         value = None
+                    
+#                     if value is not None:
+#                         value = float(value)
+
+#                     if variable.symbol in ['TEMP', 'TEMPMIN', 'TEMPMAX', 'TDEWPNT']:
+#                         value = airTempCalc(value)
+#                     elif variable.symbol in ['PRESSTN', 'PRESSEA']:
+#                         value = atmPressureCalc(value)
+#                     elif variable.symbol=='WNDDIR':
+#                         value = windDirToCode(value)
+#                     elif variable.symbol=='WNDSPD':
+#                         value = windSpeedToCode(value)
+#                     elif variable.symbol=='PRECSLR':
+#                         value = reinfallToCode(value)
+#                     elif variable.symbol=='PREC24H':
+#                         value = reinfall24hToCode(value)
+#                     elif variable.symbol=='LOWCLH':
+#                         value = lowestCloutHightToCode(value)
+#             elif column_type=='Func':
+#                 if reference[j]['ref']=='DateHour':
+#                     value=dayhour
+#                 elif reference[j]['ref']=='VP':   
+#                     value = round(vapor_pressure, 1) if vapor_pressure is not None else None            
+#                 elif reference[j]['ref']=='RH':
+#                     value = round(relative_humidity) if relative_humidity is not None else None
+#                 elif reference[j]['ref']=='DP':
+#                     value = airTempCalc(dew_point)
+#                 elif reference[j]['ref']=='BarometricChange':
+#                     value =  f"{abs(barometric_change_24h):04}" if barometric_change_24h is not None else None
+#                 # elif reference[j]['ref']=='24hRainfall':
+#                 #     value = reinfallLast24h(datetime_row, rainfall_data, rainfall_dur_data) if i in [0,6,12,18] else None
+#                 else:
+#                     value = 'Func'    
+#             elif column_type=='Text':
+#                 value = {'remarks': remarks, 'observer': observer}.get(reference[j]['ref'])
+#             else:
+#                 value='??'
+            
+#             if value in [str(settings.MISSING_VALUE), settings.MISSING_VALUE_CODE]:
+#                 value = None
+                
+#             hotRow.append(value)
+#         hotData.append(hotRow)
+    
+#     response = {}
+#     response['hotData'] = hotData
+#     return JsonResponse(response, status=status.HTTP_200_OK, safe=False)
+
+def get_monthly_form_config():
+    # List of variables, in order, for synoptic station input form
+    variable_symbols = {
+        'PRECIP': {'min': 'null', 'max': 'null'},
+        'TEMPMAX': {'min': -100, 'max': 500},
+        'TEMPMIN': {'min': -100, 'max': 500},
+        'TEMPAVG': {'min': -100, 'max': 500},
+        'WNDMIL': {'min': 'null', 'max': 'null'},
+        'WINDRUN': {'min': 'null', 'max': 'null'},
+        'SUNSHNHR': {'min': 0, 'max': 1440},
+        'EVAPINI': {'min': 'null', 'max': 'null'},
+        'EVAPRES': {'min': 'null', 'max': 'null'},
+        'EVAPPAN': {'min': 'null', 'max': 'null'},
+        'TEMP': {'min': 'null', 'max': 'null'},
+        'TEMPWB': {'min': 'null', 'max': 'null'},
+        'TSOIL1': {'min': 'null', 'max': 'null'},
+        'TSOIL4': {'min': 'null', 'max': 'null'},
+        'DYTHND': {'min': 'null', 'max': 'null'},
+        'DYFOG': {'min': 'null', 'max': 'null'},
+        'DYHAIL': {'min': 'null', 'max': 'null'},
+        'DYGAIL': {'min': 'null', 'max': 'null'},
+        'TOTRAD': {'min': 'null', 'max': 'null'},
+        'RH@TMAX': {'min': 'null', 'max': 'null'},
+        'RHMAX': {'min': 0, 'max': 100},
+        'RHMIN': {'min': 0, 'max': 100},
+    }
+    
+    # Get a variable list using the order of variable_ids list
+    variable_dict = {variable.symbol: variable for variable in Variable.objects.filter(symbol__in=variable_symbols.keys())}
+    variable_list = [variable_dict[variable_symbol] for variable_symbol in variable_symbols.keys()]
+
+    col_widths = [80]*len(variable_list)
+
+    columns = [
+        {
+            'data': str(variable.id),
+            'name': str(variable.symbol),
+            'type': 'numeric',
+            'numericFormat': {'pattern': '0.0'},
+            'validator': 'fieldValidator'
+        } for variable in variable_list
+    ]
+
+    row_headers = [str(i+1) for i in range(31)]+['SUM', 'AVG', 'MIN', 'MAX', 'STDDEV', 'COUNT']
+    number_of_columns = len(columns)
+    number_of_rows = len(row_headers)
+    
+    context = {
+        'col_widths': col_widths,
+        'col_headers': list(variable_symbols.keys()),
+        'row_headers': row_headers,
+        'columns': columns,
+        'variable_ids': [variable.id for variable in variable_list],
+        'number_of_columns': number_of_columns,
+        'number_of_rows': number_of_rows,
+        'limits': variable_symbols, 
+    }
+    return context
+
+
+class MonthlyFormView(LoginRequiredMixin, TemplateView):
+    template_name = "wx/data/monthly_form.html"
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context['station_list'] = Station.objects.filter(is_automatic=False, is_active=True).values('id', 'name', 'code')
+        context['handsontable_config'] = get_monthly_form_config()
+        
+        # Get parameters from request or set default values
+        context['station_id'] = self.request.GET.get('station_id', 'null')
+        context['date'] = self.request.GET.get('date', datetime.date.today().strftime('%Y-%m'))
+
+        return context
+
+
+# wis2box dashboard page
+class WIS2DashboardView(LoginRequiredMixin, TemplateView):
+    template_name = "wx/wis2dashboard/wis2dashboard.html"
+
+    
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(**kwargs)
+
+
+# to grap data for the wis2 dashboard
+def wis2dashboard_records_list(request):
+    try:
+        search_criteria = request.GET.get('search_criteria', '').strip().lower()
+        
+        if search_criteria == 'all':
+            queryset = Wis2BoxPublish.objects.select_related("station")
+        elif search_criteria == 'publishing':
+            queryset = Wis2BoxPublish.objects.filter(publishing=True).select_related("station")
+        elif search_criteria == 'publish_status':
+            queryset = Wis2BoxPublish.objects.filter(publishing=True).select_related("station")
+        elif search_criteria == 'not publishing':
+            queryset = Wis2BoxPublish.objects.filter(publishing=False).select_related("station")
+        elif search_criteria == 'trans pub':
+            queryset = Wis2BoxPublish.objects.filter(publishing=True, hybrid=True).select_related("station")
+        elif search_criteria == 'trans nonpub':
+            queryset = Wis2BoxPublish.objects.filter(publishing=False, hybrid=True).select_related("station")
+        else:
+            queryset = Wis2BoxPublish.objects.select_related("station")
+        
+        if not queryset.exists():
+            logger.info("No records found!")
+            return JsonResponse({"error": "No records found"}, status=204)
+
+        records = list(queryset.values(
+            "id", 
+            "publishing", 
+            "station__name", 
+            "station__wigos", 
+            "station__is_automatic", 
+            "station__is_synoptic", 
+            "publish_success", 
+            "publish_fail",
+            "hybrid",
+            "add_gts",
+            "hybrid_station__name"
+        ))
+
+        # calculate the total success and fails to create the graph
+        publish_success_count = 0
+        publish_fail_count = 0
+
+        for record in records:
+            if not record['station__wigos']:
+                record['station__wigos'] = "WIGOS ID NOT FOUND"
+
+            station_status = []
+            # getting the publishing status
+            if record['publishing']:
+                station_status.append("Publishing")
+
+                # hybrid status
+                if record['hybrid']:
+                    station_status.append("Hybrid")
+
+                # gts status
+                if record['add_gts']:
+                    station_status.append("GTS")
+
+                # getting the automatic/manual status
+                if record['station__is_automatic']:
+                    station_status.append("Automatic")
+                else:
+                    station_status.append("Manual")
+
+                # synoptic status
+                if record['station__is_synoptic']:
+                    station_status.append("Synoptic")
+                    
+            else:
+                station_status.append("Not Publishing")
+
+                # hybrid status
+                if record['hybrid']:
+                    station_status.append("Hybrid")
+
+                # gts status
+                if record['add_gts']:
+                    station_status.append("GTS")
+
+                # getting the automatic/manual status
+                if record['station__is_automatic']:
+                    station_status.append("Automatic")
+                else:
+                    station_status.append("Manual")
+
+                # getting the synoptic status
+                if record['station__is_synoptic']:
+                    station_status.append("Synoptic")
+
+            # adding the Status to the record object
+            record['status'] = station_status
+
+            publish_success_count += record['publish_success']
+            publish_fail_count += record['publish_fail']
+
+        if search_criteria == 'publish_status':
+            return JsonResponse({"items": records, "publish_success": publish_success_count, "publish_fail": publish_fail_count}, encoder=DjangoJSONEncoder)
+        
+        return JsonResponse({"items": records}, encoder=DjangoJSONEncoder)
+
+    except Exception as e:
+        logger.error(f"An error occured: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
+    
+
+# to fetch publishig logs information
+def publishingLogs(request, pk):
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])  # Only allow GET requests
+
+    logs = Wis2BoxPublishLogs.objects.filter(publish_station__id=pk).values(
+        "id", "created_at", "last_modified", "publish_station", 
+        "success_log", "log", "wis2message_exist", "wis2message"
+    )
+
+    # getting station metadata
+    station_metadata = Wis2BoxPublish.objects.filter(id=pk).values("station__name", "station__wigos", "publish_success", "publish_fail", "hybrid", "hybrid_station__name")
+    return JsonResponse({"logs":list(logs), "station_metadata":list(station_metadata), "timezone_offset":settings.TIMEZONE_OFFSET}, safe=False)  # Convert QuerySet to list
+
+
+def downloadWis2Logs(request, pk):
+    """
+    Downloads log files associated with a specific publish station (identified by pk) as a ZIP file.
+    """
+    logs = Wis2BoxPublishLogs.objects.filter(publish_station__id=pk)
+    
+    if not logs.exists():
+        return HttpResponse("No logs found", status=404)
+    
+    temp_dir = tempfile.mkdtemp()
+    zip_filename = os.path.join(temp_dir, f"logs_{pk}.zip")
+    
+    with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for log_entry in logs:
+            # Format the timestamp for uniqueness and readability
+            timestamp = localtime(log_entry.created_at).strftime("%Y-%m-%d_%H-%M-%S")
+            file_name = f"{timestamp}-{log_entry.id}-logfile.txt"
+            file_path = os.path.join(temp_dir, file_name)
+            
+            # Write log content to a temporary file
+            with open(file_path, "w", encoding="utf-8") as log_file:
+                log_file.write(log_entry.log)
+            
+            # Add the file to the ZIP archive
+            zipf.write(file_path, arcname=file_name)
+    
+    # Read the ZIP file and prepare it for download
+    with open(zip_filename, "rb") as zip_file:
+        response = HttpResponse(zip_file.read(), content_type="application/zip")
+        response["Content-Disposition"] = f'attachment; filename="logs_{pk}.zip"'
+    
+    # Cleanup temporary files and directory
+    for file in os.listdir(temp_dir):
+        os.remove(os.path.join(temp_dir, file))
+    os.rmdir(temp_dir)
+    
+    return response
+
+
+def downloadWis2Message(request, pk):
+    """
+    Downloads WIS2 messages associated with a specific publish station (identified by pk) as a ZIP file.
+    """
+    messages = Wis2BoxPublishLogs.objects.filter(publish_station__id=pk, wis2message_exist=True)
+    
+    if not messages.exists():
+        return HttpResponse("No logs found", status=404)
+    
+    temp_dir = tempfile.mkdtemp()
+    zip_filename = os.path.join(temp_dir, f"messages_{pk}.zip")
+    
+    with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for message in messages:
+            # Format the timestamp for uniqueness and readability
+            timestamp = localtime(message.created_at).strftime("%Y-%m-%d_%H-%M-%S")
+            file_name = f"{timestamp}-{message.id}-messagefile.csv"
+            file_path = os.path.join(temp_dir, file_name)
+            
+            # Write message content to a temporary file
+            with open(file_path, "w", encoding="utf-8") as msg_file:
+                msg_file.write(message.wis2message)
+            
+            # Add the file to the ZIP archive
+            zipf.write(file_path, arcname=file_name)
+    
+    # Read the ZIP file and prepare it for download
+    with open(zip_filename, "rb") as zip_file:
+        response = HttpResponse(zip_file.read(), content_type="application/zip")
+        response["Content-Disposition"] = f'attachment; filename="messages_{pk}.zip"'
+    
+    # Cleanup temporary files and directory
+    for file in os.listdir(temp_dir):
+        os.remove(os.path.join(temp_dir, file))
+    os.rmdir(temp_dir)
+    
+    return response
+
+# to load the form to update local wis2 credential
+class LocalWisCredentialsUpdateView(generics.RetrieveUpdateAPIView):
+    queryset = LocalWisCredentials.objects.all()
+    serializer_class = serializers.LocalWisCredentialsSerializer
+    permission_classes = [permissions.IsAdminUser]  # Restrict access to admins only
+
+    def get_object(self):
+        try:
+            return LocalWisCredentials.load()  # Ensures only one instance is updated
+        except Exception as e:
+            logger.error(f'An error occurred while fetching LocalWisCredentials: {e}')
+            raise
+
+
+# to load the form to update regional wis2 credential
+class RegionalWisCredentialsUpdateView(generics.RetrieveUpdateAPIView):
+    queryset = RegionalWisCredentials.objects.all()
+    serializer_class = serializers.RegionalWisCredentialsSerializer
+    permission_classes = [permissions.IsAdminUser]  # Restrict access to admins only
+
+    def get_object(self):
+        try:
+            return RegionalWisCredentials.load()  # Ensures only one instance is updated
+        except Exception as e:
+            logger.error(f'An error occurred while fetching RegionalWisCredentials: {e}')
+            raise
+
+
+# to load the form to update the stations publishing settings
+class configWis2StationUpdateView(generics.RetrieveUpdateAPIView):
+    queryset = Wis2BoxPublish.objects.all()
+    serializer_class = serializers.Wis2BoxPublishSerializer
+    permission_classes = [permissions.IsAdminUser]  # Restrict access to admins only
+
+    def get_object(self):
+        station_id = self.kwargs.get("pk")  # Get ID from URL
+        try:
+            return Wis2BoxPublish.objects.get(id=station_id)  # Fetch entry by ID
+        except Exception as e:
+            logger.error(f'An error occurred while fetching Wis2BoxPublish stations data: {e}')
+            raise
+
+
+# shows all stations which are currently set to wis2 publishing
+class Wis2BoxPublishListView(views.APIView):
+    def get(self, request):
+        # Query all the Wis2BoxPublish objects where publishing is True
+        queryset = Wis2BoxPublish.objects.filter(publishing=True)
+        
+        # Serialize the queryset
+        serializer = serializers.Wis2BoxPublishSerializerReadPublishing(queryset, many=True)
+        
+        # Return the serialized data as a response
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class publishingOffsetViewSet(viewsets.ModelViewSet):
+    permission_classes = (IsAuthenticated,)
+    queryset = Wis2PublishOffset.objects.all()
+        
+
+    def get_serializer_class(self):
+        return serializers.Wis2PublishOffsetSerializerRead
+
+
+@csrf_exempt
+def push_to_wis2box(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            station_id = int(data.get("stationId"))
+
+            if not station_id:
+                return JsonResponse({}, status=400)
+
+            # attempt station push to wis2box
+            wis2push_task = tasks.wis2publish_task_now.delay(station_id)
+
+            return JsonResponse({"celery_task_id":wis2push_task.id}, status=200)
+        except Exception as e:
+            return JsonResponse({e}, status=500)
+
+    return JsonResponse({}, status=405)  # Method Not Allowed
+
+
+
+# updated synop capture form view
+class SynopCaptureView(LoginRequiredMixin, TemplateView):
+    template_name = "wx/data/synop_capture_form.html"
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # get synop station information
+        context['station_list'] = Station.objects.filter(is_synoptic=True).values('id', 'name', 'code')
+        # retrieves the ag_grid_config, the id's of columns which should be numbers and a dict of col id's mapped to wmocodevalues
+        context['ag_grid_config'], context['num_validate_ids'], context['variable_ids'] = get_synop_capture_config()
+
+        # Get parameters from request or set default values
+        station_id = self.request.GET.get('station_id', 'null')
+        context['station_id'] = station_id
+         # context['date'] = date
+
+        # changing the date so that if reflects that users timezone
+        offset = datetime.timedelta(minutes=(settings.TIMEZONE_OFFSET))
+        dt_object = datetime.datetime.now() + offset
+
+        context['date'] = dt_object.date()
+        context['timezone_offset'] = offset
+
+        return context    
+    
+
+def get_synop_capture_config():
+    # List of variables, in order, for synoptic station input form
+    # if a var is added/removed, do the same in the col_widths list
+
+    # # variable symbols group in order of their relationship to each other
+    # variable_symbols = [
+    #     'RH', 'VISBY-km', 'WNDDIR', 'WNDSPD', 'TDEWPNT', 'TEMPWB', 
+    #     'TEMP', 'TEMPMAX', 'TEMPMIN', 'PRESSTN', 'PRESSEA', 'BAR24C', 
+    #     'PRECIND', 'PRECIP', 'PREC24H', 'PRECDUR', 'STSKY', 'PRSWX',
+    #     'W1', 'W2', 'Nh', 'CLDTOT', 'LOWCLHFt', 'CL', 'CM', 'CH', 'DL', 
+    #     'DM', 'DH', 'N1', 'C1', 'hhFt1', 'N2', 'C2', 'hhFt2', 'N3', 'C3', 
+    #     'hhFt3', 'N4', 'C4', 'hhFt4', 'SpPhenom'
+    # ]
+
+    # # column widths in order of the variable_symbols list
+    # col_widths = [
+    #     200, 220, 200, 200, 200, 250, 250, 255, 250, 200, 
+    #     250, 250, 200, 200, 250, 250, 200, 200, 200, 200, 
+    #     250, 200, 200, 200, 200, 200, 200, 200, 200, 200, 
+    #     200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 
+    #     200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 
+    #     500, 200
+    # ]
+
+    # variable symbols group in order of the physical synop entry form
+    variable_symbols = [
+        'PRECIND', 'LOWCLHFt', 'VISBY-km',
+        'CLDTOT', 'WNDDIR', 'WNDSPD', 'TEMP', 'TDEWPNT', 'TEMPWB',
+        'RH', 'PRESSTN', 'PRESSEA', 'BAR24C', 'PRECIP', 'PREC24H', 'PRECDUR', 'PRSWX',
+        'W1', 'W2', 'Nh', 'CL', 'CM', 'CH', 'STSKY',
+        'DL', 'DM', 'DH', 'TEMPMAX', 'TEMPMIN', 'N1', 'C1', 'hhFt1',
+        'N2', 'C2', 'hhFt2', 'N3', 'C3', 'hhFt3', 'N4', 'C4', 'hhFt4', 'SpPhenom'
+    ]
+
+    # col_widths = [
+    #     200, 200, 220, 200, 200, 200, 250, 200, 250, 200, 
+    #     200, 250, 250, 200, 250, 250, 200, 200, 200, 250, 
+    #     200, 200, 200, 200, 200, 200, 200, 255, 250, 200, 
+    #     200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 
+    #     200, 200
+    # ]
+    col_widths = [
+        110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 
+        110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 
+        110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 
+        110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 
+        110, 110
+    ]
+    # col_widths = [
+    #     70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 
+    #     70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 
+    #     70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 
+    #     70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 
+    #     70, 70
+    # ]
+
+    var_class_dict = {
+        "misc-cols-group": ['RH', 'VISBY-km', 'SpPhenom'],
+        "wind-cols-group": ['WNDDIR', 'WNDSPD'],
+        "temp-cols-group": ['TDEWPNT', 'TEMPWB', 'TEMP', 'TEMPMAX', 'TEMPMIN'],
+        "pressure-cols-group": ['PRESSTN', 'PRESSEA', 'BAR24C'],
+        "precip-cols-group": ['PRECIND', 'PRECIP', 'PREC24H', 'PRECDUR'],
+        "sky-cols-group": ['STSKY', 'PRSWX', 'W1', 'W2'],
+        "cloud-cols-group": ['Nh', 'CLDTOT', 'LOWCLHFt', 'CL', 'CM', 'CH', 
+                            'DL', 'DM', 'DH', 'N1', 'C1', 'hhFt1', 'N2', 'C2', 
+                            'hhFt2', 'N3', 'C3', 'hhFt3', 'N4', 'C4', 'hhFt4'],
+    }
+
+    # Get wmo code values to use in dropdown for code variables
+    wmocodevalue_list = WMOCodeValue.objects.values('value', 'code_table_id')
+    wmocodevalue_dict = {}
+    for item in wmocodevalue_list:
+        code_table_id = item['code_table_id']
+
+        if code_table_id not in wmocodevalue_dict:
+            wmocodevalue_dict[code_table_id] = []
+
+        wmocodevalue_dict[code_table_id].append(item['value'])
+
+    # Reverse mapping from symbol to class name
+    symbol_to_class = {}
+    for class_name, symbols in var_class_dict.items():
+        for symbol in symbols:
+            symbol_to_class[symbol] = class_name
+
+    # var id's which should have a calculate action (24 hr barometric change, 24 hr precipitation)
+    calc_action = [4055, 4057]
+
+    # Get a variable list using the order of variable_ids list and also check for symbols which are missing of don't exist
+    variable_dict = {variable.symbol: variable for variable in Variable.objects.filter(symbol__in=variable_symbols)}
+    if missing_symbols := [
+        symbol for symbol in variable_symbols if symbol not in variable_dict
+    ]:
+        raise ValueError(f"Unable to Load the synop capture form. The following variable symbols are missing in the database: {missing_symbols}")
+    
+    variable_list = [variable_dict[variable_symbol] for variable_symbol in variable_symbols]
+
+    # loadig the context with the required information to display the headers (id, name, synoptic_code, col_width)
+    context = [
+        {
+            "id": var.pk, 
+            "name": var.name, 
+            "synoptic_code": var.synoptic_code_form, 
+            "var_type": var.variable_type.lower(),
+            "col_width": col_widths[variable_list.index(var)],
+            "col_class": symbol_to_class.get(var.symbol),
+            "dropdown_codes": wmocodevalue_dict.get(var.code_table_id, []),
+            "calc_action": True if var.pk in calc_action else False,
+        } 
+        for var in variable_list
+        
+    ]
+    context.extend(
+        (
+            {
+                "id": "remarks",
+                "name": "Remarks",
+                "synoptic_code": None,
+                "col_width": 200,
+                "col_class": "misc-cols-group",
+            },
+            {
+                "id": "observer",
+                "name": "Observer",
+                "synoptic_code": None,
+                "col_width": 150,
+                "col_class": "misc-cols-group",
+            },
+        )
+    )
+
+    # get the id's of all variables which columns are numeric, the id's are stored as strings
+    num_validate_ids = [str(var.pk) for var in variable_list if var.variable_type.lower() == "numeric"]
+    # getting the id's of all variables
+    variable_ids = [str(var.pk) for var in variable_list]
+
+    return context, num_validate_ids, variable_ids
+
+
+# recieve the coloumns which are empty and removes their entry from the database
+# similar to synop delete, except this handles multiple hours
+@api_view(['POST'])
+def synop_capture_update_empty_col(request):
+    # Extract data from the request
+    request_date_str = request.GET.get('date', None)
+    station_id = request.GET.get('station_id', None)
+    
+    empty_cols_data = request.data.get('empty_cols_data')
+
+    for col_data_key in empty_cols_data:
+
+        hour = int(col_data_key)
+        variable_id_list = empty_cols_data[col_data_key]
+
+        # Validate inputs
+        if (None in [request_date_str, hour, station_id, variable_id_list]):
+            message = "Invalid request. 'date', 'hour', 'station_id', and 'variable_ids' must be provided."
+            return JsonResponse({"message": message}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate date format
+        try:
+            request_date = datetime.datetime.strptime(request_date_str, '%Y-%m-%d')
+        except ValueError:
+            message = "Invalid date format. The expected date format is 'YYYY-MM-DD'"
+            return JsonResponse({"message": message}, status=status.HTTP_400_BAD_REQUEST)
+        
+        variable_id_list = [int(v) for v in tuple(variable_id_list)]
+        station = Station.objects.get(id=station_id)
+        datetime_offset = pytz.FixedOffset(station.utc_offset_minutes)
+        request_datetime = datetime_offset.localize(request_date.replace(hour=hour))
+        request_start_range_dt = request_datetime - timedelta(days=10)
+        request_end_range_dt = request_datetime + timedelta(days=10)
+
+    queries = {
+        "grab_relevant_chunks": """
+            SELECT 
+            show_chunks('raw_data', newer_than => %s, older_than => %s)
+        """,
+        "delete_raw_data": """
+            DELETE FROM {raw_data_chunk}
+            WHERE station_id = %s
+            AND variable_id = ANY(%s)
+            AND datetime = %s
+        """,
+        "create_daily_summary": """
+            INSERT INTO wx_dailysummarytask (station_id, date, created_at, updated_at)
+            VALUES (%s, %s, now(), now())
+            ON CONFLICT DO NOTHING
+        """,
+        "create_hourly_summary": """
+            INSERT INTO wx_hourlysummarytask (station_id, datetime, created_at, updated_at)
+            VALUES (%s, %s, now(), now())
+            ON CONFLICT DO NOTHING
+        """,
+        "get_last_updated": """
+            SELECT max(last_data_datetime)
+            FROM wx_stationvariable
+            WHERE station_id = %s
+              AND variable_id = ANY(%s)
+            ORDER BY 1 DESC
+        """,
+        "update_last_updated": """
+            WITH rd AS (
+                SELECT station_id, variable_id, measured, code, datetime,
+                       RANK() OVER (PARTITION BY station_id, variable_id ORDER BY datetime DESC) AS datetime_rank
+                FROM {raw_data_chunk}
+                WHERE station_id = %s
+                  AND variable_id = ANY(%s)
+            )
+            UPDATE wx_stationvariable sv
+            SET last_data_datetime = rd.datetime,
+                last_data_value = rd.measured,
+                last_data_code = rd.code
+            FROM rd
+            WHERE sv.station_id = rd.station_id
+              AND sv.variable_id = rd.variable_id
+              AND rd.datetime_rank = 1
+        """
+    }
+
+    with psycopg2.connect(settings.SURFACE_CONNECTION_STRING) as conn:
+        with conn.cursor() as cursor:
+            # grab relevant chunks, holding data within 10 days of the request datetime
+            # this reduces the overhead of looking through the entire raw_data table
+            cursor.execute(queries['grab_relevant_chunks'], [request_start_range_dt, request_end_range_dt])
+            
+            chunks = [row[0] for row in cursor.fetchall()]
+
+            for chunk in chunks:
+                cursor.execute(queries['delete_raw_data'].format(raw_data_chunk=chunk), [station_id, variable_id_list, request_datetime])
+
+            # After deleting from raw_data, is necessary to update the daily and hourly summary tables.
+            cursor.execute(queries["create_daily_summary"], [station_id, request_datetime])
+            cursor.execute(queries["create_hourly_summary"], [station_id, request_datetime])
+            
+            # If succeed in inserting new data, it's necessary to update the 'last data' columns in wx_stationvariable tabl.
+            cursor.execute(queries["get_last_updated"], [station_id, variable_id_list])
+            
+            last_data_datetime_row = cursor.fetchone()
+
+            if last_data_datetime_row and last_data_datetime_row[0] == request_datetime:
+                # loop through relevant chunks instead of the entire raw_data
+                for chunk in chunks:
+                    cursor.execute(queries["update_last_updated"].format(raw_data_chunk=chunk), [station_id, variable_id_list])
+
+        conn.commit()
+
+    return Response([], status=status.HTTP_200_OK)
+
+
+# Mapping keys -> file names in the static folder (whitelist)
+SPATIAL_SHAPE_FILES = {
+    "shape": "shape.png",
+    "watersheds": "Watersheds_4326.geojson",
+    "national": "NationalWaters.geojson",
+    "gwp": "GWP_Campur.geojson",
+    "basemap": "Basemap.geojson",
+}
+
+# Allowed extensions for each target file (basic safety)
+ALLOWED_EXTENSIONS = {".png", ".geojson"}
+
+def get_static_assets_dir():
+    """
+    Determine the static folder to use for reading/writing files.
+    Priority:
+      1. settings.STATIC_ROOT (when set, eg. production after collectstatic)
+      2. first entry of settings.STATICFILES_DIRS (if any)
+      3. <BASE_DIR>/static (sane project-level default)
+    """
+    if getattr(settings, "STATIC_ROOT", None):
+        return settings.STATIC_ROOT
+    
+    sfd = getattr(settings, "STATICFILES_DIRS", None)
+
+    if sfd:
+        # pick first entry if it's a string
+        if isinstance(sfd, (list, tuple)) and sfd:
+            return sfd[0]
+        if isinstance(sfd, str):
+            return sfd
+    # fallback to project static folder
+    return os.path.join(settings.BASE_DIR, "static")
+
+
+def stat_file_info(path):
+    """Return dict with existence and mtime string for template use"""
+    if os.path.exists(path) and os.path.isfile(path):
+        ts = os.path.getmtime(path)
+        dt = datetime_constructor.fromtimestamp(ts, timezone.utc) + timedelta(minutes=settings.TIMEZONE_OFFSET)
+        formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S")
+
+        mtime = formatted_time
+        return {"exists": True, "mtime": mtime}
+    return {"exists": False, "mtime": None}
+
+
+@method_decorator(require_http_methods(["GET"]), name="dispatch")
+class ConfigurationSettingsView(LoginRequiredMixin,  TemplateView):
+
+    template_name = "wx/configuration_settings.html"
+
+    def get_context_data(self, **kwargs):
+        static_dir = get_static_assets_dir()
+        options = []
+        labels = {
+            "shape": "Shape (image)",
+            "watersheds": "Watersheds",
+            "national": "National Waters",
+            "gwp": "GWP - Campur",
+            "basemap": "Basemap",
+        }
+
+        for key, filename in SPATIAL_SHAPE_FILES.items():
+            file_path = os.path.join(static_dir, filename)
+            info = stat_file_info(file_path)
+            # build a relative download URL that the Vue client can use
+            download_url = f"/documents/spatial/files/download/{key}/"
+            options.append(
+                {
+                    "key": key,
+                    "label": labels.get(key, filename),
+                    "description": filename,
+                    "hasFile": info["exists"],
+                    "filename": filename if info["exists"] else None,
+                    "uploadDate": info["mtime"],
+                    "downloadUrl": download_url,
+                }
+            )
+
+        ctx = super().get_context_data(**kwargs)
+        ctx["options_json"] = json.dumps(options)
+        return ctx
+
+
+@method_decorator(require_http_methods(["GET"]), name="dispatch")
+class ManagePermissionsView(LoginRequiredMixin,  TemplateView):
+    template_name = "wx/manage_permissions.html"
+
+@method_decorator(require_http_methods(["POST"]), name="dispatch")
+class UploadOrDeleteSpatialFilesView(View):
+    """
+    Handles POST requests for uploading or deleting a whitelisted static file.
+    Expected POST fields:
+      - action: 'upload' or 'delete'
+      - key: one of FILES keys
+      - file: (for upload) the uploaded file in request.FILES['file']
+    """
+
+    # # This is the only “permission” string you need to supply:
+    # permission_required = "Configuration Settings - Full Access"
+
+    # # If you want a custom 403 page instead of redirecting to login again, explicitly set:
+    # raise_exception = True
+
+    def post(self, request, *args, **kwargs):
+        action = request.POST.get("action")
+        key = request.POST.get("key")
+        if action not in ("upload", "delete") or key not in SPATIAL_SHAPE_FILES:
+            return HttpResponseBadRequest("Invalid action or key")
+
+        static_dir = get_static_assets_dir()
+        target_filename = SPATIAL_SHAPE_FILES[key]
+        target_path = os.path.join(static_dir, target_filename)
+
+        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+
+        if action == "upload":
+            uploaded = request.FILES.get("file")
+            if not uploaded:
+                return JsonResponse({"success": False, "message": "No file provided."}, status=400)
+
+            # Basic safety: ensure the target filename's extension is allowed
+            _, ext = os.path.splitext(target_filename)
+            if ext.lower() not in ALLOWED_EXTENSIONS:
+                return JsonResponse({"success": False, "message": "Disallowed file extension."}, status=400)
+
+            try:
+                # Remove previous file if exists
+                if os.path.exists(target_path):
+                    try:
+                        os.remove(target_path)
+                    except Exception:
+                        # ignore removal errors and continue to overwrite
+                        pass
+
+                # Save new file content
+                with open(target_path, "wb") as dest:
+                    for chunk in uploaded.chunks():
+                        dest.write(chunk)
+
+                ts = os.path.getmtime(target_path)
+                dt = datetime_constructor.fromtimestamp(ts, timezone.utc) + timedelta(minutes=settings.TIMEZONE_OFFSET)
+                formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S")
+
+                mtime = formatted_time
+
+                return JsonResponse({"success": True, "filename": target_filename, "uploadDate": mtime})
+            except Exception as exc:
+                return JsonResponse({"success": False, "message": str(exc)}, status=500)
+
+        # action == delete
+        try:
+            if os.path.exists(target_path) and os.path.isfile(target_path):
+                os.remove(target_path)
+            return JsonResponse({"success": True})
+        except Exception as exc:
+            return JsonResponse({"success": False, "message": str(exc)}, status=500)
+
+
+@method_decorator(require_http_methods(["GET"]), name="dispatch")
+class DownloadSpatialFilesView(View):
+    """
+    Streams a whitelisted static file back to the client for download.
+    URL expected to pass 'key' as a path parameter.
+    """
+
+    # # This is the only “permission” string you need to supply:
+    # permission_required = "Configuration Settings - Full Access"
+
+    # # If you want a custom 403 page instead of redirecting to login again, explicitly set:
+    # raise_exception = True
+
+    def get(self, request, key, *args, **kwargs):
+        if key not in SPATIAL_SHAPE_FILES:
+            raise Http404("Invalid key")
+
+        static_dir = get_static_assets_dir()
+        filename = SPATIAL_SHAPE_FILES[key]
+        path = os.path.join(static_dir, filename)
+        if not os.path.exists(path) or not os.path.isfile(path):
+            raise Http404("File not found")
+
+        response = FileResponse(open(path, "rb"), as_attachment=True, filename=filename)
+        response["Last-Modified"] = http_date(os.path.getmtime(path))
+        return response
 
 
 def calculate_agromet_summary_df_statistics(df: pd.DataFrame) -> list:
@@ -6731,6 +9579,7 @@ def get_agromet_summary_data(request):
 
 class AgroMetSummariesView(LoginRequiredMixin, TemplateView):
     template_name = "wx/agromet/agromet_summaries.html"
+
     agromet_variable_symbols = [
         'TEMP',
         'TEMPAVG',
@@ -7183,6 +10032,7 @@ def get_agromet_products_data(request):
 
 class AgroMetProductsView(LoginRequiredMixin, TemplateView):
     template_name = "wx/agromet/agromet_products.html"
+
     agromet_variable_symbols = [
         'TEMP',
         'TEMPAVG',
@@ -8066,3 +10916,84 @@ class AquacropAvailableDataView(views.APIView):
 
         return start_datetime_history, end_datetime_history
 
+
+class GroupsInfo(views.APIView):
+    permission_classes = (IsAuthenticated, IsSuperUser)
+
+    def get(self, request, *args, **kwargs):
+        query = "SELECT id, name FROM auth_group ORDER BY id;"
+
+        with connection.cursor() as cursor:
+            cursor.execute(query)
+            rows = cursor.fetchall()
+
+        # Convert tuples to JSON-safe structures
+        groups_data = [
+            {"id": row[0], "name": row[1]}
+            for row in rows
+        ]
+
+        return Response(groups_data)
+
+# retrive the all users info
+class UsersGroupsInfo(views.APIView):
+    permission_classes = (IsAuthenticated, IsSuperUser)
+
+    def get(self, request, *args, **kwargs):
+        query = """
+                    SELECT
+                        AU.id,
+                        AU.first_name,
+                        AU.last_name,
+                        AU.username,
+                        AU.email,
+                        COALESCE(array_agg(AUG.group_id ORDER BY AUG.group_id)
+                                FILTER (WHERE AUG.group_id IS NOT NULL),
+                                '{}') AS all_group_ids
+                    FROM auth_user AS AU
+                    LEFT JOIN auth_user_groups AS AUG
+                        ON AU.id = AUG.user_id
+                    GROUP BY
+                        AU.id,
+                        AU.first_name,
+                        AU.last_name,
+                        AU.username,
+                        AU.email
+                    ORDER BY AU.id;
+                """
+
+        with connection.cursor() as cursor:
+            cursor.execute(query)
+            rows = cursor.fetchall()
+
+        # Convert tuples to JSON-safe structures
+        users_groups_data = [
+            {"id": row[0], "first_name": row[1], "last_name": row[2], "username": row[3], "email": row[4], "roles": row[5]}
+            for row in rows
+        ]
+
+        return Response(users_groups_data)
+
+# update users info
+class UpdateUserRoles(views.APIView):
+    permission_classes = (IsAuthenticated, IsSuperUser)
+
+    def patch(self, request, user_id):
+        roles = request.data.get("roles", [])
+
+        if not isinstance(roles, list) or not all(isinstance(x, int) for x in roles):
+            return Response({"message": "roles must be a list of integers"}, status=400)
+
+        # transaction atomic ensure that everything with the with block is successfull otherwise it roles back the changes made
+        # this matters as we are delting all old roles and then updating
+        with transaction.atomic():
+            # delete existing roles
+            User.groups.through.objects.filter(user_id=user_id).delete()
+
+            # insert new roles
+            through_objs = [
+                User.groups.through(user_id=user_id, group_id=gid) for gid in roles
+            ]
+            User.groups.through.objects.bulk_create(through_objs)
+
+        return Response({"message": "ok"})

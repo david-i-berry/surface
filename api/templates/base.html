@@ -1,12 +1,22 @@
 <!-- templates/base.html -->
 {% load static %}
+{% load permissions %}
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+
+    <!-- surfarce logo -->
+    <link rel="icon" type="image/png" href="{% static 'images/circle_logo_small.png' %}">
+
     <title>{% block title %}Surface{% endblock %}</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Encode+Sans:wght@100..900&display=swap" rel="stylesheet">
+
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
@@ -21,7 +31,8 @@
     />
     <link
       rel="stylesheet"
-      href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css"
+      href="https://unpkg.com/material-design-lite@1.3.0/material.min.css"
+
     />
     <link
       rel="stylesheet"
@@ -49,7 +60,7 @@
       rel="stylesheet"
     />
     <link
-      href="https://cdn.jsdelivr.net/npm/handsontable@7.1.1/dist/handsontable.full.min.css"
+      href="https://cdn.jsdelivr.net/npm/handsontable@14.5.0/dist/handsontable.full.min.css"
       rel="stylesheet"
       media="screen"
     >
@@ -66,619 +77,957 @@
     {% include 'material/includes/material_css.html' %}
 
     <style>
-      html {
-        overflow: auto;
-      }
-      .hide-menu {
-        display: none!important;
-      }
-      .hide-menu-text {
-        display: none;
-      }
-      .show-menu {
-        display: block!important;
-      }
-      .toggle-collapse {
-        width: 100%;
-      }
-      .open-mode {
-        width: 300px!important;
-        transition: 0.3s;
-      }
-      .collapsed-mode {
-        width: 55px!important;
-        transition: 0.3s;
-      }
-      .collapsible-item {
-        overflow: hidden;
-      }
-      .user-menu > div > div.mdl-menu__container.is-upgraded {
-        top: auto!important;
-      }
-      .user-options-style {
-        display: none !important;
-      }
-      .user-menu .collapsible-header{
-        cursor: default!important;
-      }
-      .to-uppercase {
-        text-transform: uppercase!important;
-      }
-      .sidenav {
-        font-size: 13px;
-      }
-      table.dataTable thead .sorting, 
-      table.dataTable thead .sorting_asc, 
-      table.dataTable thead .sorting_desc {
-        background : none;
-      }
-      .v-date-picker-table--date.theme--light > table > tbody > tr {
-        border: none;
-      }
-      .v-date-picker-table--date.theme--light > table > thead > tr {
-        border: none;
-      }
-      .v-menu__content {
-        min-width: 290px!important;
-      }
-      .srf-field-max-300 {
-        max-width: 300px;
-      }
-      .jumbotron {
-        margin-bottom: 0px;
-        padding: 2rem 1rem;
-      }
-      .separate-items > *:not(:first-child) {
-        margin-left: 8px;
-      }
-      .img-logo {
-        height: 45px;
-      }
-      .img-logo-surface {
-        height: 25px;
-      }
-      textarea {
-        background: #e2e2e2;
-      }
-      textarea:disabled {
-        color: rgb(104, 104, 104) !important;
+      /* Toast container sits in the top-right */
+      .wx-toast-container {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        pointer-events: none; /* allow clicking underlying UI except on the toast itself */
       }
 
-      input:disabled {
-        color: rgb(104, 104, 104) !important;
-      }
-      .mdl-textfield.is-disabled.is-disabled .mdl-textfield__label,
-      .mdl-textfield__label,
-      fieldset[disabled] .mdl-textfield .mdl-textfield__label {
-        color: rgba(0, 0, 0, 0.5);
-      }
-      label {
-        margin: 0 !important;
-      }
-      .srf-padding {
-        padding: 16px;
-      }
-      #id_station_list_length {
-        display: flex !important;
-        justify-content: flex-start !important;
-      }
-      #id_station_list_filter {
-        display: flex !important;
-        justify-content: flex-end !important;
-      }
-      a {
-        color: darkblue;
-      }
-      a:hover {
-        color: black;
-        text-decoration: none;
-      }
-      .mdl-button--icon {
-        width: 24px !important;
-        height: 24px !important;
-        min-width: 24px !important;
-      }
-      .custon-icon-16 {
-        font-size: 16px !important;
-      }
-      .srf-submenu {
-        width: 240px;
-      }
-      #id_station_list_wrapper {
-        width: 100% !important;
-      }
-      .srf-field-header {
-        color: rgba(0, 0, 0, 0.7);
-        font-size: 12px;
-      }
-      .srf-textfield .srf-field-content {
-        overflow-y: auto;
-        height: 100%;
-        max-height: 90px;
-      }
-      .srf-textfield {
-        position: relative;
-        font-size: 16px;
+      /* The toast itself */
+      .wx-toast {
+        pointer-events: auto;
+        min-width: 260px;
+        max-width: 360px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+        background: #2d2d2d;
+        color: #fff;
+        font-size: 14px;
+        line-height: 1.3;
         display: flex;
-        box-sizing: border-box;
-        max-width: 300px;
-        overflow-y: hidden;
-        width: 100%;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        opacity: 0;
+        transform: translateY(-6px);
+        transition: opacity 160ms ease, transform 160ms ease;
       }
-      .srf-field {
-        position: relative;
-        font-size: 16px;
-        display: flex;
-        box-sizing: border-box;
-        max-width: 300px;
-        width: 100%;
-        flex-direction: column;
+
+      .wx-toast--show {
+        opacity: 1;
+        transform: translateY(0);
       }
-      .btn-outline-danger {
-        color: #ff4444;
-        border: 1px solid #ff4444;
+
+      .wx-toast__msg {
+        word-break: break-word;
       }
-      .btn-outline-danger:hover {
-        color: #d12121;
-        border: 1px solid #d12121;
-        background-color: #ffeeee;
-      }
-      .btn-outline-default {
-        box-shadow: none;
-        background-color: transparent;
-        color: #343434;
+
+      .wx-toast__close {
+        border: 0;
+        background: transparent;
         cursor: pointer;
-        transition: background-color 0.3s;
-        border: 1px solid black;
-      }
-      .btn-outline-default:hover {
-        background-color: #e2e2e2;
-        box-shadow: 0 3px 3px 0 rgba(0,0,0,0.14), 0 1px 7px 0 rgba(0,0,0,0.12), 0 3px 1px -1px rgba(0,0,0,0.2);
-        transition: 0.3s;
-      }
-      .btn-small {
-        background-color: transparent!important;
-      }
-      .icon-danger {
-        color: #ff4444;
-      }
-      .srf-container {
-        flex: 1 1 100%;
-        margin: auto;
-        padding: 24px;
-        width: 100%;
-      }
-      .srf-layout {
-        position: relative;
-        display: flex;
-        width: 100%;
-        flex-direction: column;
+        font-size: 16px;
+        line-height: 1;
+        padding: 0;
+        opacity: 0.8;
       }
 
-      .p-300 {
-        padding-left: 300px;
-        transition: 0.3s;
+      .wx-toast__close:hover { opacity: 1; }
+
+      /* Optional variants */
+      .wx-toast--warn  { 
+        background: #FFF4CC;        /* subdued warm yellow */
+        border: 1px solid #8A6D00;  /* dark mustard-brown */
+        color: #3B2F00;             /* dark text */
       }
 
-      .p-55 {
-        padding-left: 55px;
-        transition: 0.3s;
+      .wx-toast--error  { 
+        background: #FFE3E3;        /* subdued soft red */
+        border: 1px solid #8B1E1E; /* deep dark red */
+        color: #4A0C0C;             /* dark red/brown text */
       }
 
-      .srf-display-1 {
-        font-size: 2em;
-      }
-      .srf-display-2 {
-        font-size: 1.3em;
-        color: #4d4d4d;
+      .wx-toast--info  { 
+        background: #DFF2FF;        /* subdued soft blue */
+        border: 1px solid #0B4F6C; /* deep teal/blue */
+        color: #083344;             /* dark blue text */
       }
 
-      .srf-display-1-1 {
-        font-size: 1.3em;
-      }
-      .srf-display-2-2 {
-        font-size: .5em;
-        color: #4d4d4d;
-      }
-
-      .mdl-grid {
-        width: 100%;
-      }
-      #mapid {
-        height: 180px;
-      }
-    .secondary-content {
-      float: right;
-      color: #4d4d4d;
-    }
-    a.collection-item {
-      color: black;
-    }
-    .left-space {
-      padding-left: 60px!important;
-    }
-    .sidenav-trigger {
-      display: none;
-    }
-    .custom-row i{
-      margin: 0px 0px 0px 0px;
-      color: black;
-    }
-    .sidenav li>a>i, .sidenav li>a>[class^="mdi-"], .sidenav li>a li>a>[class*="mdi-"], .sidenav li>a>i.material-icons {
-      margin: 0 14px 0 0;
-      color: #212529;
-      width: 2rem;
-    }
-    .user-row {
-      padding: 10px 20px 10px 30px;
-      border-top: 1px solid #b6b6b6;
-      border-bottom: 1px solid #b6b6b6;
-      display: flex;
-      justify-content: space-between;
-    }
-    .v-expansion-panel:before {
-      box-shadow: none!important;
-    }
-    .bold {
-      font-weight: bold;
-    }
-
-    .stationInfo {
-      display: flex;
-      justify-content: space-between;
-      max-width: 300px;
-      color: rgb(107, 107, 107);
-    }
-
-    .manual-flag-td-cs {
-      width: 140px;
-      padding: 0 !important;
-    }
-
-    .manual-flag-cs {
-      font-size: 10pt;
-    }
-
-    .manual-flag-cs.v-text-field > .v-input__control > .v-input__slot:before {
-      border-style: none;
-    }
-
-    .manual-flag-cs.v-text-field > .v-input__control > .v-input__slot:after {
-      border-style: none;
-    }
-
-    .srf-message {
-      width: 100%;
-      height: 36px;
-      background-color: #D4EDDA;
-      color: #155724;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      border-radius: 2px;
-    }
-
-    /* TO HIDE CONTENT AFTER 5 SECONDS */
-    #hideMe {
-      -moz-animation: cssAnimation 0s ease-in 5s forwards;
-      /* Firefox */
-      -webkit-animation: cssAnimation 0s ease-in 5s forwards;
-      /* Safari and Chrome */
-      -o-animation: cssAnimation 0s ease-in 5s forwards;
-      /* Opera */
-      animation: cssAnimation 0s ease-in 5s forwards;
-      -webkit-animation-fill-mode: forwards;
-      animation-fill-mode: forwards;
-    }
-    @keyframes cssAnimation {
-      to {
-          width:0;
-          height:0;
-          overflow:hidden;
-      }
-    }
-    @-webkit-keyframes cssAnimation {
-      to {
-          width:0;
-          height:0;
-          visibility:hidden;
-      }
-    }
-    /* TO HIDE CONTENT AFTER 5 SECONDS */
-
-    td, th {
-      padding: 0px;
-      display: table-cell;
-
-      vertical-align: middle;
-      border-radius: 0px;
-    }
-
-    /* RESET VUE + VUETIFY QUIRKS */
-    .v-select:not(.v-text-field--single-line):not(.v-text-field--outlined) .v-select__slot>input,
-    .v-autocomplete:not(.v-input--is-disabled).v-select.v-text-field input,
-    .theme--light.v-input:not(.v-input--is-disabled) input, .theme--light.v-input:not(.v-input--is-disabled) textarea,
-    input:not([type]):disabled, input:not([type])[readonly="readonly"], input[type=text]:not(.browser-default):disabled, input[type=text]:not(.browser-default)[readonly="readonly"], input[type=password]:not(.browser-default):disabled, input[type=password]:not(.browser-default)[readonly="readonly"], input[type=email]:not(.browser-default):disabled, input[type=email]:not(.browser-default)[readonly="readonly"], input[type=url]:not(.browser-default):disabled, input[type=url]:not(.browser-default)[readonly="readonly"], input[type=time]:not(.browser-default):disabled, input[type=time]:not(.browser-default)[readonly="readonly"], input[type=date]:not(.browser-default):disabled, input[type=date]:not(.browser-default)[readonly="readonly"], input[type=datetime]:not(.browser-default):disabled, input[type=datetime]:not(.browser-default)[readonly="readonly"], input[type=datetime-local]:not(.browser-default):disabled, input[type=datetime-local]:not(.browser-default)[readonly="readonly"], input[type=tel]:not(.browser-default):disabled, input[type=tel]:not(.browser-default)[readonly="readonly"], input[type=number]:not(.browser-default):disabled, input[type=number]:not(.browser-default)[readonly="readonly"], input[type=search]:not(.browser-default):disabled, input[type=search]:not(.browser-default)[readonly="readonly"], textarea.materialize-textarea:disabled, textarea.materialize-textarea[readonly="readonly"] {
-        margin: 0;
-        border: none;
-    }
-
-    [v-cloak] { display:none; }
-    /* END RESET VUE + VUETIFY QUIRKS */
-
-
-    .highcharts-data-table table {
-        border-collapse: collapse;
-        border-spacing: 0;
-        background: white;
-        min-width: 100%;
-        margin-top: 10px;
-        font-family: sans-serif;
-        font-size: 0.9em;
-    }
-    .highcharts-data-table td, .highcharts-data-table th, .highcharts-data-table caption {
-        border: 1px solid silver;
-        padding: 0.5em;
-    }
-    .highcharts-data-table tr:nth-child(even), .highcharts-data-table thead tr {
-        background: #f8f8f8;
-    }
-    .highcharts-data-table tr:hover {
-        background: #eff;
-    }
-    .highcharts-data-table caption {
-        border-bottom: none;
-        font-size: 1.1em;
-        font-weight: bold;
-    }
-
-    .mobile-menu {
-      display: none;
-    }
-
-    #menu-closer { display: none; }
-
-    @media screen and (max-width: 992px){
-        header, main, footer {
-          padding-left: 0;
+        /* main-overlay style start */
+        .main-overlay {
+          display: none;
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(255, 255, 255, 0.306);
+          z-index: 1000;
+          backdrop-filter: blur(5px);
         }
 
-        .srf-layout.p-300 { padding-left: 0; }
+        .main-spinner {
+          display: none;
+          border: 8px solid #f3f3f3;
+          border-top: 8px solid #3498db;
+          border-radius: 50%;
+          width: 70px;
+          height: 70px;
+          animation: spin 2s linear infinite;
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          margin-left: -35px;
+          margin-top: -50px;
+          z-index: 1001;
+        }
 
-        #toggle-sidebar {
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        /* main-overlay style end */
+
+        html {
+          font-family: "Encode Sans", sans-serif;
+          overflow: auto;
+        }
+        .hide-menu {
+          display: none!important;
+        }
+        .hide-menu-text {
+          display: none;
+        }
+        .show-menu {
+          display: block!important;
+        }
+        .app-version {
+          width: 100%;
+        }
+        .open-mode {
+          width: 300px!important;
+          transition: 0.3s;
+        }
+        .collapsed-mode {
+          width: 55px!important;
+          transition: 0.3s;
+        }
+        .collapsible-item {
+          cursor: default!important;
+          overflow: hidden;
+        }
+        .accent_background {
+          background: rgba(0, 123, 255, 0.1) !important;
+          background: linear-gradient(0deg, rgba(0, 123, 255, 0.25) 0%, rgba(255, 193, 7, 0.34) 100%) !important;
+        }
+        .collapsible-header{
+          cursor: default!important;
+          overflow: hidden;
+        }
+        .to-uppercase {
+          text-transform: uppercase!important;
+        }
+        .sidenav {
+          font-size: 13px;
+        }
+        table.dataTable thead .sorting, 
+        table.dataTable thead .sorting_asc, 
+        table.dataTable thead .sorting_desc {
+          background : none;
+        }
+        .v-date-picker-table--date.theme--light > table > tbody > tr {
+          border: none;
+        }
+        .v-date-picker-table--date.theme--light > table > thead > tr {
+          border: none;
+        }
+        .v-menu__content {
+          min-width: 290px!important;
+        }
+        .srf-field-max-300 {
+          max-width: 300px;
+        }
+        .jumbotron {
+          margin-bottom: 0px;
+          padding: 2rem 1rem;
+        }
+        .separate-items > *:not(:first-child) {
+          margin-left: 8px;
+        }
+        .img-logo {
+          height: 45px;
+        }
+        .img-logo-surface {
+          height: 25px;
+        }
+        textarea {
+          background: #e2e2e2;
+        }
+        textarea:disabled {
+          color: rgb(104, 104, 104) !important;
+        }
+
+        input:disabled {
+          color: rgb(104, 104, 104) !important;
+        }
+        .mdl-textfield.is-disabled.is-disabled .mdl-textfield__label,
+        .mdl-textfield__label,
+        fieldset[disabled] .mdl-textfield .mdl-textfield__label {
+          color: rgba(0, 0, 0, 0.5);
+        }
+        label {
+          margin: 0 !important;
+        }
+        .srf-padding {
+          padding: 16px;
+        }
+        #id_station_list_length {
+          display: flex !important;
+          justify-content: flex-start !important;
+        }
+        #id_station_list_filter {
+          display: flex !important;
+          justify-content: flex-end !important;
+        }
+        a {
+          color: darkblue;
+        }
+        a:hover {
+          color: black;
+          text-decoration: none;
+        }
+        .mdl-button--icon {
+          width: 24px !important;
+          height: 24px !important;
+          min-width: 24px !important;
+        }
+        .custon-icon-16 {
+          font-size: 16px !important;
+        }
+        .srf-submenu {
+          width: 240px;
+        }
+        #id_station_list_wrapper {
+          width: 100% !important;
+        }
+        .srf-field-header {
+          color: rgba(0, 0, 0, 0.7);
+          font-size: 12px;
+        }
+        .srf-textfield .srf-field-content {
+          overflow-y: auto;
+          height: 100%;
+          max-height: 90px;
+        }
+        .srf-textfield {
+          position: relative;
+          font-size: 16px;
+          display: flex;
+          box-sizing: border-box;
+          max-width: 300px;
+          overflow-y: hidden;
+          width: 100%;
+        }
+        .srf-field {
+          position: relative;
+          font-size: 16px;
+          display: flex;
+          box-sizing: border-box;
+          max-width: 300px;
+          width: 100%;
+          flex-direction: column;
+        }
+        .btn-outline-danger {
+          color: #ff4444;
+          border: 1px solid #ff4444;
+        }
+        .btn-outline-danger:hover {
+          color: #d12121;
+          border: 1px solid #d12121;
+          background-color: #ffeeee;
+        }
+        .btn-outline-default {
+          box-shadow: none;
+          background-color: transparent;
+          color: #343434;
+          cursor: pointer;
+          transition: background-color 0.3s;
+          border: 1px solid black;
+        }
+        .btn-outline-default:hover {
+          background-color: #e2e2e2;
+          box-shadow: 0 3px 3px 0 rgba(0,0,0,0.14), 0 1px 7px 0 rgba(0,0,0,0.12), 0 3px 1px -1px rgba(0,0,0,0.2);
+          transition: 0.3s;
+        }
+        .btn-small {
+          background-color: transparent!important;
+        }
+        .icon-danger {
+          color: #ff4444;
+        }
+        .srf-container {
+          flex: 1 1 100%;
+          margin: auto;
+          padding: 24px;
+          width: 100%;
+        }
+        .srf-layout {
+          position: relative;
+          display: flex;
+          width: 100%;
+          flex-direction: column;
+        }
+
+        .p-300 {
+          padding-left: 300px;
+          transition: 0.3s;
+        }
+
+        .p-55 {
+          padding-left: 55px;
+          transition: 0.3s;
+        }
+
+        .srf-display-1 {
+          font-size: 2em;
+        }
+        .srf-display-2 {
+          font-size: 1.3em;
+          color: #4d4d4d;
+        }
+
+        .srf-display-1-1 {
+          font-size: 1.3em;
+        }
+        .srf-display-2-2 {
+          font-size: .5em;
+          color: #4d4d4d;
+        }
+
+        .mdl-grid {
+          width: 100%;
+        }
+        #mapid {
+          height: 180px;
+        }
+
+        .secondary-content {
+          float: right !important;
+          color: #4d4d4d;
+        }
+        a.collection-item {
+          color: black;
+        }
+        .left-space {
+          padding-left: 60px!important;
+        }
+        .sidenav-trigger {
+          display: none;
+        }
+        .custom-row i{
+          margin: 0px 0px 0px 0px;
+          color: black;
+        }
+        .sidenav li>a>i, .sidenav li>a>[class^="mdi-"], .sidenav li>a li>a>[class*="mdi-"], .sidenav li>a>i.material-icons {
+          margin: 0 14px 0 0;
+          color: #212529;
+          width: 2rem;
+        }
+        .user-row {
+          padding: 10px 20px 10px 30px;
+          border-top: 1px solid #b6b6b6;
+          border-bottom: 1px solid #b6b6b6;
+          display: flex;
+          justify-content: space-between;
+        }
+        .v-expansion-panel:before {
+          box-shadow: none!important;
+        }
+        .bold {
+          font-weight: bold;
+        }
+
+        .stationInfo {
+          display: flex;
+          justify-content: space-between;
+          max-width: 300px;
+          color: rgb(107, 107, 107);
+        }
+
+        .manual-flag-td-cs {
+          width: 140px;
+          padding: 0 !important;
+        }
+
+        .manual-flag-cs {
+          font-size: 10pt;
+        }
+
+        .manual-flag-cs.v-text-field > .v-input__control > .v-input__slot:before {
+          border-style: none;
+        }
+
+        .manual-flag-cs.v-text-field > .v-input__control > .v-input__slot:after {
+          border-style: none;
+        }
+
+        .srf-message {
+          width: 100%;
+          height: 36px;
+          background-color: #D4EDDA;
+          color: #155724;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          border-radius: 2px;
+        }
+
+        /* TO HIDE CONTENT AFTER 5 SECONDS */
+        #hideMe {
+          -moz-animation: cssAnimation 0s ease-in 5s forwards;
+          /* Firefox */
+          -webkit-animation: cssAnimation 0s ease-in 5s forwards;
+          /* Safari and Chrome */
+          -o-animation: cssAnimation 0s ease-in 5s forwards;
+          /* Opera */
+          animation: cssAnimation 0s ease-in 5s forwards;
+          -webkit-animation-fill-mode: forwards;
+          animation-fill-mode: forwards;
+        }
+        @keyframes cssAnimation {
+          to {
+              width:0;
+              height:0;
+              overflow:hidden;
+          }
+        }
+        @-webkit-keyframes cssAnimation {
+          to {
+              width:0;
+              height:0;
+              visibility:hidden;
+          }
+        }
+        /* TO HIDE CONTENT AFTER 5 SECONDS */
+
+        td, th {
+          padding: 0px;
+          display: table-cell;
+
+          vertical-align: middle;
+          border-radius: 0px;
+        }
+
+        /* RESET VUE + VUETIFY QUIRKS */
+        .v-select:not(.v-text-field--single-line):not(.v-text-field--outlined) .v-select__slot>input,
+        .v-autocomplete:not(.v-input--is-disabled).v-select.v-text-field input,
+        .theme--light.v-input:not(.v-input--is-disabled) input, .theme--light.v-input:not(.v-input--is-disabled) textarea,
+        input:not([type]):disabled, input:not([type])[readonly="readonly"], input[type=text]:not(.browser-default):disabled, input[type=text]:not(.browser-default)[readonly="readonly"], input[type=password]:not(.browser-default):disabled, input[type=password]:not(.browser-default)[readonly="readonly"], input[type=email]:not(.browser-default):disabled, input[type=email]:not(.browser-default)[readonly="readonly"], input[type=url]:not(.browser-default):disabled, input[type=url]:not(.browser-default)[readonly="readonly"], input[type=time]:not(.browser-default):disabled, input[type=time]:not(.browser-default)[readonly="readonly"], input[type=date]:not(.browser-default):disabled, input[type=date]:not(.browser-default)[readonly="readonly"], input[type=datetime]:not(.browser-default):disabled, input[type=datetime]:not(.browser-default)[readonly="readonly"], input[type=datetime-local]:not(.browser-default):disabled, input[type=datetime-local]:not(.browser-default)[readonly="readonly"], input[type=tel]:not(.browser-default):disabled, input[type=tel]:not(.browser-default)[readonly="readonly"], input[type=number]:not(.browser-default):disabled, input[type=number]:not(.browser-default)[readonly="readonly"], input[type=search]:not(.browser-default):disabled, input[type=search]:not(.browser-default)[readonly="readonly"], textarea.materialize-textarea:disabled, textarea.materialize-textarea[readonly="readonly"] {
+            margin: 0;
+            border: none;
+        }
+
+        [v-cloak] { display:none; }
+        /* END RESET VUE + VUETIFY QUIRKS */
+
+
+        .highcharts-data-table table {
+            border-collapse: collapse;
+            border-spacing: 0;
+            background: white;
+            min-width: 100%;
+            margin-top: 10px;
+            font-family: sans-serif;
+            font-size: 0.9em;
+        }
+        .highcharts-data-table td, .highcharts-data-table th, .highcharts-data-table caption {
+            border: 1px solid silver;
+            padding: 0.5em;
+        }
+        .highcharts-data-table tr:nth-child(even), .highcharts-data-table thead tr {
+            background: #f8f8f8;
+        }
+        .highcharts-data-table tr:hover {
+            background: #eff;
+        }
+        .highcharts-data-table caption {
+            border-bottom: none;
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+
+        #screen_check_container {
+          display: none; /* hidden by default */
+        }
+
+        #screen_check {
+          background-color: white;
+          width: 400px;
+          filter: drop-shadow(-10px -10px 20px rgba(0, 0, 0, 0.16));
+          display: flex !important;
+          flex-direction: column;
+          padding: 16px;
+          border-radius: 10px;
+          align-items: center;
+          justify-content: center; 
+          text-align: center;
+        }
+
+        /* restrict smaller screen (until a mobile view is brought about) */
+        @media screen and (max-width: 992px){
+          /* SURFACE doesn't properly support smaller displays yet */
+          main {
+            display: none;
+          }
+
+          #screen_check_container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+        }
+
+        .img-full {
+          background-image: url("{% static 'images/background.png' %}");
+          position: absolute;
+          width: 100%;
+          height: 100vh;
+          background-repeat: no-repeat;
+          -webkit-background-size: cover;
+          -moz-background-size: cover;
+          -o-background-size: cover;
+          background-size: cover;
+          background-position: center;
+        }
+
+        .wide_accent_background {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          pointer-events: none; /* keeps it behind the login section */
+          /* z-index: 1; */
+          background: rgba(0, 123, 255, 0.1) !important;
+          background: linear-gradient(0deg, rgba(0, 123, 255, 0.25) 0%, rgba(255, 193, 7, 0.34) 100%) !important;
+        }
+
+        .custom-navbar-text-fade-out {
+          display: inline-block;
+          opacity: 1;
+          animation: customFadeOut 0.3s forwards; /* 0.3s fade-out */
+        }
+
+        @keyframes customFadeOut {
+          to {
+            opacity: 0;
+            visibility: hidden;
+          }
+        }
+
+        .custom-navbar-text-fade-in {
+          display: inline-block;
+          opacity: 0;
+          visibility: hidden;
+          animation: customFadeIn 0.55s forwards; /* 0.55s fade-in */
+        }
+
+        @keyframes customFadeIn {
+          to {
+            opacity: 1;
+            visibility: visible;
+          }
+        }
+
+        /* START Control for nav options drop down */
+        /* Parent <li> */
+        .hover-item {
+          position: relative;
+        }
+
+        /* First link always visible */
+        .hover-item a:first-child {
+          display: block;
+          cursor: pointer; /* indicate clickable */
+        }
+
+        /* Hidden links inside the <li> */
+        .hover-item .hidden-link {
+          display: flex;                 /* flex for icon + text */
+          align-items: center;           /* vertical centering */
+          justify-content: space-between;/* text left, icon right */
+
+          max-height: 0;                 /* collapsed */
+          overflow: hidden;              /* hide content */
+          opacity: 0;                    /* invisible */
+          transform: translateY(6px);    /* start slightly lower */
+          transition: max-height 0.3s ease, opacity 0.3s ease, transform 0.3s ease;
+          pointer-events: none;          /* not clickable when hidden */
+          padding: 0 16px;               /* optional spacing to match first link */
+          width: 100%;
+        }
+
+        /* HR at the bottom (pill) */
+        .hover-item .hidden-end {
+          max-height: 0;                 /* collapsed */
+          opacity: 0;
+          overflow: hidden;
+          margin: 0 auto;                /* remove vertical space when collapsed */
+          transition: max-height 0.3s ease, opacity 0.3s ease, margin 0.3s ease;
+          border: none !important;
+          border-top: 3px solid #212529 !important;
+          width: 15%;
+          border-radius: 5px;
+        }
+
+        /* OPEN STATE: show hidden links and HR */
+        .hover-item.open .hidden-link,
+        .hover-item.open .hidden-end {
+          max-height: 40px;              /* adjust to actual content height */
+          opacity: 1;
+          pointer-events: auto;
+          transform: translateY(0);      /* slide into place */
+          margin: 5px auto;              /* restore HR spacing */
+        }
+        /* END Control for nav options drop down */
+
+        .hide-dropdown-icon {
           display: none;
         }
 
-        .sidenav.sidenav-fixed {
-            width: 100vw;
-            z-index: 99999;
-            position: fixed;
-        }
-
-        .sidenav.sidenav-fixed.open {
-          transform: translateX(0);
-        }
-
-        #menu-closer {
-          width: 4rem;
-          height: 4rem;
-          position: fixed;
-          left: 87vw;
-          top: 2vh;
-          z-index: 99999;
-        }
-
-        #menu-closer .material-icons {
-          font-size: 3em;
-        }
-
-        #menu-closer.open { 
-          display: block;          
-        }
-
-        .mobile-menu { display: block; }
-
-        .mobile-menu nav {          
-          padding: 0 1rem;
+        .dropdown-icon {
+          margin-left: auto; /* pushes arrow all the way right */
           display: flex;
-          flex-direction: row;
-          justify-content: space-between;
+          opacity: 0;
+          visibility: hidden;
           align-items: center;
+          animation: customFadeIn 0.55s forwards; /* 0.55s fade-in */
         }
 
-        .mobile-menu nav h1{
-          font-size: 2em;
-        }
-
-        a.collection-item.left-space.active.text-white {
-          color: white !important;
-        }
-    }
     </style>
     {% block extrastyle %} {% endblock %}
   </head>
   <body>
-    <ul id="slide-out" class="sidenav sidenav-fixed collapsed-mode" onmouseover="hoverOpenSidebar()" onmouseout="hoverCloseSidebar()" onmouseleave="closeSidebarSubMenu()">
+    <ul id="slide-out" class="sidenav sidenav-fixed collapsed-mode accent_background" onmouseover="hoverOpenSidebar()" onmouseout="hoverCloseSidebar()" onmouseleave="closeSidebarSubMenu()" style="z-index: 9999;">
+      
       <div style="display: flex;
         flex-direction: column;
         justify-content: space-between;
-        height: 100%;">
+        height: 100%;"
+      >
 
         <div id="wrap-sidenav">
-          <div onmouseleave="hideUserOptionsNavClose()">
-            <li class="py-4">
-              <div class="d-flex">
-                <div style="max-width: 55px;" class="w-100">
+
+          <!-- SURFACE logo at the top of the navbar -->
+          <li class="py-4">
+            <div class="d-flex">
+              <div style="max-width: 55px;" class="w-100">
+                <a href="{% url 'stations-map' %}">
                   <img style="padding: 0px 8px" class="img-logo" src="{% static 'images/circle_logo_small.png' %}" />
-                </div>
-                <div class="w-100" style="position: relative;">
+                </a>
+              </div>
+              <div class="w-100" style="position: relative;">
+                <a href="{% url 'stations-map' %}">
                   <img class="img-logo-surface" src="{% static 'images/surface_logo_smaller.png' %}" />
-                </div>
+                </a>
               </div>
-            </li>
-
-            <li class="collapsible-item user-menu">
-              <div class="collapsible-header" style="padding: 0px 16px;"><i class="material-icons">person</i>
-                <div class="w-100" style="position: relative;">
-                <span class="to-uppercase">{{ request.user.username }}</span>
-                <button id="user-menu-button" style="
-                  position: absolute;
-                  right: 0px;
-                  top: 12px;" class="mdl-button mdl-js-button mdl-button--icon">
-                  <i class="material-icons">more_vert</i>
-                </button>
-                </div>
-                <div id="user-options">
-                  <ul class="mdl-menu mdl-menu--bottom-right mdl-js-menu mdl-js-ripple-effect" for="user-menu-button">
-                    <a href="{% url 'change_password' %}">
-                      <li class="mdl-menu__item">
-                        Change password
-                      </li>
-                    </a>
-                  </ul>
-                </div>
-              </div>
-            </li>
-
-            <hr>
-
-          </div>
-
-          <ul class="collapsible to-uppercase">
-            <li id="stations-group" class="hide-menu">
-              <div class="collapsible-header"><i class="material-icons">my_location</i>STATIONS</div>
-              <div class="collapsible-body">
-                <div class="collapsible-subitem mb-2">
-                  <ul class="collection">
-                    <a id="stations-map" href="{% url 'stations-map' %}" class="hide-menu collection-item left-space ">MAP<i class="material-icons secondary-content">map</i></a>
-
-                    {% if request.user.is_staff or request.user.is_superuser %}
-
-                    <a id="stations-list" href="{% url 'stations-list' %}" class="hide-menu collection-item left-space ">LIST<i class="material-icons secondary-content">donut_small</i></a>
-                    <a id="station-metadata" href="{% url 'station-metadata' %}" class="hide-menu collection-item left-space ">METADATA<i class="material-icons secondary-content">donut_small</i></a>
-                    <a id="stations-monitoring" href="{% url 'stations-monitoring' %}" class="hide-menu collection-item left-space ">STATIONS MONITORING<i class="material-icons secondary-content">monitor</i></a>                    
-
-                    {% endif %}
-                  </ul>
-                </div>
-              </div>
-            </li>
-            </li>
-
-            {% if request.user.is_staff or request.user.is_superuser %}
-            <li id="maintenance-group" class="hide-menu">
-              <div class="collapsible-header"><i class="material-icons">build</i>MAINTENANCE</div>
-              <div class="collapsible-body">
-                <div class="collapsible-subitem mb-2">
-                  <ul class="collection">
-                    <a id="equipement-inventory" href="{% url 'equipment-inventory' %}" class="hide-menu collection-item left-space">Equipment Inventory<i class="material-icons-outlined secondary-content">inventory</i></a>
-                    <a id="maintenance-reports" href="{% url 'maintenance-reports' %}" class="hide-menu collection-item left-space">Maintenance Reports<i class="material-icons secondary-content">build</i></a>
-                  </ul>
-                </div>
-              </div>
-            </li>
-            {% endif %}            
-
-
-            {% if request.user.is_staff or request.user.is_superuser %}
-            <li id="data-group" class="hide-menu">
-              <div class="collapsible-header"><i class="material-icons">data_usage</i>DATA</div>
-              <div class="collapsible-body">
-                <div class="collapsible-subitem mb-2">
-                  <ul class="collection">
-                    <a id="daily-form" href="{% url 'daily-form' %}" class="hide-menu collection-item left-space">Daily Capture Form<i class="material-icons secondary-content">keyboard</i></a>
-                    <a id="synop-capture" href="{% url 'synop-capture' %}" class="hide-menu collection-item left-space">SYNOP Capture Form<i class="material-icons secondary-content">keyboard</i></a>
-                    <a id="data-export" href="{% url 'data-export' %}" class="hide-menu collection-item left-space">Export<i class="material-icons secondary-content">cloud_download</i></a>
-                    <a id="data-inventory" href="{% url 'data-inventory' %}" class="hide-menu collection-item left-space">Data Inventory<i class="material-icons secondary-content">web</i></a>
-                  </ul>
-                </div>
-              </div>
-            </li>
-            {% endif %}
-
-
-            {% if request.user.is_staff or request.user.is_superuser %}
-            <li id="quality-control-group" class="hide-menu">
-              <div class="collapsible-header"><i class="material-icons">playlist_add_check</i>Quality<span>&nbsp;</span>Control</div>
-              <div class="collapsible-body">
-                <div class="collapsible-subitem mb-2">
-                  <ul class="collection">
-                    <a id="quality-control" href="{% url 'quality-control' %}" class="hide-menu collection-item left-space">Data Validation<i class="material-icons secondary-content">done_all</i></a>
-                    <a id="range-threshold" href="{% url 'range-threshold' %}" class="hide-menu collection-item left-space">Range Threshold<i class="material-icons secondary-content">clear_all</i></a>
-                    <a id="step-threshold" href="{% url 'step-threshold' %}" class="hide-menu collection-item left-space">Step Threshold<i class="material-icons secondary-content">low_priority</i></a>
-                    <a id="persist-threshold" href="{% url 'persist-threshold' %}" class="hide-menu collection-item left-space">Persist Threshold<i class="material-icons secondary-content">format_align_left</i></a>
-                  </ul>
-                </div>
-              </div>
-            </li>
-            {% endif %}
-
-            <li id="products-group" class="hide-menu">
-              <div class="collapsible-header"><i class="material-icons">list_alt</i>PRODUCTS</div>
-              <div class="collapsible-body">
-                <div class="collapsible-subitem mb-2">
-                  <ul class="collection">
-                    <a id="station-report" href="{% url 'station-report' %}" class="hide-menu collection-item left-space">Station Report<i class="material-icons secondary-content">people</i></a>
-                    <a id="variable-report" href="{% url 'variable-report' %}" class="hide-menu collection-item left-space">Variable Report<i class="material-icons secondary-content">view_list</i></a>
-                    <a id="product-compare" href="{% url 'product-compare' %}" class="hide-menu collection-item left-space">Station Compare<i class="material-icons secondary-content">compare_arrows</i></a>
-                    <!-- <a id="yearly-average" href="{% url 'yearly-average' %}" class="collection-item left-space">Yearly Average<i class="material-icons secondary-content">timeline</i></a> -->
-                    <a id="spatial-analysis" href="{% url 'spatial-analysis' %}" class="hide-menu collection-item left-space">Spatial analysis<i class="material-icons secondary-content">dashboard</i></a>
-                    {% if request.user.is_staff or request.user.is_superuser %}
-                    <a id="extremes-means" href="{% url 'extremes-means' %}" class="hide-menu collection-item left-space">Extremes and Means<i class="material-icons secondary-content">equalizer</i></a>
-                    <a id="wave-data" href="{% url 'wave-data' %}" class="hide-menu collection-item left-space">Wave data analysis<i class="material-icons secondary-content">water</i></a>
-                    {% endif %}
-                  </ul>
-                </div>
             </div>
+          </li>
+
+          <!-- Signed in users name -->
+          <li class="collapsible-item">
+            <a href="{% url 'change_password' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()"><i class="material-icons">person</i><span class="to-uppercase custom-navbar-text-fade-out">{{ request.user.username }}</span></a>
+          </li>
+
+          <!-- Horizontal rule divider -->
+          <hr style="border: none !important; border-top: 3px solid #1e8fff40 !important; width: 90%; border-radius: 5px; margin: 5px auto;">
+          
+          <ul class="collapsible to-uppercase">
+
+            <!-- stations tab -->
+            {% if request|has_any_feature_permission:"stations-map:read, station-create:read, stations-list:read, station-metadata:read, station-oscar-export:read, stations-monitoring:read" %}
+            <li id="stations-group" class="hover-item nav-dropdown-toggle">
+
+              <!-- tab name -->
+              <a class="collapsible-item" style="padding: 0px 16px; position: relative;">
+                <i class="material-icons">my_location</i>
+                <span class="custom-navbar-text-fade-out">STATIONS</span>
+
+                <!-- new span for vert buttons, absolutely positioned to the right -->
+                <span class="hide-dropdown-icon" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%);">
+                  <i class="material-icons">more_vert</i>
+                </span>
+              </a>
+
+              {% if request|has_any_feature_permission:"stations-map:read" %}
+                <a id="stations-map" href="{% url 'stations-map' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">MAP<i class="material-icons secondary-content">map</i></a>
+              {% endif%}
+
+              {% if request|has_any_feature_permission:"station-create:read" %}
+                <a id="station-create" href="{% url 'station-create' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">CREATE&nbsp;STATION<i class="material-icons secondary-content">create</i></a>
+              {% endif%}
+
+              {% if request|has_any_feature_permission:"stations-list:read" %}
+                <a id="stations-list" href="{% url 'stations-list' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">LIST<i class="material-icons secondary-content">list</i></a>
+              {% endif%}
+
+              {% if request|has_any_feature_permission:"station-metadata:read" %}
+                <a id="station-metadata" href="{% url 'station-metadata' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">METADATA<i class="material-icons secondary-content">assessment</i></a>
+              {% endif%}
+              
+              {% if request|has_any_feature_permission:"station-oscar-export:read" %}
+                <a id="station-oscar-export" href="{% url 'station-oscar-export' %}" class="left-space hidden-link"  onclick="mainOverlayLoader()">OSCAR&nbsp;Export<i class="material-icons secondary-content">send</i></a>
+              {% endif%}
+              
+              {% if request|has_any_feature_permission:"stations-monitoring:read" %}
+                <a id="stations-monitoring" href="{% url 'stations-monitoring' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">MONITORING<i class="material-icons secondary-content">monitor</i></a>                    
+              {% endif%}
+
+              <!-- pill border at the bottom of the dropdown -->
+              <hr class="hidden-end">
             </li>
+            {% endif%}
 
-            <li id="agromet-group" class="hide-menu">
-              <div class="collapsible-header"><i class="material-icons">eco</i>Agrometeorology</div>
-              <div class="collapsible-body">
-                <div class="collapsible-subitem mb-2">
-                  <ul class="collection">
-                    <a id="agromet-summaries"  href="{% url 'agromet-summaries' %}" class="hide-menu collection-item left-space " onclick="mainOverlayLoader()">Monthly/Seasonal Summaries<i class="material-icons secondary-content">view_list</i></a>
-                    <a id="agromet-products"  href="{% url 'agromet-products' %}" class="hide-menu collection-item left-space " onclick="mainOverlayLoader()">Calculated Products<i class="material-icons secondary-content">calculate</i></a>
-                  </ul>                  
-                </div>
-              </div>
-            </li>            
+            <!-- maintenance tab -->
+            {% if request|has_any_feature_permission:"equipment-inventory:read, maintenance-reports:read" %}
+            <li id="maintenance-group" class="hover-item nav-dropdown-toggle">
 
-            {% if request.user.is_staff or request.user.is_superuser %}
-            <li class="collapsible-item">
-              <a href="{% url 'admin:index' %}" style="padding: 0px 16px;"><i class="material-icons">people</i>ADMINISTRATIVE AREA</a>
+              <!-- tab name -->
+              <a class="collapsible-item" style="padding: 0px 16px; position: relative;">
+                <i class="material-icons">handyman</i>
+                <span class="custom-navbar-text-fade-out">MAINTENANCE</span>
+              
+                <!-- new span for vert buttons, absolutely positioned to the right -->
+                <span class="hide-dropdown-icon" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%);">
+                  <i class="material-icons">more_vert</i>
+                </span>
+              </a>
+               
+              {% if request|has_any_feature_permission:"maintenance-reports:read" %}             
+                <a id="maintenance-reports" href="{% url 'maintenance-reports' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Maint. Reports<i class="material-icons-outlined secondary-content">article</i></a>
+              {% endif %}
+
+              {% if request|has_any_feature_permission:"equipment-inventory:read" %}
+                <a id="equipment-inventory" href="{% url 'equipment-inventory' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Equip. Inventory<i class="material-icons-outlined secondary-content">inventory</i></a>
+              {% endif %}
+
+              <!-- pill border at the bottom of the dropdown -->
+              <hr class="hidden-end nav-dropdown-toggle">
             </li>
             {% endif %}
 
-            <li class="collapsible-item">
-              <a href="{% url 'logout' %}" style="padding: 0px 16px;"><i class="material-icons">directions</i>LOGOUT</a>
+            <!-- data tab -->
+            {% if request|has_any_feature_permission:"monthly-form:read, data-export:read, manual-data-import:read, synop-capture-form:read, data-inventory:read" %}
+            <li id="data-group" class="hover-item nav-dropdown-toggle">
+
+              <!-- tab name -->
+              <a class="collapsible-item" style="padding: 0px 16px; position: relative;">
+                <i class="material-icons">data_usage</i>
+                <span class="custom-navbar-text-fade-out">DATA</span>
+                
+                <!-- new span for vert buttons, absolutely positioned to the right -->
+                <span class="hide-dropdown-icon" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%);">
+                  <i class="material-icons">more_vert</i>
+                </span>
+              </a>
+
+              {% if request|has_any_feature_permission:"monthly-form:read" %}
+                <a id="monthly-form" href="{% url 'monthly-form' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Monthly Capture<i class="material-icons secondary-content">filter_center_focus</i></a>
+              {% endif %}
+                          
+              {% if request|has_any_feature_permission:"synop-capture-form:read" %}
+                <a id="synop-capture-form" href="{% url 'synop-capture-form' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Synop Capture<i class="material-icons secondary-content">keyboard</i></a>
+              {% endif %}
+              
+              {% if request|has_any_feature_permission:"data-inventory:read" %}
+                <a id="data-inventory" href="{% url 'data-inventory' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Data Inventory<i class="material-icons secondary-content">web</i></a>
+              {% endif %}
+
+              {% if request|has_any_feature_permission:"manual-data-import:read" %}
+                <a id="manual-data-import" href="{% url 'manual-data-import' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Import<i class="material-icons-outlined secondary-content">cloud_upload</i></a>
+              {% endif %}
+
+              {% if request|has_any_feature_permission:"data-export:read" %}
+                <a id="data-export" href="{% url 'data-export' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Export<i class="material-icons secondary-content">cloud_download</i></a>
+              {% endif %}
+
+              <!-- pill border at the bottom of the dropdown -->
+              <hr class="hidden-end">
+            </li>
+            {% endif %}
+
+            <!-- wis2dashboard -->
+            {% if request|has_any_feature_permission:"wis2-dashboard:read" %}
+            <li class="">
+              <a class="collapsible-item" href="{% url 'wis2-dashboard' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()"><i class="material-icons">token</i><span class="custom-navbar-text-fade-out">WIS2 DASHBOARD</span></a>
+            </li>
+            {% endif %}
+
+            <!-- Quality control -->
+            {% if request|has_any_feature_permission:"persist-threshold:read, step-threshold:read, range-threshold:read, quality-control:read" %}
+            <li id="quality-control-group" class="hover-item nav-dropdown-toggle">
+
+              <!-- tab name -->
+              <a class="collapsible-item" style="padding: 0px 16px; position: relative;">
+                <i class="material-icons">verified</i>
+                <span class="custom-navbar-text-fade-out">Quality Control</span>
+
+                <!-- new span for vert buttons, absolutely positioned to the right -->
+                <span class="hide-dropdown-icon" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%);">
+                  <i class="material-icons">more_vert</i>
+                </span>
+              </a>
+
+              {% if request|has_any_feature_permission:"quality-control:read" %}
+                <a id="quality-control" href="{% url 'quality-control' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Data Validation<i class="material-icons secondary-content">done_all</i></a>
+              {% endif %}
+
+              {% if request|has_any_feature_permission:"range-threshold:read" %}
+                <a id="range-threshold" href="{% url 'range-threshold' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Range Threshold<i class="material-icons secondary-content">clear_all</i></a>
+              {% endif %}
+
+              {% if request|has_any_feature_permission:"step-threshold:read" %}
+                <a id="step-threshold" href="{% url 'step-threshold' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Step Threshold<i class="material-icons secondary-content">low_priority</i></a>
+              {% endif %}
+
+              {% if request|has_any_feature_permission:"persist-threshold:read" %}
+                <a id="persist-threshold" href="{% url 'persist-threshold' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Persist Threshold<i class="material-icons secondary-content">format_align_left</i></a>
+              {% endif %}
+
+              <!-- pill border at the bottom of the dropdown -->
+              <hr class="hidden-end">
+            </li>
+            {% endif %}
+
+            <!-- products -->
+            {% if request|has_any_feature_permission:"wave-data:read, extremes-means:read, spatial-analysis:read, product-compare:read, variable-report:read, station-report:read" %}
+            <li id="products-group" class="hover-item nav-dropdown-toggle">
+
+              <!-- tab name -->
+              <a class="collapsible-item" style="padding: 0px 16px; position: relative;">
+                <i class="material-icons">list_alt</i>
+                <span class="custom-navbar-text-fade-out">PRODUCTS</span>
+              
+                <!-- new span for vert buttons, absolutely positioned to the right -->
+                <span class="hide-dropdown-icon" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%);">
+                  <i class="material-icons">more_vert</i>
+                </span>
+              </a>
+
+              {% if request|has_any_feature_permission:"station-report:read" %}
+                <a id="station-report" href="{% url 'station-report' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Station Report<i class="material-icons secondary-content">people</i></a>
+              {% endif %}
+
+              {% if request|has_any_feature_permission:"variable-report:read" %}
+                <a id="variable-report" href="{% url 'variable-report' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Variable Report<i class="material-icons secondary-content">view_list</i></a>
+              {% endif %}
+
+              {% if request|has_any_feature_permission:"product-compare:read" %}
+                <a id="product-compare" href="{% url 'product-compare' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Station Compare<i class="material-icons secondary-content">compare_arrows</i></a>
+              {% endif %}
+
+              {% if request|has_any_feature_permission:"yearly-average:read" %}
+                <a id="yearly-average" href="{% url 'yearly-average' %}" class="left-space hidden-link">Yearly Average<i class="material-icons secondary-content" onclick="mainOverlayLoader()">timeline</i></a>
+              {% endif %}
+
+              {% if request|has_any_feature_permission:"spatial-analysis:read" %}
+                <a id="spatial-analysis" href="{% url 'spatial-analysis' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Spatial analysis<i class="material-icons secondary-content">dashboard</i></a>
+              {% endif %}
+
+              {% if request|has_any_feature_permission:"extremes-means:read" %}
+                <a id="extremes-means" href="{% url 'extremes-means' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Extremes & Means<i class="material-icons secondary-content">equalizer</i></a>
+              {% endif %}
+              
+              {% if request|has_any_feature_permission:"wave-data:read" %}
+                <a id="wave-data" href="{% url 'wave-data' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Wave data analysis<i class="material-icons secondary-content">water</i></a>
+              {% endif %}
+
+              <!-- pill border at the bottom of the dropdown -->
+              <hr class="hidden-end">
+            </li>
+            {% endif %}
+
+            <!-- agromet tab -->
+            {% if request|has_any_feature_permission:"agromet-summaries:read, agromet-products:read" %}
+            <li id="agromet-group" class="hover-item nav-dropdown-toggle">
+
+              <!-- tab name -->
+              <a class="collapsible-item" style="padding: 0px 16px; position: relative;">
+                <i class="material-icons">eco</i>
+                <span class="custom-navbar-text-fade-out">Agrometeorology</span>
+                
+                <!-- new span for vert buttons, absolutely positioned to the right -->
+                <span class="hide-dropdown-icon" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%);">
+                  <i class="material-icons">more_vert</i>
+                </span>
+              </a>
+
+              {% if request|has_any_feature_permission:"agromet-summaries:read" %}
+                <a id="agromet-summaries"  href="{% url 'agromet-summaries' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Monthly & Seasonal<i class="material-icons secondary-content">view_list</i></a>
+              {% endif %}
+              
+              {% if request|has_any_feature_permission:"agromet-products:read" %}
+                <a id="agromet-products"  href="{% url 'agromet-products' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Calculated Products<i class="material-icons secondary-content">calculate</i></a>
+              {% endif %}
+
+              <!-- pill border at the bottom of the dropdown -->
+              <hr class="hidden-end">
+            </li>
+            {% endif %}
+
+            <!-- settings tab -->
+            {% if request|has_any_feature_permission:"configuration-settings:read, manage-permissions:read" %}
+            <li id="settings-group" class="hover-item nav-dropdown-toggle">
+
+              <!-- tab name -->
+              <a class="collapsible-item" style="padding: 0px 16px; position: relative;">
+                <i class="material-icons">settings</i>
+                <span class="custom-navbar-text-fade-out">Settings</span>
+                
+                <!-- new span for vert buttons, absolutely positioned to the right -->
+                <span class="hide-dropdown-icon" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%);">
+                  <i class="material-icons">more_vert</i>
+                </span>
+              </a>
+
+              {% if request|has_any_feature_permission:"configuration-settings:read" %}
+                <a id="configuration-settings"  href="{% url 'configuration-settings' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Configuration<i class="material-icons secondary-content">build</i></a>
+              {% endif %}
+
+              {% if request|has_any_feature_permission:"manage-permissions:read" %}
+                <a id="manage-permissions"  href="{% url 'coming-soon' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Manage Permissions<i class="material-icons secondary-content">key_vertical</i></a>
+                <!-- Actual like, coming soon above -->
+                <!--  <a id="manage-permissions"  href="{% url 'manage-permissions' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Manage Permissions<i class="material-icons secondary-content">key_vertical</i></a> -->
+              {% endif %}
+              
+              {% if request.user.is_superuser %}
+                <a id="admin-area"  href="{% url 'admin:index' %}" class="left-space hidden-link" onclick="mainOverlayLoader()">Administrative Area<i class="material-icons secondary-content">business_center</i></a>
+              {% endif %}
+
+              <!-- pill border at the bottom of the dropdown -->
+              <hr class="hidden-end">
+            </li>
+            {% endif %}
+
+            <!-- logout -->
+            <li class="">
+              <a class="collapsible-item" href="{% url 'logout' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()"><i class="material-icons">directions</i><span class="custom-navbar-text-fade-out">LOGOUT</span></a>
             </li>
           </ul>
 
-          <!-- <div id="toggle-sidebar">
-            <li class="collapsible-item toggle-collapse" onclick="toggleSidebar()">
-              <a href="javascript:void(0)" style="padding: 0px 16px;"><i id="collapse-icon" class="material-icons">chevron_left</i>COLLAPSE</a>
-            </li>
-          </div> -->
-
         </div>
+
+        
+        <!-- The version label -->
+        <div id="version-label">
+          <li class="collapsible-item app-version">
+            <a href="#" style="padding: 0px 16px; color: #1e90ff;"><i id="version-icon" class="material-icons" style="color: #1e90ff;">info</i>{{ APP_VERSION_LABEL }}</a>
+          </li>
+        </div>
+
       </div>
+
     </ul>
 
-    <a href="#" data-target="slide-out" class="sidenav-trigger"><i class="material-icons">menu</i></a>
-    
-    <a id="menu-closer" href="javascript:void(0)">
-      <i class="material-icons">close</i>
-    </a>
-
-    <header class="mobile-menu">
-      <nav>
-        <a id="menu-toggler" href="javascript:void(0)">
-          <i class="material-icons">menu</i>
-        </a>
-        <h1>SURFACE</h1>
-      </nav>
-    </header>
 
     <main style="height: 100vh; width: 100%">
 
@@ -705,8 +1054,13 @@
           </div>
 
           {% endif %}
+
           {% block content %}
           {% endblock %}
+
+          <!-- main-spinner and main-overlay -->
+          <div id="main-overlay" class="main-overlay"></div>
+          <div id="main-spinner" class="main-spinner"></div>
 
         </div>
 
@@ -714,7 +1068,45 @@
 
     </main>
 
-    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <!-- Only displayed on small screens -->
+    <section id="screen_check_container">
+
+    <!-- Placeholder for screens which are too small -->
+      <div class="img-full"></div> <!-- background image -->
+
+      <div class="wide_accent_background"></div> <!-- gradient accent -->
+
+      <!-- screen check box -->
+      <div id="screen_check">
+        
+        <!-- Main Heading -->
+        <h4>
+          Screen Size Too Small
+        </h4>
+
+        <!-- Thin Separator Line -->
+        <hr style="
+            width: 200px;
+            border: none;
+            border-top: 1px solid #ccc;
+            margin: 0.5rem 0 1.5rem;
+          "
+        >
+
+        <!-- Icon -->
+        <i class="material-icons mb-2" style="font-size: 35px;">
+            desktop_access_disabled
+        </i>
+
+        <!-- Explanatory Text -->
+        <p style="color: #555;">
+          For the best experience, please view this page on a larger device or rotate your screen to landscape mode.
+        </p>
+      </div>
+
+    </section>
+
+    <script defer src="https://unpkg.com/material-design-lite@1.3.0/material.min.js"></script>
 
     <script src="https://momentjs.com/downloads/moment.min.js" defer></script>
     <script defer src="https://momentjs.com/downloads/moment-timezone-with-data-10-year-range.min.js"></script>
@@ -734,13 +1126,12 @@
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
 
     <script src="https://code.highcharts.com/9.1.0/highcharts.js"></script>
-    <script src="https://code.highcharts.com/9.1.0/highcharts-more.js"></script>
     <script src="https://code.highcharts.com/9.1.0/modules/exporting.js"></script>
     <script src="https://code.highcharts.com/9.1.0/modules/heatmap.js"></script>
     <script src="https://code.highcharts.com/9.1.0/modules/drilldown.js"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.10/dist/vue.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vuetify@2.1.0/dist/vuetify.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vuetify@2.5.4/dist/vuetify.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/highcharts-vue@1.3.5/dist/highcharts-vue.min.js"></script>
 
     <script src="https://unpkg.com/vuelidate@0.7.4/dist/vuelidate.min.js"></script>
@@ -750,171 +1141,70 @@
     <script src="https://colorjs.io/dist/color.global.js"></script>
     {% include 'material/includes/material_js.html' %}
 
-    <script src="https://cdn.jsdelivr.net/npm/handsontable@7.1.1/dist/handsontable.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@handsontable/vue@4.0.0/dist/vue-handsontable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/handsontable@14.5.0/dist/handsontable.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@handsontable/vue@14.5.0/dist/vue-handsontable.min.js"></script>
+
+    <!-- AG Grid Core -->
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/dist/ag-grid-community.min.js"></script>
+
+    <!-- AG Grid Vue (UMD) -->
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-vue@31.3.4/dist/ag-grid-vue.umd.min.js"></script>
+
+
+
+
+
 
     <script type="text/javascript" src="https://cdn.datatables.net/v/bs4/dt-1.10.20/b-1.6.1/b-html5-1.6.1/fh-3.1.6/datatables.min.js"></script>
     {% block js %}
     <script>
       $(document).ready(function(){
+
         $('.collapsible').collapsible();
         const menu = document.getElementById('slide-out');
-        const closer = document.getElementById('menu-closer');
-        const collapseIcon = document.getElementById('collapse-icon');
         const blockContent = document.getElementById('block-content');
         const wrapSidenav = document.getElementById('wrap-sidenav');
-        const instance = M.Collapsible.getInstance(document.querySelector('.collapsible'));
+        const instance = M.Collapsible.getInstance(document.querySelector('.collapsible')); 
+        
+        // Select all elements with the class "custom-navbar-text-fade-out"
+        const navbarItems = document.querySelectorAll('.custom-navbar-text-fade-out');
 
-        const localGroups = [
-          'stations-group',
-          'maintenance-group',          
-          'data-group',
-          'products-group',
-          'quality-control-group',
-          'agromet-group'
-        ];
-
-        const localMenus = [
-          'stations-map',
-          'stations-list',
-          'station-metadata',
-          'stations-monitoring',
-          'daily-form',
-          'synop-capture',
-          'data-export',
-          'instrumentlogs-list',
-          'station-report',
-          'wave-data',
-          'product-compare',
-          'yearly-average',
-          'spatial-analysis',
-          'extremes-means',
-          'quality-control',
-          'variable-report',
-          'data-inventory',
-          'range-threshold',
-          'step-threshold',
-          'persist-threshold',
-          'equipement-inventory',
-          'maintenance-reports',
-          'agromet-summaries',
-          'agromet-products'
-        ]
-
-        const menuList = "{{USER_PERMISSIONS|safe}}";
-        const userIsAdmin = "{{USER_IS_ADMIN|safe}}";
-
-        localMenus.forEach(menu => {
-          if ($(`#${menu}`).length > 0) {
-            if ((menuList[menu] != null && menuList[menu].includes('read')) || userIsAdmin) {
-              document.getElementById(menu).classList.remove('hide-menu');
-            }
-          }
-        });
-
-        localGroups.forEach(group => {
-          // Test if the group have some child with class 'hide-menu'
-          // If it have none, hide the group too.
-          // If not, just leave it.
-          if ($(`#${group}`).length > 0) {
-            if($(`#${group} > div > div > ul > a.hide-menu`).length !== $(`#${group} > div > div > ul > a`).length){
-              document.getElementById(group).classList.remove('hide-menu');
-            } else {
-              // Have some menu inside. So, do nothing.
-            }
-          } else {
-            // Group do not exist
-          }
-        })
-
-        //MOBILE
-        document.getElementById('menu-toggler')
-          .addEventListener('click', function(evt) {
-            menu.classList.add('open');
-            closer.classList.add('open');
-          });
-
-        document.getElementById('menu-closer')
-          .addEventListener('click', function(evt) {
-            menu.classList.remove('open');
-            closer.classList.remove('open');
-          });
+        // Select all elements with the class "hide-dropdown-icon"
+        const dropdownIconItems = document.querySelectorAll('.hide-dropdown-icon');
         
         // WEB
-        // collapseHideMenuText = function() {
-          
-        //   for (let index = 1; index <= 7; index++) {
-            
-        //     var element = document.getElementById('hide-menu-text-' + index);
-        //     element.classList.add('hide-menu-text');
-            
-        //   }
-
-        // }
-
-        // collapseShowMenuText = function() {
-
-        //   for (let index = 1; index <= 7; index++) {
-            
-        //     var element = document.getElementById('hide-menu-text-' + index);
-        //     element.classList.remove('hide-menu-text');
-            
-        //   }
-
-        // }
-
-        showUserOptions = function() {
-
-          // to show user options when side nav collapses
-          var user_option = document.getElementById('user-options');
-          user_option.classList.remove('user-options-style');
-
-          // var user_option = document.querySelectorAll('div.is-upgraded');
-
-          // // Iterate through the retrieved elements and add the necessary class names.
-          // for(var i = 0; i < user_option.length; i++)
-          // {
-          //     user_option[i].classList.add('is-visible');
-          // }
-
-        }
-
-        hideUserOptions = function() {
-
-          // to show user options when side nav collapses
-          var user_option = document.getElementById('user-options');
-          user_option.classList.add('user-options-style');
-
-        }
-
-        hideUserOptionsNavClose = function() {
-
-          var user_option = document.querySelectorAll('div.is-upgraded');
-          
-          // Iterate through the retrieved elements and add the necessary class names.
-          for(var i = 0; i < user_option.length; i++)
-          {
-              user_option[i].classList.remove('is-visible');
-          }
-
-        }
-
         hoverOpenSidebar = function() {
+          // Loop through each element to fade IN the navbar options
+          navbarItems.forEach(el => {
+            el.classList.replace('custom-navbar-text-fade-out', 'custom-navbar-text-fade-in'); // remove the fade OUT and add the fade IN
+          });
+
+          // Loop through each dropdown icon item
+          dropdownIconItems.forEach(el => {
+            el.classList.replace('hide-dropdown-icon', 'dropdown-icon')
+          });
+
           menu.classList.add('open-mode');
           menu.classList.remove('collapsed-mode');
           blockContent.classList.add('p-300');
           blockContent.classList.remove('p-55');
-          showUserOptions();
-          // collapseShowMenuText();
         }
 
         hoverCloseSidebar = function() {
+          // Loop through each element to fade OUT the navbar options
+          navbarItems.forEach(el => {
+            el.classList.replace('custom-navbar-text-fade-in', 'custom-navbar-text-fade-out'); // remove the fade IN and add the fade OUT
+          });
+
+          // Loop through each dropdown icon item and hid it
+          dropdownIconItems.forEach(el => {
+            el.classList.replace('dropdown-icon', 'hide-dropdown-icon')
+          });
+
           menu.classList.remove('open-mode');
           menu.classList.add('collapsed-mode');
           blockContent.classList.remove('p-300');
           blockContent.classList.add('p-55');
-          hideUserOptions();
-          // collapseHideMenuText();
 
           setTimeout(() => {
             instance.close($('li.active').index());
@@ -922,35 +1212,160 @@
         }
 
         closeSidebarSubMenu = function() {
+          // close all open nav bar options
+          document.querySelectorAll('.hover-item').forEach(item => {
+            item.classList.remove('open');
+          });
+
           instance.close($('li.active').index());
         }
 
-
-
-
-        // function addWrapOnSidebar() {
-        //   wrapSidenav.classList.add('wrap-menu');
-        // }
-        
-        // function removeWrapOnSidebar() {
-        //   wrapSidenav.classList.remove('wrap-menu');
-        // }
-
-        // [].slice.call(document.querySelectorAll('.active.collection-item'))
-        //   .forEach(el => {
-        //     el.classList.remove('active', 'text-white');
-        //   });
-        // [].slice.call(document.querySelectorAll(`.collection-item[href="${window.location.pathname}"]`))
-        //   .forEach(el => { 
-        //     el.classList.add('active', 'text-white');
-        //   });
-        
-        //   let query = document.querySelector(`.collection-item[href="${window.location.pathname}"]`)
-        //   if (query) {
-        //     const li = query.parentElement.parentElement.parentElement.parentElement;
-        //     instance.open([].slice.call(document.querySelector('.collapsible').children).indexOf(li));
-        //   }
       });
+    
+      // JS for main-overlay loader
+      function mainOverlayLoader() {
+          // Show the main-spinner, text, and main-overlay
+          document.getElementById('main-overlay').style.display = 'block';
+          document.getElementById('main-spinner').style.display = 'block';
+      }
+
+      // Check if the overlay and spinner are displayed when the page is loaded
+      window.onload = function() {
+          var overlay = document.getElementById('main-overlay');
+          
+          // Check if the overlay display is currently 'block'
+          if (overlay.style.display === 'block') {
+              // Hide the overlay and spinner if display is 'block'
+              overlay.style.display = 'none';
+              document.getElementById('main-spinner').style.display = 'none';
+          }
+      };
+
+      // Hide the spinner and overlay when the page is restored from cache (e.g., when pressing back button)
+      window.addEventListener('pageshow', function(event) {
+          var overlay = document.getElementById('main-overlay');
+          
+          // Check if the event is triggered from cache
+          if (event.persisted) {
+              overlay.style.display = 'none';
+              document.getElementById('main-spinner').style.display = 'none';
+          }
+      });
+
+      // JS to show the dropdow options in navbar
+      document.querySelectorAll('.nav-dropdown-toggle').forEach(link => {
+        link.addEventListener('click', function() {
+          const li = this.closest('.hover-item');
+
+          // close all other hover-items
+          document.querySelectorAll('.hover-item').forEach(item => {
+            if (item !== li) item.classList.remove('open');
+          });
+
+          // toggle this one
+          li.classList.toggle('open');
+        });
+      });
+
+
+      // axios interceptor to catch possible ajax calls from users who don't have required permissions
+      axios.interceptors.response.use(
+        function (response) {
+          return response;
+        },
+
+        function (error) {
+          // If backend sends 403 for unauthorized API/AJAX calls
+          if (error.response && error.response.status === 403) {
+            window.wxToast({
+              message: "You are not authorized to perform this action.",
+              type: "warn",
+              timeout: 3500
+            });
+          }
+          // If backend sends 401 for unauthenticated
+          else if (error.response && error.response.status === 401){
+            window.wxToast({
+              message: "Your session has expired. Please log in again to continue.",
+              type: "warn",
+              timeout: 3500
+            });
+          }
+          // If backend sends 500 for error (permission mapping probably missing)
+          else if (error.response && error.response.status === 500){
+            window.wxToast({
+              message: "An error occured. Permission mapping missing.",
+              type: "error",
+              timeout: 3500
+            });
+          }
+
+          return Promise.reject(error);
+        }
+      );
+
+      axios.defaults.headers.common["X-Requested-With"] = "XMLHttpRequest";
+
+
+      // Create (or reuse) a top-right toast container
+      function wxGetToastContainer() {
+        let container = document.getElementById("wx-toast-container");
+        if (!container) {
+          container = document.createElement("div");
+          container.id = "wx-toast-container";
+          container.className = "wx-toast-container";
+          document.body.appendChild(container);
+        }
+        return container;
+      }
+
+      /**
+      * Show a toast in the top-right.
+      * @param {Object} opts
+      * @param {string} opts.message - Toast message to show.
+      * @param {number} [opts.timeout=3500] - Auto-hide time in ms.
+      * @param {"info"|"warn"|"error"} [opts.type="info"] - Visual style.
+      */
+      window.wxToast = function wxToast(opts) {
+        const message = (opts && opts.message) ? String(opts.message) : "Notification";
+        const timeout = (opts && typeof opts.timeout === "number") ? opts.timeout : 3500;
+        const type = (opts && opts.type) ? opts.type : "info";
+
+        const container = wxGetToastContainer();
+
+        const toast = document.createElement("div");
+        toast.className = `wx-toast wx-toast--${type}`;
+
+        const msg = document.createElement("div");
+        msg.className = "wx-toast__msg";
+        msg.textContent = message;
+
+        const close = document.createElement("button");
+        close.className = "wx-toast__close";
+        close.type = "button";
+        close.setAttribute("aria-label", "Close");
+        close.innerHTML = "&times;";
+
+        close.addEventListener("click", () => {
+          toast.remove();
+        });
+
+        toast.appendChild(msg);
+        toast.appendChild(close);
+        container.appendChild(toast);
+
+        // Animate in
+        requestAnimationFrame(() => toast.classList.add("wx-toast--show"));
+
+        // Auto remove
+        if (timeout > 0) {
+          setTimeout(() => {
+            toast.classList.remove("wx-toast--show");
+            setTimeout(() => toast.remove(), 1000);
+          }, timeout);
+        }
+      };
+
     </script>
     {% endblock %}
     {% block localjavascript %}{% endblock %}

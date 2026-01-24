@@ -1,0 +1,442 @@
+[
+    {
+        "model": "wx.wxpermission",
+        "pk": 1,
+        "fields": {
+            "created_at": "2025-06-01T02:42:47.672Z",
+            "updated_at": "2025-06-01T02:42:47.672Z",
+            "name": "Station Delete - Delete",
+            "url_name": "station-delete",
+            "permission": "delete"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 2,
+        "fields": {
+            "created_at": "2025-06-01T03:02:58.523Z",
+            "updated_at": "2025-06-01T03:02:58.523Z",
+            "name": "Station Update - Update",
+            "url_name": "station-update",
+            "permission": "update"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 3,
+        "fields": {
+            "created_at": "2025-06-01T12:04:40.443Z",
+            "updated_at": "2025-06-01T12:04:40.443Z",
+            "name": "Stations Files List - Read",
+            "url_name": "stationfiles-list",
+            "permission": "read"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 4,
+        "fields": {
+            "created_at": "2025-06-01T12:12:50.679Z",
+            "updated_at": "2025-06-01T12:21:34.040Z",
+            "name": "Stations Files Create - Write",
+            "url_name": "stationfile-create",
+            "permission": "write"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 5,
+        "fields": {
+            "created_at": "2025-06-01T12:21:45.328Z",
+            "updated_at": "2025-06-01T12:21:45.328Z",
+            "name": "Stations Files Delete - Delete",
+            "url_name": "stationfile-delete",
+            "permission": "delete"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 6,
+        "fields": {
+            "created_at": "2025-06-02T04:23:47.498Z",
+            "updated_at": "2025-06-02T04:23:47.498Z",
+            "name": "Station Variable - Read",
+            "url_name": "stationvariable-list",
+            "permission": "read"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 7,
+        "fields": {
+            "created_at": "2025-06-02T04:25:54.944Z",
+            "updated_at": "2025-06-02T04:25:54.944Z",
+            "name": "Station Variable - Delete",
+            "url_name": "stationvariable-delete",
+            "permission": "delete"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 8,
+        "fields": {
+            "created_at": "2025-06-02T04:26:51.946Z",
+            "updated_at": "2025-06-02T04:26:51.946Z",
+            "name": "Station Variable - Write",
+            "url_name": "stationvariable-create",
+            "permission": "write"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 9,
+        "fields": {
+            "created_at": "2025-06-02T05:03:38.728Z",
+            "updated_at": "2025-06-02T05:12:47.548Z",
+            "name": "Oscar Export - Read",
+            "url_name": "station-oscar-export",
+            "permission": "read"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 10,
+        "fields": {
+            "created_at": "2025-06-02T05:19:54.299Z",
+            "updated_at": "2025-06-02T05:28:17.738Z",
+            "name": "Stations Monitoring - Read",
+            "url_name": "stations-monitoring",
+            "permission": "read"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 11,
+        "fields": {
+            "created_at": "2025-06-08T01:44:11.348Z",
+            "updated_at": "2025-06-08T01:44:11.348Z",
+            "name": "Equipment Inventory - Read",
+            "url_name": "equipment-inventory",
+            "permission": "read"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 12,
+        "fields": {
+            "created_at": "2025-06-08T01:44:24.638Z",
+            "updated_at": "2025-06-08T01:44:24.638Z",
+            "name": "Equipment Inventory - Write",
+            "url_name": "equipment-inventory",
+            "permission": "write"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 13,
+        "fields": {
+            "created_at": "2025-06-08T01:44:34.598Z",
+            "updated_at": "2025-06-08T01:44:34.598Z",
+            "name": "Equipment Inventory - Update",
+            "url_name": "equipment-inventory",
+            "permission": "update"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 14,
+        "fields": {
+            "created_at": "2025-06-08T01:44:49.528Z",
+            "updated_at": "2025-06-08T01:44:49.528Z",
+            "name": "Equipment Inventory - Delete",
+            "url_name": "equipment-inventory",
+            "permission": "delete"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 15,
+        "fields": {
+            "created_at": "2025-06-08T01:45:01.612Z",
+            "updated_at": "2025-06-08T01:45:01.612Z",
+            "name": "Equipment Inventory - Full Access",
+            "url_name": "equipment-inventory",
+            "permission": "full_access"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 16,
+        "fields": {
+            "created_at": "2025-06-08T02:57:29.886Z",
+            "updated_at": "2025-06-08T03:01:25.930Z",
+            "name": "Maintenance Report - Read",
+            "url_name": "maintenance-reports",
+            "permission": "read"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 17,
+        "fields": {
+            "created_at": "2025-06-08T03:05:26.969Z",
+            "updated_at": "2025-06-08T03:17:13.883Z",
+            "name": "Maintenance Report - Write",
+            "url_name": "new-maintenance-report",
+            "permission": "write"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 18,
+        "fields": {
+            "created_at": "2025-06-10T02:21:12.376Z",
+            "updated_at": "2025-06-10T02:21:12.376Z",
+            "name": "Monthly Form - Full Access",
+            "url_name": "monthly-form",
+            "permission": "full_access"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 19,
+        "fields": {
+            "created_at": "2025-06-10T02:46:39.099Z",
+            "updated_at": "2025-06-10T02:48:40.772Z",
+            "name": "Data Inventory - Read",
+            "url_name": "data-inventory",
+            "permission": "read"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 20,
+        "fields": {
+            "created_at": "2025-06-10T02:52:14.844Z",
+            "updated_at": "2025-06-10T02:53:25.195Z",
+            "name": "Manual Data Import - Full Access",
+            "url_name": "manual-data-import",
+            "permission": "full_access"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 21,
+        "fields": {
+            "created_at": "2025-06-10T02:55:17.141Z",
+            "updated_at": "2025-06-10T02:55:17.141Z",
+            "name": "Data Export - Full Access",
+            "url_name": "data-export",
+            "permission": "full_access"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 22,
+        "fields": {
+            "created_at": "2025-06-10T02:39:29.530Z",
+            "updated_at": "2025-06-10T03:15:24.070Z",
+            "name": "Synop Capture Old - Full Access",
+            "url_name": "synop-capture",
+            "permission": "full_access"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 23,
+        "fields": {
+            "created_at": "2025-06-10T02:39:54.904Z",
+            "updated_at": "2025-06-10T03:15:35.485Z",
+            "name": "Synop Capture New - Full Access",
+            "url_name": "synop-capture-form",
+            "permission": "full_access"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 24,
+        "fields": {
+            "created_at": "2025-06-10T03:23:10.917Z",
+            "updated_at": "2025-06-10T04:16:01.144Z",
+            "name": "WIS2 Dashboard - Full Access",
+            "url_name": "wis2-dashboard",
+            "permission": "full_access"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 25,
+        "fields": {
+            "created_at": "2025-06-10T04:17:22.167Z",
+            "updated_at": "2025-06-10T04:17:22.167Z",
+            "name": "Data Validation - Full Access",
+            "url_name": "quality-control",
+            "permission": "full_access"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 26,
+        "fields": {
+            "created_at": "2025-06-10T04:17:58.864Z",
+            "updated_at": "2025-06-10T04:17:58.864Z",
+            "name": "Range Threshold - Full Access",
+            "url_name": "range-threshold",
+            "permission": "full_access"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 27,
+        "fields": {
+            "created_at": "2020-06-12T03:20:07.524Z",
+            "updated_at": "2025-05-31T23:56:56.011Z",
+            "name": "Station List - Read",
+            "url_name": "stations-list",
+            "permission": "read"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 28,
+        "fields": {
+            "created_at": "2025-06-10T04:18:24.725Z",
+            "updated_at": "2025-06-10T04:18:24.725Z",
+            "name": "Step Threshold - Full Access",
+            "url_name": "step-threshold",
+            "permission": "full_access"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 29,
+        "fields": {
+            "created_at": "2025-06-10T04:18:51.347Z",
+            "updated_at": "2025-06-10T04:18:51.347Z",
+            "name": "Persist Threshold - Full Access",
+            "url_name": "persist-threshold",
+            "permission": "full_access"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 30,
+        "fields": {
+            "created_at": "2025-06-10T04:57:00.644Z",
+            "updated_at": "2025-06-10T04:57:00.644Z",
+            "name": "Station Report - Full Access",
+            "url_name": "station-report",
+            "permission": "full_access"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 31,
+        "fields": {
+            "created_at": "2020-06-12T03:19:42.586Z",
+            "updated_at": "2025-06-01T00:26:37.387Z",
+            "name": "Stations Map - Read",
+            "url_name": "stations-map",
+            "permission": "read"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 32,
+        "fields": {
+            "created_at": "2020-09-27T00:19:49.388Z",
+            "updated_at": "2025-06-01T01:32:33.377Z",
+            "name": "Station Metadata - Read",
+            "url_name": "station-metadata",
+            "permission": "read"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 33,
+        "fields": {
+            "created_at": "2025-06-10T04:57:15.401Z",
+            "updated_at": "2025-06-10T04:57:15.402Z",
+            "name": "Variable Report - Full Access",
+            "url_name": "variable-report",
+            "permission": "full_access"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 34,
+        "fields": {
+            "created_at": "2025-06-10T04:58:33.107Z",
+            "updated_at": "2025-06-10T04:58:33.107Z",
+            "name": "Station Compare - Full Access",
+            "url_name": "product-compare",
+            "permission": "full_access"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 35,
+        "fields": {
+            "created_at": "2025-06-10T04:59:06.638Z",
+            "updated_at": "2025-06-10T04:59:06.638Z",
+            "name": "Yearly Average - Full Access",
+            "url_name": "yearly-average",
+            "permission": "full_access"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 36,
+        "fields": {
+            "created_at": "2025-06-10T04:59:51.698Z",
+            "updated_at": "2025-06-10T04:59:51.698Z",
+            "name": "Spatial Analysis - Full Access",
+            "url_name": "spatial-analysis",
+            "permission": "full_access"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 37,
+        "fields": {
+            "created_at": "2025-06-10T05:00:30.064Z",
+            "updated_at": "2025-06-10T05:00:30.064Z",
+            "name": "Extremes Means - Full Access",
+            "url_name": "extremes-means",
+            "permission": "full_access"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 38,
+        "fields": {
+            "created_at": "2025-06-01T02:01:42.235Z",
+            "updated_at": "2025-06-01T02:01:42.235Z",
+            "name": "Station Detail - Read",
+            "url_name": "station-detail",
+            "permission": "read"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 39,
+        "fields": {
+            "created_at": "2025-05-31T16:08:16.773Z",
+            "updated_at": "2025-06-01T02:03:40.362Z",
+            "name": "Create Station - Write",
+            "url_name": "station-create",
+            "permission": "write"
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 40,
+        "fields": {
+            "created_at": "2025-06-10T05:00:59.066Z",
+            "updated_at": "2025-06-10T05:00:59.066Z",
+            "name": "Wave Data Analysis - Full Access",
+            "url_name": "wave-data",
+            "permission": "full_access"
+        }
+    }
+]

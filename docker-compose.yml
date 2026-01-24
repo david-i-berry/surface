@@ -1,28 +1,43 @@
-version: "3.5"
+networks:
+  surface-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
 
 services:
   nginx:
+    image: nmsbdocker/surface-nginx:v1.1.1
     container_name: surface-nginx
-    build: ./nginx
-    volumes:
-      - ./api/static:/home/app/web/staticfiles
-      - ./data:/home/app/web/data
-    env_file:
-      - api/production.env
+    restart: unless-stopped
+
     ports:
-      - 8080:80
+      - "8080:80"
+
+    volumes:
+    # setting files to read only
+      - ./api/static:/home/app/web/staticfiles:ro
+      - ./data:/home/app/web/data:ro
+
     depends_on:
       - api
+
+    networks:
+      - surface-net
 
   cache:
     container_name: surface-cache
     image: memcached
     restart: unless-stopped
+    networks:
+      - surface-net
 
   redis:
     container_name: surface-redis
     image: redis
     restart: unless-stopped
+    networks:
+      - surface-net
 
   postgres:
     container_name: surface-database
@@ -36,18 +51,26 @@ services:
       - ./data/postgresql:/var/lib/postgresql/data
       - ./data/shared:/data/shared
       - ./data/backup:/data/backup
+      - ./backup_restore_dumps:/restore_dumps
+      - ./pg_hba.custom.conf:/etc/postgresql/pg_hba.custom.conf
     ports:
       - 5432:5432
+    command:
+      - "postgres"
+      - "-c"
+      - "max_locks_per_transaction=512"
+      - "-c"
+      - "hba_file=/etc/postgresql/pg_hba.custom.conf"
     logging:
       driver: "json-file"
       options:
         max-size: "1M"
         max-file: "10"
+    networks:
+      - surface-net
 
   api:
-    build:
-      dockerfile: Dockerfile
-      context: api
+    image: nmsbdocker/surface-base:v1.0.0
     container_name: surface-api
     command: ./startup.sh
     env_file:
@@ -69,11 +92,11 @@ services:
       options:
         max-size: "1M"
         max-file: "10"
+    networks:
+      - surface-net
 
   celery_worker:
-    build:
-      dockerfile: Dockerfile
-      context: api
+    image: nmsbdocker/surface-base:v1.0.0
     container_name: surface-celery-worker
     command: /home/surface/.local/bin/celery -A tempestas_api worker -l info
     env_file:
@@ -93,11 +116,11 @@ services:
       options:
         max-size: "1M"
         max-file: "10"
+    networks:
+      - surface-net
 
   celery_beat:
-    build:
-      dockerfile: Dockerfile
-      context: api
+    image: nmsbdocker/surface-base:v1.0.0
     container_name: surface-celery-beat
     restart: unless-stopped
     command: /home/surface/.local/bin/celery -A tempestas_api beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
@@ -114,3 +137,5 @@ services:
       options:
         max-size: "1M"
         max-file: "10"
+    networks:
+      - surface-net

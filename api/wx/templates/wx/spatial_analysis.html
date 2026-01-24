@@ -3,45 +3,79 @@
 <div id="app" v-cloak>
   <v-app v-if="stations">
     <div class="text-center" style="z-index: 999;">
+
+      <!-- loading overlay -->
       <v-overlay :value="loading_overlay">
-        <v-progress-circular indeterminate size="64"></v-progress-circular>
-      </v-overlay>
+        <v-progress-circular
+            indeterminate
+            size="64"
+        >
+          [[ Math.floor(progress) ]]%
+        </v-progress-circular>
+      </v-overlay> 
+
     </div>
 
     <v-dialog v-model="parameters_dialog" max-width="400px" style="z-index: 998;">
-      <v-card>
-        <v-card-title class="headline">Interpolation Parameters</v-card-title>
+      <v-card class="flex-grow-1">
+        <v-card-title>
+          <span class="headline">Interpolation Parameters</span>
+        </v-card-title>
+
         <v-card-text>
-          <v-form
-            v-model="valid"
-            lazy-validation
-          >
-            <v-text-field
-              v-model="interpolation_parameters.hres"
-              label="Horizontal resolution"
-              hint="The horizontal resolution of the generated grid."
-              style="width: 160px"
-            >
-            </v-text-field>
-            <v-text-field
-              v-model="interpolation_parameters.minimum_neighbors"
-              label="Minimum neighbors"
-              hint="Minimum number of neighbors needed to perform interpolation for a point."
-              style="width: 160px"
-            >
-            </v-text-field>
-            <v-text-field
-              v-model="interpolation_parameters.search_radius"
-              label="Search radius"
-              hint="A search radius to use for the interpolation."
-              style="width: 160px"
-            >
-            </v-text-field>
+          <v-form v-model="valid" lazy-validation>
+            <v-row>
+              <!-- Horizontal resolution -->
+              <v-col cols="12" class="d-flex flex-grow-1 flex-shrink-1 align-center">
+                <v-text-field
+                  v-model="interpolation_parameters.hres"
+                  label="Horizontal resolution"
+                  hint="The horizontal resolution of the generated grid."
+                  style="width: 160px"
+                  type="number"
+                  inputmode="decimal"
+                  step="any"
+                  @keydown="allowNumbersAndSingleDotOnly"
+                  :rules="[rules.required]"
+                />
+              </v-col>
+
+              <!-- Minimum Neighbors -->
+              <v-col cols="12" class="d-flex flex-grow-1 flex-shrink-1 align-center">
+                <v-text-field
+                  v-model="interpolation_parameters.minimum_neighbors"
+                  label="Minimum neighbors"
+                  hint="Minimum number of neighbors needed to perform interpolation for a point."
+                  style="width: 160px"
+                  type="number"
+                  inputmode="decimal"
+                  step="any"
+                  @keydown="allowNumbersAndSingleDotOnly"
+                  :rules="[rules.required]"
+                />
+              </v-col>
+
+              <!-- Search Radius -->
+              <v-col cols="12" class="d-flex flex-grow-1 flex-shrink-1 align-center">
+                <v-text-field
+                  v-model="interpolation_parameters.search_radius"
+                  label="Search radius"
+                  hint="A search radius to use for the interpolation."
+                  style="width: 160px"
+                  type="number"
+                  inputmode="decimal"
+                  step="any"
+                  @keydown="allowNumbersAndSingleDotOnly"
+                  :rules="[rules.required]"
+                />
+              </v-col>
+            </v-row>
           </v-form>
         </v-card-text>
+
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn color="blue darken-1" text @click="parameters_dialog = false">Close</v-btn>
+          <v-btn color="error" @click="parameters_dialog = false">Close</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -278,11 +312,14 @@
                 ></v-time-picker>
               </v-menu>
             </div>
+
+            <!-- buttons-->
             <div class="d-flex flex-row">
-              <v-btn small @click="interpolateData">Interpolate</v-btn>
+              <v-btn color="success" @click="interpolateData">Interpolate</v-btn>
               <v-spacer></v-spacer>
-              <v-btn small @click="parameters_dialog=true">Parameters</v-btn>
+              <v-btn color="primary" @click="parameters_dialog=true">Parameters</v-btn>
             </div>
+
           </v-form>
           <v-alert
             v-model='no_data'
@@ -318,6 +355,7 @@
           <template v-slot:item.longitude="{ item }">
             <span>[[item.longitude.toFixed(2)]]</span>
           </template>
+
           <template v-slot:item.measured="props">
             <v-edit-dialog
               :return-value="props.item.measured"
@@ -333,9 +371,12 @@
               </template>
             </v-edit-dialog>
           </template>
+
           </v-data-table>
         </v-card-text>
+
         <v-divider></v-divider>
+        
         <v-card-actions>
           <v-dialog
             v-model="add_value_dialog"
@@ -356,29 +397,70 @@
               </v-card-title>
 
               <v-card-text>
-                <v-container class="ma-0">
+
+                <v-form ref="addValueForm" v-model="addValueFormValid">
                   <v-row>
+                    <!-- station name -->
                     <v-col cols="12" class="d-flex flex-grow-1 flex-shrink-1 align-center">
-                      <v-text-field v-model="editedItem.name" label="Station name"></v-text-field>
+                      <v-text-field
+                        v-model.trim="editedItem.name"
+                        label="Station name"
+                        :rules="[rules.required]"
+                      />
                     </v-col>
+
+                    <!-- station lat -->
                     <v-col cols="6" class="d-flex flex-grow-1 flex-shrink-1 align-center">
-                      <v-text-field v-model.number="editedItem.latitude" label="Latitude"></v-text-field>
+                      <v-text-field
+                        v-model="editedItem.latitude"
+                        label="Latitude"
+                        type="number"
+                        inputmode="decimal"
+                        step="any"
+                        :rules="[rules.required, rules.isNumber, rules.latRange]"
+                      />
                     </v-col>
+
+                    <!-- station lng -->
                     <v-col cols="6" class="d-flex flex-grow-1 flex-shrink-1 align-center">
-                      <v-text-field v-model.number="editedItem.longitude" label="Longitude"></v-text-field>
+                      <v-text-field
+                        v-model="editedItem.longitude"
+                        label="Longitude"
+                        type="number"
+                        inputmode="decimal"
+                        step="any"
+                        :rules="[rules.required, rules.isNumber, rules.lonRange]"
+                      />
                     </v-col>
+
+                    <!-- station measured value -->
                     <v-col v-if="variable" cols="12" class="d-flex flex-grow-1 flex-shrink-1 align-center">
-                      <v-text-field v-model.number="editedItem.measured" :label="variable.name"></v-text-field>
+                      <v-text-field
+                        v-model="editedItem.measured"
+                        :label="variable.name"
+                        type="number"
+                        inputmode="decimal"
+                        step="any"
+                        :rules="[rules.required, rules.isNumber]"
+                      />
                     </v-col>
                   </v-row>
-                </v-container>
-              </v-card-text>
+                </v-form>
 
-              <v-card-actions>
-                <v-spacer></v-spacer>
-                <v-btn color="blue darken-1" text @click="closeAddValue">Cancel</v-btn>
-                <v-btn color="blue darken-1" text @click="addValue">Save</v-btn>
-              </v-card-actions>
+                <v-card-actions>
+                  <v-spacer></v-spacer>
+
+                  <v-btn
+                    color="success"
+                    :disabled="!canSaveValue"
+                    @click="addValue"
+                  >
+                    Save
+                  </v-btn>
+
+                  <v-btn color="error" @click="closeAddValue">Cancel</v-btn>
+                </v-card-actions>
+
             </v-card>
           </v-dialog>
           <v-spacer></v-spacer>
@@ -447,8 +529,9 @@
         ></l-geo-json>
 
         <l-tile-layer :url="url" :attribution="attribution"></l-tile-layer>
-        <l-image-overlay v-if="img_url" :url="img_url" :bounds="img_bounds" :opacity="0.8"/>
-        <l-control-zoom :position="zoomPosition"></l-control-zoom>/>
+        <l-image-overlay v-if="get_img_url" :url="img_url" :bounds="img_bounds" :opacity="0.8"/>
+        
+        <l-control-zoom :position="zoomPosition"></l-control-zoom>
       </l-map>
       <div id="color_bar_img" style="position:absolute; top:10px; left:10px; width:20px; height:20px; z-index: 100">
       </div>
@@ -475,19 +558,43 @@
           <v-list-item-title class="pl-4">Overlays</v-list-item-title>
           
           <v-list-item>
-            <v-switch @change="showWatershed = !showWatershed" label="Watershed"></v-switch>
+            <v-switch
+              inset
+              :loading="loadWatershed"
+              v-model="showWatershed"
+              @change="toggleWatershedOverlay()"
+              label="Watershed"
+            ></v-switch>
           </v-list-item>
           <v-list-item>
-            <v-switch @change="showGroundwater = !showGroundwater" label="Groundwater"></v-switch>
+            <v-switch
+              inset
+              :loading="loadGroundwater"
+              v-model="showGroundwater"
+              @change="toggleGroundwaterOverlay()"
+              label="Groundwater"
+            ></v-switch>
           </v-list-item>
           <v-list-item>
-            <v-switch @change="showBasemap = !showBasemap" label="Districts"></v-switch>
+            <v-switch
+              inset
+              :loading="loadBasemap"
+              v-model="showBasemap"
+              @change="toggleDistrictsOverlay()"
+              label="Districts"
+            ></v-switch>
           </v-list-item>
           <!-- <v-list-item>
-            <v-switch @change="showRiver = !showRiver" label="Rivers"></v-switch>
+            <v-switch @change="toggleRiverOverlay()" label="Rivers"></v-switch>
           </v-list-item> -->
           <v-list-item>
-            <v-switch @change="showNationalWaters = !showNationalWaters" label="National waters"></v-switch>
+            <v-switch
+              inset
+              :loading="loadNationalWaters"
+              v-model="showNationalWaters"
+              @change="toggleNationalWatersOverlay()"
+              label="National waters"
+            ></v-switch>
           </v-list-item>
           
           <v-divider></v-divider>
@@ -522,6 +629,23 @@
         <v-icon class="material-icons" color="black">settings</v-icon>
       </v-btn>
     </div>
+
+    <!-- alerts -->
+    <v-alert
+      v-model="alertVisible"
+      :type="alertType"
+      dismissible
+      transition="scale-transition"
+      style="
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+      "
+    >
+      [[ alertMessage ]]
+    </v-alert>
 
   </v-app>
 </div>
@@ -572,6 +696,8 @@
       selected_quality_flag: [1, 4],
       searchFlags: null,
       loading_overlay: false,
+      progress: 0,
+      progressIntervalId: null,
       no_data: false,
       hours: (function() {
         const hours = [];
@@ -608,8 +734,15 @@
         }
       ],
 
-      // LAYERS
+    addValueFormValid: false,
+    rules: {
+      required: v => (v !== null && v !== undefined && String(v).trim() !== "") || "Required",
+      isNumber: v => (!isNaN(parseFloat(v)) && isFinite(v)) || "Must be a number",
+      latRange: v => (parseFloat(v) >= -90 && parseFloat(v) <= 90) || "Latitude must be between -90 and 90",
+      lonRange: v => (parseFloat(v) >= -180 && parseFloat(v) <= 180) || "Longitude must be between -180 and 180",
+    },
 
+      // LAYERS
       Watersheds_geojson: null,
       Groundwater_geojson: null,
       Basemap_geojson: null,
@@ -621,6 +754,32 @@
       showBasemap: false,
       showRiver: false,
       showNationalWaters: false,
+
+      loadWatershed: false,
+      loadGroundwater: false,
+      loadBasemap: false,
+      loadRiver: false,
+      loadNationalWaters: false,
+
+      dataTaskId: null,
+      imgTaskId: null,
+      pollingIntDataInterval: null,
+      pollingIntImgInterval: null,
+      pollingDelay: 5000,
+
+      getGeoJson: {
+        watershed: () => {return axios.get("{% static 'Watersheds_4326.geojson' %}")},
+        districts: () => {return axios.get("{% static 'Basemap.geojson' %}")},
+        nationalWaters: () => {return axios.get("{% static 'NationalWaters.geojson' %}")},
+        river: () => {return axios.get("{% static 'Rivers.geojson' %}")},
+        groundwater: () => {return axios.get("{% static 'GWP_Campur.geojson' %}")},
+      },
+
+      // Alert button
+      alertVisible: false,
+      alertMessage: "",
+      alertType: "warning",
+      alertTimeout: null,
 
       parameters_dialog: false,
       source: {text: "Raw data", value: "raw_data"},
@@ -838,6 +997,8 @@
       variable: null,
       variables: [],
       img_url: null,
+      mod_img: false,
+      get_img_url: false,
       img_bounds: [[{{ SPATIAL_ANALYSIS_INITIAL_LATITUDE|safe }}, {{ SPATIAL_ANALYSIS_INITIAL_LONGITUDE|safe }}], [{{ SPATIAL_ANALYSIS_FINAL_LATITUDE|safe }}, {{ SPATIAL_ANALYSIS_FINAL_LONGITUDE|safe }}]],
       zoom: {{ MAP_ZOOM|safe }},
       center: L.latLng({{ MAP_LATITUDE|safe }}, {{ MAP_LONGITUDE|safe }}),
@@ -870,30 +1031,141 @@
       }
     },
     methods: {
-      getGeoJson() {
-        axios.get("{% static 'Belize_Basemap.geojson' %}").then(data => {
-          this.Basemap_geojson = data.data;
-        });
-        axios
-          .get("{% static 'Belize_Watersheds_4326.geojson' %}")
-          .then(data => {
+      toggleWatershedOverlay() {
+        if (!this.Watersheds_geojson) {
+          // display loading icon
+          this.loadWatershed = true;
+
+          // get the shapefile via axios request
+          this.getGeoJson.watershed().then(data => {
             this.Watersheds_geojson = data.data;
+
+          }).catch(error => {
+            // if an error occurs alert the user
+            if (error.response.status == '404') {
+              this.showAlert("Watershed Shapefile Not Found");
+            } else {
+              this.showAlert(`Error Occured Accessing Watershed Shapefile - ${error.response.status}`);
+            }
+
+            // reset the button
+            this.showWatershed = false;
+          }).finally(() => {
+            // reset the button
+            this.loadWatershed = false;
           });
-        axios.get("{% static 'GWP_Campur.geojson' %}").then(data => {
-          this.Groundwater_geojson = data.data;
-        });
-        axios.get("{% static 'Belize_Rivers.geojson' %}").then(data => {
-          this.River_geojson = data.data;
-        });
-        axios.get("{% static 'Belize_NationalWaters.geojson' %}").then(data => {
-          this.NationalWaters_geojson = data.data;
-        });
+        }
       },
+      
+      toggleDistrictsOverlay() {
+        if (!this.Basemap_geojson) {
+          // display loading icon
+          this.loadBasemap = true;
+
+          this.getGeoJson.districts().then(data => {
+            this.Basemap_geojson = data.data;
+
+          }).catch(error => {
+            // if an error occurs alert the user
+            if (error.response.status == '404') {
+              this.showAlert("District Shapefile Not Found");
+            } else {
+              this.showAlert(`Error Occured Accessing District Shapefile - ${error.response.status}`);
+            }
+
+            // reset the button
+            this.showBasemap = false;
+          }).finally(() => {
+            // reset the button
+            this.loadBasemap = false;
+          });
+
+        }
+      },
+      
+      toggleGroundwaterOverlay() {
+        if (!this.Groundwater_geojson) {
+          // display loading icon
+          this.loadGroundwater = true;
+
+          this.getGeoJson.groundwater().then(data => {
+            this.Groundwater_geojson = data.data;
+          }).catch(error => {
+            // if an error occurs alert the user
+            if (error.response.status == '404') {
+              this.showAlert("Groundwater Shapefile Not Found");
+            } else {
+              this.showAlert(`Error Occured Accessing Groundwater Shapefile - ${error.response.status}`);
+            }
+
+            // reset the button
+            this.showGroundwater = false;
+          }).finally(() => {
+            // reset the button
+            this.loadGroundwater = false;
+          });
+        }
+      },
+      
+      // toggleRiverOverlay() {
+      //   if (!this.River_geojson) {
+      //     this.getGeoJson.river().then(data => {
+      //       this.River_geojson = data.data;
+      //     });
+      //   }
+      //   this.showRiver = !this.showRiver;
+      // },
+      
+      toggleNationalWatersOverlay() {
+        if (!this.NationalWaters_geojson) {
+          // display loading icon
+          this.loadNationalWaters = true;
+
+          this.getGeoJson.nationalWaters().then(data => {
+            this.NationalWaters_geojson = data.data;
+          }).catch(error => {
+            // if an error occurs alert the user
+            if (error.response.status == '404') {
+              this.showAlert("National Waters Shapefile Not Found");
+            } else {
+              this.showAlert(`Error Occured Accessing National Waters Shapefile - ${error.response.status}`);
+            }
+
+            // reset the button
+            this.showNationalWaters = false;
+          }).finally(() => {
+            // reset the button
+            this.loadNationalWaters = false;
+          });
+        }
+      },
+
+      // Alert popup control
+      showAlert(message, type = "warning", auto_close = true) {
+        this.alertMessage = message;
+        this.alertType = type;
+        this.alertVisible = true;
+
+        // Clear any existing timeout if alert is triggered again
+        if (this.alertTimeout) {
+          clearTimeout(this.alertTimeout);
+        }
+
+        // Auto close after 2 seconds
+        if(auto_close){
+          this.alertTimeout = setTimeout(() => {
+            this.alertVisible = false;
+          }, 2000);
+        }
+      },
+
       setBasemap() {
         this.url = this.selectedBasemap.url;
       },
+
       closeAddValue() {
         this.add_value_dialog = false
+
         setTimeout(() => {
           this.editedItem = Object.assign({}, {
             code: '',
@@ -904,33 +1176,48 @@
             station_id: null
           })
         }, 300)
+
+        // reset validation when closing
+        this.$refs.addValueForm?.resetValidation();
       },
+
       addValue() {
-        this.markers.push(this.editedItem)
+        //this.markers.push(this.editedItem)
+
+        // hard gate on submit too (never trust only disabled button)
+        if (!this.$refs.addValueForm.validate()) return;
+
         this.markers.push({
           draggable: false,
           icon: "{% static 'images/placeholder.png' %}",
           position: {
-            lat: this.editedItem.latitude,
-            lng: this.editedItem.longitude
+            lat: parseFloat(this.editedItem.latitude),
+            lng: parseFloat(this.editedItem.longitude)
           },
           show: false,
-          latitude: this.editedItem.latitude,
-          longitude: this.editedItem.longitude,
+          latitude: parseFloat(this.editedItem.latitude),
+          longitude: parseFloat(this.editedItem.longitude),
           name: this.editedItem.name,
-          visible: this.markersVisible
+          visible: this.markersVisible,
+          code: this.editedItem.code,
+          measured: parseFloat(this.editedItem.measured),
+
         })
+
         this.closeAddValue()
         this.editTable_save()
       },
+
       formatDatetimeToRequest(date, time){
         if(this.source.value === 'daily' || this.source.value === 'monthly' || this.source.value === 'yearly')
           return moment(`${date} ${time}`).tz(this.timezone, true).format('YYYY-MM-DD');
         return moment(`${date} ${time}`).tz(this.timezone, true).toISOString();
       },
+
       formatDatetime(date, time){
           return moment(`${date} ${time}`).tz(this.timezone, true).format('YYYY-MM-DD HH:mm:ss');        
       },
+
       getEndpointParameters() {
         this.formattedStartDate = this.formatDatetime(this.start_date, this.start_time);
         this.formattedEndDate = this.formatDatetime(this.end_date, this.end_time);
@@ -950,6 +1237,7 @@
           parameters += "&quality_flags=" + this.selected_quality_flag.join(',');
         return parameters
       },
+
       changeSource(){
         if(this.source.value === 'monthly') {
           this.start_date = moment().format('YYYY-MM')
@@ -959,52 +1247,206 @@
           this.end_date = moment().add(1, 'year').format('YYYY-01')
         }
       },
+
       getDatepickFormat(){
           return this.source.value === 'yearly' || this.source.value === 'monthly' ? 'month': 'date';
       },
+
       allowedDates(val){
           if(this.source.value === 'yearly')
             return val.split('-')[1] == '01' // just january
           return true;
       },
-      interpolateData() {
-        if (this.$refs.form.validate()) {
-          this.no_data = false;
-          this.loading_overlay = true;
-          this.img_url = "{% url 'spatial-analysis-image' %}?" + this.getEndpointParameters();
-          $( "#color_bar_img" ).html('<img src="' + "{% url 'spatial-analysis-color-bar' %}?" + this.getEndpointParameters() + '" width="450">');
-          axios.get("data?" + this.getEndpointParameters()).then(data => {
-            this.no_data = false;
-            if (data.data.data.length === 0) {
-              this.no_data = true;
-              this.loading_overlay = false;
-            }
-            
-            this.markers = data.data.data.map(station => ({
-              id: station.station_id,
-              station_id: station.station_id,
-              show: false,
-              name: station.name,
-              latitude: station.latitude,
-              longitude: station.longitude,
-              position: {
-                lat: station.latitude,
-                lng: station.longitude
-              },
-              visible: this.markersVisible,
-              draggable: false,
-              measured: station.measured,
-            }));
 
-            for(station in data.data.data){
-              this.$refs.data_table.selection[data.data.data[station].name] = true;
-            }
-            setTimeout(() => {
-              this.loading_overlay = false;
-            }, 2000)
-          });
+      interpolateData() {
+        if (!this.$refs.form.validate()) return;
+
+        this.no_data = false;
+        this.loading_overlay = true;
+
+        // color legend
+        $("#color_bar_img").html('<img src="' + "{% url 'spatial-analysis-color-bar' %}?" + this.getEndpointParameters() + '" width="450">');
+
+        // get interpolation image
+        axios.get("{% url 'spatial-analysis-image' %}?" + this.getEndpointParameters())
+        .then(res => {
+          this.imgTaskId = res.data.task_id;
+          this.startInterpolateImgPolling();
+        })
+        .catch(() => {
+          this.showAlert("An error occured retrieving interpolation image, see terminal.", "warning", false);
+        });
+
+        // get interpolation data
+        axios.get("data?" + this.getEndpointParameters())
+        .then(res => {
+          this.dataTaskId = res.data.task_id;
+          this.startInterpolateDataPolling();
+        })
+        .catch(() => {
+          this.loading_overlay = false;
+
+          this.showAlert("An error occured, see terminal.", "error", false);
+        });
+      },
+
+
+
+      // ============================= //
+      // Interpolation IMAGE fxns start
+      // ============================= //
+      startInterpolateImgPolling() {
+        if (this.pollingIntImgInterval) {
+          clearInterval(this.pollingIntImgInterval);
+        }
+
+        this.interpolateImgStatus();
+
+        this.pollingIntImgInterval = setInterval(() => {
+          this.interpolateImgStatus();
+        }, this.pollingDelay);
+      },
+
+      stopInterpolateImgPolling() {
+        if (this.pollingIntImgInterval) {
+          clearInterval(this.pollingIntImgInterval);
+          this.pollingIntImgInterval = null;
+
+          // controls spinner activation when only modifying the interpolation image
+          if(this.mod_img) {
+            this.loading_overlay = false;
+
+            this.mod_img = false; // reset var
+
+            this.showAlert("Interpolation Complete!", "success");
+          }
         }
       },
+
+      interpolateImgStatus() {
+        axios.get(`/api/task/${this.imgTaskId}/`)
+          .then(res => {
+            const status = res.data.status;
+
+            if (status === "completed") {
+              this.stopInterpolateImgPolling();
+
+              this.img_url = res.data.data.data;
+              this.get_img_url = true;
+
+              console.log("Interpolation image retireved successfully");
+            }
+
+            if (status === "failed") {
+              this.stopInterpolateImgPolling();
+
+              this.showAlert("An error occured retrieving interpolation image, see terminal.", "warning", false);
+            }
+          })
+          .catch(() => {
+            this.stopInterpolateImgPolling();
+
+            this.showAlert("An error occured retrieving interpolation image, see terminal.", "warning", false);
+          });
+      },
+      // ============================= //
+      // Interpolation IMAGE fxns end
+      // ============================= //
+
+
+
+
+      // ============================= //
+      // Interpolation DATA fxns start
+      // ============================= //
+      startInterpolateDataPolling() {
+        if (this.pollingIntDataInterval) {
+          clearInterval(this.pollingIntDataInterval);
+        }
+
+        this.interpolateDataStatus();
+
+        this.pollingIntDataInterval = setInterval(() => {
+          this.interpolateDataStatus();
+        }, this.pollingDelay);
+      },
+
+      stopInterpolateDataPolling() {
+        if (this.pollingIntDataInterval) {
+          clearInterval(this.pollingIntDataInterval);
+          this.pollingIntDataInterval = null;
+        }
+      },
+
+      interpolateDataStatus() {
+        axios.get(`/api/task/${this.dataTaskId}/`)
+          .then(res => {
+            const status = res.data.status;
+
+            if (status === "completed") {
+              this.stopInterpolateDataPolling();
+
+              this.handleInterpolateDataResult(res.data.data.data);
+
+              this.showAlert("Interpolation Complete!", "success");
+            }
+
+            if (status === "failed") {
+              this.stopInterpolateDataPolling();
+              this.loading_overlay = false;
+              this.no_data = true;
+
+              this.showAlert("An error occured, see terminal.", "error", false);
+            }
+          })
+          .catch(() => {
+            this.stopInterpolateDataPolling();
+            this.loading_overlay = false;
+
+            this.showAlert("An error occured, see terminal.", "error", false);
+          });
+      },
+
+      handleInterpolateDataResult(data) {
+        this.no_data = false;
+
+        if (data.length === 0) {
+          this.no_data = true;
+          this.loading_overlay = false;
+        }
+        
+        this.markers = data.map(station => ({
+          id: station.station_id,
+          station_id: station.station_id,
+          show: false,
+          name: station.name,
+          latitude: station.latitude,
+          longitude: station.longitude,
+          position: {
+            lat: station.latitude,
+            lng: station.longitude
+          },
+          visible: this.markersVisible,
+          draggable: false,
+          measured: station.measured,
+        }));
+
+        for(station in data){
+          this.$refs.data_table.selection[data[station].name] = true;
+        }
+
+        // 2 second buffer
+        // setTimeout(() => {
+        //   this.loading_overlay = false;
+        // }, 2000)
+
+        // no buffer
+        this.loading_overlay = false;
+      },
+      // ============================= //
+      // Interpolation DATA fxns end
+      // ============================= //
+
       getAll(path, url, oldData = []) {
         return fetch(`/${path}`)
           .then(res => {
@@ -1029,20 +1471,36 @@
             return values;
           });
       },
+
       getVariables() {
         this.getAll("api/variables/").then(data => {
           this.variables = data;
         });
       },
+
       editTable_save () {
         this.loading_overlay = true;
-        axios.post("interpolate_data", {parameters: this.interpolation_parameters, vmin: this.vmin, vmax: this.vmax, data: this.availableMarkers}).then(data => {
-          this.img_url = "{% url 'spatial-analysis-get-image' %}" + "?image=" + data.data;
-          setTimeout(() => {
-            this.loading_overlay = false;
-          }, 200)
+
+        // get modified interpolation image
+        axios.post("interpolate_data", {parameters: this.interpolation_parameters, vmin: this.vmin, vmax: this.vmax, data: this.availableMarkers})
+        .then(res => {
+          this.imgTaskId = res.data.task_id;
+
+          // controls spinner activation when only modifying the interpolation image
+          this.mod_img = true;
+
+          this.startInterpolateImgPolling();
         })
+        .catch(() => {
+          this.loading_overlay = false;
+
+          this.mod_img = false; // reset var
+
+          this.showAlert("An error occured retrieving interpolation image, see terminal.", "warning", false);
+        });
+
       },
+
       toggleMarkers() {
         this.markersVisible = !this.markersVisible
         this.markers.forEach(element => {
@@ -1050,6 +1508,7 @@
         });
         this.mapKey +=1;
       },
+
       exportData(){
         const values = this.availableMarkers;
         headers = ['Station', 'Latitude', 'Longitude', 'Value']
@@ -1065,6 +1524,7 @@
 
           exportEngine['csv']();
       },
+
       exportAsCSV(headers, values, filename = null, title = 'Surface Spatial Analisys') {
           const data = this.normalize(values.join("\n"));
           const date = `Date: ${this.formattedStartDate} - ${this.formattedEndDate}`;
@@ -1084,6 +1544,7 @@
           link.click();
           link.remove();
       },
+
       normalize(value) {
           const replaces = [
             [/[áàâãªä]/giu, "a"],
@@ -1103,13 +1564,16 @@
           ];
           return replaces.reduce((p, c) => p.replace(c[0], c[1]), value);
       }, 
+
       toggleSidenav() {
         this.drawer = !this.drawer;
         this.parameters_dialog = false;
       },
+
       toggleParametersSidenav() {
         this.parameters_dialog = !this.parameters_dialog;
       },
+
       selectVariable(variable) {
         switch (variable.sampling_operation) {
           case 3:
@@ -1125,48 +1589,120 @@
           default:
             this.aggregation = {value: 'mean', text: "Average"};
         }
+      },
+
+      startProgress() {
+        clearInterval(this.progressIntervalId);
+        this.progress = 0;
+
+        const duration = 120 * 1000; // 2 min 00 sec
+        const target = 98;
+        const stepTime = 100; // ms
+        const step = target / (duration / stepTime);
+
+        this.progressIntervalId = setInterval(() => {
+          if (this.progress < target) {
+            this.progress = Math.min(this.progress + step, target);
+          } else {
+            clearInterval(this.progressIntervalId);
+          }
+        }, stepTime);
+      },
+
+      resetProgress() {
+        this.progress = 100;
+        clearInterval(this.progressIntervalId);
+      },
+
+      allowNumbersAndSingleDotOnly(e) {
+        const allowedKeys = [
+          "Backspace",
+          "Delete",
+          "Tab",
+          "ArrowLeft",
+          "ArrowRight",
+          "Home",
+          "End",
+        ];
+
+        if (allowedKeys.includes(e.key)) return;
+
+        // allow Ctrl/Cmd shortcuts
+        if (e.ctrlKey || e.metaKey) return;
+
+        // allow digits
+        if (/^\d$/.test(e.key)) return;
+
+        // allow "." only once
+        if (e.key === ".") {
+          if (String(e.target.value).includes(".")) e.preventDefault();
+          return;
+        }
+
+        e.preventDefault();
       }
     },
     mounted() {
       this.getVariables();
-      this.getGeoJson();
     },
     computed: {
-      availableMarkers(){
-        return this.markers.filter(x => {
-          return x.name in this.$refs.data_table.selection;
-        });
+      // availableMarkers(){
+      //   return this.markers.filter(x => {
+      //     return x.name in this.$refs.data_table.selection;
+      //   });
+      // },
+
+      // get markers with a name, lng, lat and measured value
+      availableMarkers() {
+        return this.markers.filter(m =>
+          m?.name &&
+          m?.longitude !== null && m?.longitude !== undefined && m?.longitude !== 0 &&
+          m?.latitude !== null && m?.latitude !== undefined && m?.latitude !== 0 &&
+          m?.measured !== null && m?.measured !== undefined
+        );
       },
+
+      // Only require measured when variable exists
+      canSaveValue() {
+        // v-form already checks rules, but this ensures the form exists and handles v-if cases cleanly
+        return this.addValueFormValid && (!this.variable || this.editedItem.measured !== "" && this.editedItem.measured !== null && this.editedItem.measured !== undefined);
+      },
+      
       Watershed() {
         if (this.showWatershed === true) {
           return true;
         }
         return false;
       },
+      
       Groundwater() {
         if (this.showGroundwater === true) {
           return true;
         }
         return false;
       },
+      
       Basemap() {
         if (this.showBasemap === true) {
           return true;
         }
         return false;
       },
+      
       River() {
         if (this.showRiver === true) {
           return true;
         }
         return false;
       },
+      
       NationalWaters() {
         if (this.showNationalWaters === true) {
           return true;
         }
         return false;
       },
+      
       styleFunctionWatershed() {
         return {
           fillColor: "transparent",
@@ -1176,6 +1712,7 @@
           fillOpacity: 0.3
         };
       },
+      
       styleFunctionGroundwater() {
         return {
           fillColor: "transparent",
@@ -1185,6 +1722,7 @@
           fillOpacity: 0.3
         };
       },
+      
       styleFunctionBasemap() {
         return {
           fillColor: "transparent",
@@ -1194,6 +1732,7 @@
           fillOpacity: 0.3
         };
       },
+      
       styleFunctionRiver() {
         return {
           fillColor: "transparent",
@@ -1203,6 +1742,7 @@
           fillOpacity: 0.3
         };
       },
+      
       styleFunctionNationalWaters() {
         return {
           fillColor: "transparent",
@@ -1212,31 +1752,37 @@
           fillOpacity: 0.3
         };
       },
+      
       geoOptionsWatershed() {
         return {
           onEachFeature: this.onEachFeatureFunctionWatershed
         };
       },
+      
       geoOptionsGroundwater() {
         return {
           onEachFeature: this.onEachFeatureFunctionGroundwater
         };
       },
+      
       geoOptionsBasemap() {
         return {
           onEachFeature: this.onEachFeatureFunctionBasemap
         };
       },
+      
       geoOptionsRivers() {
         return {
           onEachFeature: this.onEachFeatureFunctionRivers
         };
       },
+      
       geoOptionsNationalWaters() {
         return {
           onEachFeature: this.onEachFeatureNationalWaters
         };
       },
+      
       onEachFeatureFunctionWatershed() {
         if (!this.enableTooltip) {
           return;
@@ -1253,6 +1799,7 @@
           );
         };
       },
+      
       onEachFeatureFunctionGroundwater() {
         if (!this.enableTooltip) {
           return;
@@ -1264,6 +1811,7 @@
           });
         };
       },
+      
       onEachFeatureFunctionBasemap() {
         if (!this.enableTooltip) {
           return;
@@ -1279,6 +1827,7 @@
           );
         };
       },
+      
       onEachFeatureFunctionRivers() {
         if (!this.enableTooltip) {
           return;
@@ -1293,6 +1842,7 @@
           );
         };
       },
+      
       onEachFeatureNationalWaters() {
         if (!this.enableTooltip) {
           return;
@@ -1308,6 +1858,21 @@
           );
         };
       }
+    },
+    watch: {
+      loading_overlay(newVal) {
+        if (newVal) {
+          this.startProgress();  // start when loading_overlay = true
+        } else {
+          this.resetProgress();  // reset when loading_overlay = false
+        }
+      }
+    },
+    beforeDestroy() {
+      this.stopInterpolateDataPolling();
+      this.stopInterpolateImgPolling();
+
+      clearInterval(this.progressIntervalId);
     }
   });
 </script>

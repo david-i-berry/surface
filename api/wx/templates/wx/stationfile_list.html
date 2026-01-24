@@ -2,13 +2,14 @@
 
 <div style="display: flex; justify-content: space-between; margin-bottom: 16px">
   <span class="srf-display-1 text-uppercase">Files</span>
-  <div class="srf-flex">
-    <a href="{% url 'stationfile-create' station.id %}">
-      <button class="btn-outline-default btn-small" type="button">
-        Add file
-      </button>
-    </a>
-  </div>
+
+    <div class="srf-flex">
+      <a href="{% url 'stationfile-create' station.id %}">
+        <button class="btn-outline-default btn-small" type="button">
+          Add file
+        </button>
+      </a>
+    </div>
 </div>
 
 <div class="srf-layout flex-row" style="width:100%;">
@@ -16,13 +17,14 @@
     <thead>
       <tr>
         <th>Name</th>
-        <th>Actions</th>
+          <th>Actions</th>
       </tr>
     </thead>
     <tbody>
       {% for object in object_list %}
       <tr>
 	<td><a href="{{ object.file.url }}" target="_blank">{{ object.name }}</a></td>
+
         <td class="justify-center layout">
 
           <a href="{% url 'stationfile-delete' station.id object.id %}">
@@ -37,6 +39,7 @@
             </div>
           </a>
         </td>
+
       </tr>
       {% endfor %}
     </tbody>
