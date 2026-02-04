@@ -1,0 +1,332 @@
+= User Management
+:imagesdir: ../images
+
+This chapter covers user account creation, role assignment, and permission management.
+
+== User Roles Overview
+
+SURFACE includes seven predefined user groups with different access levels:
+
+[cols="1,1,3"]
+|===
+|Role |Access Level |Description
+
+|System Administrator
+|Full
+|Complete access to frontend and Django backend
+
+|Administrator
+|High
+|Full frontend access, no Django backend
+
+|Climate Officer
+|Medium-High
+|Station, QC, Data, and Report access
+
+|Meteorologist/Forecaster
+|Medium
+|Full Report access
+
+|Instrument Technician
+|Medium
+|Station, Maintenance, and Report access
+
+|Data Entry Clerk
+|Low-Medium
+|Data import/capture, WIS2 dashboard, Reports
+
+|Guest
+|Low
+|Map and basic reports only
+|===
+
+== Permission Matrix
+
+Detailed access by menu and role:
+
+[cols="3,1,1,1,1,1,1,1"]
+|===
+|Menu/Feature |Sys Admin |Admin |Climate |Forecast |Tech |Data Entry |Guest
+
+|*Stations* - Map
+|X |X |X |X |X |X |X
+
+|*Stations* - Create
+|X |X |- |- |X |- |-
+
+|*Stations* - List
+|X |X |X |- |X |- |-
+
+|*Stations* - Metadata
+|X |X |X |- |X |- |-
+
+|*Stations* - OSCAR Export
+|X |X |X |- |X |- |-
+
+|*Stations* - Monitor
+|X |X |X |X |X |X |-
+
+|*Maintenance* - Inventory
+|X |X |- |- |X |- |-
+
+|*Maintenance* - Reports
+|X |X |- |- |X |- |-
+
+|*Data* - Monthly Capture
+|X |X |X |- |- |X |-
+
+|*Data* - Synop Capture
+|X |X |X |- |- |X |-
+
+|*Data* - Inventory
+|X |X |X |X |X |X |-
+
+|*Data* - Import
+|X |X |X |- |- |X |-
+
+|*Data* - Export
+|X |X |X |- |- |- |-
+
+|*WIS2 Dashboard*
+|X |X |- |- |- |X |-
+
+|*QC* - Validation
+|X |X |X |- |- |- |-
+
+|*QC* - Thresholds
+|X |X |X |- |- |- |-
+
+|*Products* - Reports
+|X |X |X |X |X |X |X
+
+|*Products* - Extremes/Means
+|X |X |X |X |- |- |-
+
+|*Products* - Wave Analysis
+|X |X |X |X |- |- |-
+
+|*Agrometeorology*
+|X |X |X |X |- |- |-
+
+|*Admin Area*
+|X |- |- |- |- |- |-
+|===
+
+NOTE: X = Full access. Some roles may have read-only access to certain areas.
+
+== Creating Users
+
+=== Access Django Admin
+
+1. Log in as System Administrator
+2. Navigate to *Settings* > *Administrative Area*
+3. Click *Users* under "Authentication and Authorization"
+
+=== Add New User
+
+1. Click *Add User* (top right)
+2. Enter username
+3. Enter password (twice for confirmation)
+4. Click *Save and continue editing*
+
+=== Configure User Details
+
+==== Personal Information
+* First name
+* Last name
+* Email address
+
+==== Permissions Section
+
+[cols="1,3"]
+|===
+|Setting |Usage
+
+|Active
+|*Always enable* - User can log in
+
+|Staff status
+|*Only for System Admins* - Access to Django admin
+
+|Superuser status
+|*Only for System Admins* - All permissions without explicit assignment
+|===
+
+WARNING: Only enable Staff and Superuser status for System Administrators. Regular users should only have "Active" checked.
+
+==== Groups Section
+
+1. Select appropriate group(s) from *Available groups*
+2. Click arrow to move to *Chosen groups*
+3. Users can belong to multiple groups
+
+=== Save User
+
+Click *Save* to create the account.
+
+== Managing Permissions
+
+Navigate to *Settings* > *Manage Permissions* for frontend permission management.
+
+=== View Permissions
+
+The permission matrix shows:
+* User groups (columns)
+* Menu items and features (rows)
+* Access status for each combination
+
+=== Modify Permissions
+
+1. Identify the group and feature
+2. Toggle access on/off
+3. Save changes
+
+=== Create Custom Groups
+
+For organizations needing different role structures:
+
+1. Go to Django Admin > *Groups*
+2. Click *Add Group*
+3. Name the group
+4. Select permissions from available list
+5. Save
+
+Then assign users to the custom group.
+
+== Password Management
+
+=== User Password Reset
+
+Users can reset their own passwords:
+
+1. Go to login page
+2. Click "Forgot Password"
+3. Enter email address
+4. Follow email instructions
+
+=== Admin Password Reset
+
+Administrators can reset user passwords:
+
+1. Go to Django Admin > *Users*
+2. Select the user
+3. Click password change link
+4. Enter new password
+5. Save
+
+=== Password Policies
+
+Recommended practices:
+
+* Minimum 8 characters
+* Mix of uppercase, lowercase, numbers, symbols
+* Regular password rotation
+* No password sharing
+
+== User Lifecycle
+
+=== New Employee Onboarding
+
+1. Determine appropriate role
+2. Create user account
+3. Assign to correct group(s)
+4. Provide credentials securely
+5. Instruct user to change password
+
+=== Role Changes
+
+When responsibilities change:
+
+1. Go to Django Admin > *Users*
+2. Select the user
+3. Modify group membership
+4. Save changes
+5. User sees new permissions on next login
+
+=== Employee Departure
+
+When users leave:
+
+1. Go to Django Admin > *Users*
+2. Select the user
+3. Uncheck *Active* checkbox
+4. Save
+
+CAUTION: Deactivate rather than delete users to preserve audit history.
+
+== API Access
+
+For programmatic access to SURFACE:
+
+=== Token Authentication
+
+1. Go to Django Admin > *Tokens*
+2. Click *Add Token*
+3. Select user
+4. Save - token is generated
+5. Share token securely with user
+
+=== Using Tokens
+
+Include token in API requests:
+[source,http]
+----
+Authorization: Token <token-value>
+----
+
+See <<api-reference>> for detailed API documentation.
+
+== Audit and Compliance
+
+=== Login History
+
+Monitor user access:
+
+* Review Django admin logs
+* Check user last login timestamps
+* Investigate unusual access patterns
+
+=== Permission Changes
+
+Track who has access to what:
+
+* Document role assignments
+* Review permissions periodically
+* Remove unnecessary access
+
+=== Best Practices
+
+1. *Principle of least privilege* - Assign minimum necessary permissions
+2. *Regular audits* - Review user list and permissions quarterly
+3. *Prompt deactivation* - Disable accounts immediately when employees leave
+4. *Secure credentials* - Never share passwords in plain text
+5. *Training* - Ensure users understand their responsibilities
+
+== Troubleshooting
+
+=== User Cannot Log In
+
+. Verify account is *Active*
+. Check username spelling
+. Reset password if needed
+. Check for browser issues (clear cache)
+
+=== Missing Menu Items
+
+. Verify user's group membership
+. Check group has required permissions
+. User may need to log out and back in
+
+=== Permission Errors
+
+. Confirm action is allowed for user's role
+. Check if feature requires higher permission level
+. Review custom permission configuration
+
+
+== See Also
+
+* <<getting-started,Getting Started>> - User roles overview
+* <<configuration,Configuration>> - Django Admin configuration
+* <<api-reference,API Reference>> - API authentication
+* <<security,Security>> - Authentication security best practices

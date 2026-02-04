@@ -1,0 +1,605 @@
+= Installation
+:imagesdir: ../images
+
+This chapter covers SURFACE installation procedures for local and production deployments.
+
+== System Requirements
+
+=== Operating System
+
+* *Recommended:* Ubuntu 22.04.5 LTS (Jammy Jellyfish)
+* Download: https://releases.ubuntu.com/jammy/
+
+=== Hardware Requirements
+
+==== Testing/Development
+
+[cols="1,2"]
+|===
+|Resource |Minimum
+
+|RAM
+|4 GB (6-8 GB recommended)
+
+|Disk
+|25 GB
+
+|CPU
+|4 cores
+|===
+
+==== Production
+
+Requirements depend on network size and data load. Reference: Belize NMS operates 80 AWS stations with 5-minute data, using ~500 GB disk with 15 GB backup files.
+
+[cols="1,2"]
+|===
+|Resource |Recommended
+
+|RAM
+|16 GB (more improves performance)
+
+|Disk
+|100+ GB (based on network size)
+
+|CPU
+|8 cores
+|===
+
+== Quick Installation (Recommended)
+
+Use the automated SURFACE installer for the simplest installation experience.
+
+=== Prerequisites
+
+1. Install Ubuntu 22.04.5 desktop or server
+2. Update system packages:
++
+[source,bash]
+----
+sudo apt update
+----
+
+3. Install required packages:
++
+[source,bash]
+----
+sudo apt install git pipx
+----
+
+4. Add pipx to path:
++
+[source,bash]
+----
+pipx ensurepath
+----
+
+5. Close and reopen terminal
+
+=== Installation Steps
+
+1. Clone the installer:
++
+[source,bash]
+----
+git clone https://github.com/NMS-Belize/surface-installer.git
+----
+
+2. Change to installer directory:
++
+[source,bash]
+----
+cd surface-installer
+----
+
+3. Install the installer package:
++
+[source,bash]
+----
+pipx install .
+----
++
+NOTE: The space and dot (`. `) are important.
+
+4. Run the installation wizard:
++
+[source,bash]
+----
+surface install
+----
+
+== Installation Wizard
+
+=== Step 1: Installation Type
+
+Choose installation location:
+
+* *Local Install* (Green button) - Install on this machine
+* *Remote Install* (Purple button) - Install on a remote server
+
+Select *Local Install* for most deployments.
+
+=== Step 2: Backup Data Option
+
+Choose whether to restore from backup:
+
+* *No* - Fresh installation with empty database
+* *Yes* - Restore from existing backup file
+
+For new installations, select *No*.
+
+=== Step 3: Admin Credentials
+
+Configure administrator account:
+
+1. Enter admin username
+2. Enter admin password
+3. Click the yellow button to generate an encryption key
+
+IMPORTANT: Save the encryption key securely. It's required for data encryption/decryption.
+
+=== Step 4: Country Configuration
+
+1. Select your country from the dropdown
+2. Auto-configured settings include:
+** WIS2.0 country ID
+** Timezone and UTC offset
+** Country coordinates
+** Default map zoom level
+** Spatial analysis bounding box
+
+3. Adjust map settings by clicking on the map if needed
+
+NOTE: SURFACE has pre-configured settings for Caribbean countries. Contact dscott@nms.gov.bz to add other countries.
+
+=== Step 5: NOAA LRGS Settings (Optional)
+
+If using NOAA satellite data reception:
+
+1. Enable LRGS integration
+2. Enter LRGS server credentials
+3. Configure connection settings
+
+Skip this step if not using NOAA DCP stations.
+
+=== Step 6: Review and Install
+
+1. Review all configuration settings
+2. Click *Save* (Green button) to begin installation
+3. Wait for installation to complete
+
+NOTE: Installation may take 5-20 minutes depending on server specifications. The progress bar may pause at 88-94% while building Docker containers.
+
+== Post-Installation
+
+=== Access SURFACE
+
+1. Open a web browser
+2. Navigate to `http://localhost:8080`
+3. Log in with the admin credentials created during installation
+
+=== Network Access
+
+Other users on the same network can access SURFACE using the server's IP address:
+
+----
+http://<server-ip>:8080
+----
+
+Example: `http://192.168.0.43:8080`
+
+== Docker Architecture
+
+SURFACE runs as seven Docker containers:
+
+[cols="1,3"]
+|===
+|Container |Function
+
+|surface-nginx
+|Web server (port 8080)
+
+|surface-api
+|Django application (internal port 8000)
+
+|surface-postgres
+|TimescaleDB database
+
+|surface-cache
+|Memcached caching
+
+|surface-celery-worker
+|Background task processing
+
+|surface-celery-beat
+|Task scheduling
+
+|surface-redis
+|Message broker
+|===
+
+=== Managing Containers
+
+View running containers:
+[source,bash]
+----
+docker ps
+----
+
+View container logs:
+[source,bash]
+----
+docker logs surface-api
+----
+
+Restart all services:
+[source,bash]
+----
+cd /path/to/surface
+docker-compose restart
+----
+
+== Manual Installation
+
+For advanced users who need custom configuration.
+
+=== Prerequisites
+
+Install Docker and Docker Compose:
+[source,bash]
+----
+# Install Docker
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+
+# Log out and back in for group changes
+
+# Verify installation
+docker --version
+docker-compose --version
+----
+
+=== Clone Repository
+
+[source,bash]
+----
+git clone https://github.com/NMS-Belize/surface.git
+cd surface
+----
+
+=== Configure Environment
+
+1. Copy the example environment file:
++
+[source,bash]
+----
+cp api/production.env.example api/production.env
+----
+
+2. Edit `production.env` with your settings (see <<configuration>> chapter)
+
+=== Build and Start
+
+[source,bash]
+----
+docker-compose up -d --build
+----
+
+=== Initialize Database
+
+[source,bash]
+----
+# Run migrations
+docker exec -it surface-api python manage.py migrate
+
+# Create superuser
+docker exec -it surface-api python manage.py createsuperuser
+
+# Load initial fixtures
+docker exec -it surface-api python manage.py loaddata fixtures/*.json
+----
+
+== Windows Installation (WSL2)
+
+SURFACE can run on Windows using Windows Subsystem for Linux 2 (WSL2).
+
+=== Prerequisites
+
+1. Windows 10 version 2004+ or Windows 11
+2. WSL2 enabled
+3. Ubuntu 22.04 from Microsoft Store
+
+=== Enable WSL2
+
+Open PowerShell as Administrator:
+
+[source,powershell]
+----
+# Enable WSL
+wsl --install
+
+# Set WSL2 as default
+wsl --set-default-version 2
+
+# Install Ubuntu 22.04
+wsl --install -d Ubuntu-22.04
+----
+
+Restart your computer when prompted.
+
+=== Install Docker Desktop
+
+1. Download Docker Desktop for Windows from https://www.docker.com/products/docker-desktop
+2. Run the installer
+3. Enable *WSL 2 based engine* in Docker Desktop settings
+4. In *Resources* > *WSL Integration*, enable integration with Ubuntu-22.04
+
+=== Install SURFACE in WSL2
+
+1. Open Ubuntu from the Start menu
+2. Follow the standard <<quick-installation-recommended,Quick Installation>> steps
+
+=== Windows-Specific Considerations
+
+==== File System Performance
+
+For best performance, store SURFACE data within the WSL2 filesystem:
+
+[source,bash]
+----
+# Good - WSL2 native filesystem
+cd ~
+git clone https://github.com/NMS-Belize/surface-installer.git
+
+# Avoid - Windows filesystem (slower)
+cd /mnt/c/Users/username/
+----
+
+==== Accessing SURFACE
+
+From Windows, access SURFACE at:
+
+* `http://localhost:8080` - If port forwarding is enabled (default)
+* `http://<wsl-ip>:8080` - Using WSL2 IP address
+
+To find WSL2 IP:
+[source,bash]
+----
+hostname -I
+----
+
+==== Memory Configuration
+
+WSL2 may consume significant memory. Create `.wslconfig` in your Windows user folder:
+
+[source,ini]
+----
+# %USERPROFILE%\.wslconfig
+[wsl2]
+memory=8GB
+processors=4
+----
+
+Restart WSL2 after changes:
+[source,powershell]
+----
+wsl --shutdown
+----
+
+==== Windows Docker Compose File
+
+A Windows-specific Docker Compose file is available:
+
+[source,bash]
+----
+docker-compose -f docker-compose-win.yml up -d
+----
+
+This uses development-friendly settings with the Django development server.
+
+=== Troubleshooting WSL2
+
+[cols="1,3"]
+|===
+|Issue |Solution
+
+|Docker commands fail
+|Ensure Docker Desktop is running and WSL integration is enabled
+
+|Slow file access
+|Move project to WSL2 filesystem (`~/` instead of `/mnt/c/`)
+
+|Port not accessible
+|Check Windows Firewall; try accessing via WSL2 IP
+
+|Out of memory
+|Configure `.wslconfig` with memory limits
+
+|WSL2 network issues
+|Run `wsl --shutdown` and restart Docker Desktop
+|===
+
+== Remote Server Installation
+
+For cloud or dedicated server deployments.
+
+NOTE: Detailed remote installation documentation is planned for a future release.
+
+General considerations:
+
+* Configure firewall to allow port 8080 (or reverse proxy port)
+* Set up SSL/TLS certificates for HTTPS
+* Configure backup automation
+* Set up monitoring and alerting
+* Consider high-availability configurations for critical deployments
+
+== Troubleshooting Installation
+
+=== Common Issues
+
+[cols="1,3"]
+|===
+|Issue |Solution
+
+|Docker permission denied
+|Run `sudo usermod -aG docker $USER` and log out/in
+
+|Port 8080 in use
+|Change port in docker-compose.yml or stop conflicting service
+
+|Database connection failed
+|Check PostgreSQL container is running; verify credentials
+
+|Out of disk space
+|Free space or resize disk before installation
+
+|Installation hangs
+|Check Docker logs; ensure adequate RAM
+|===
+
+=== Getting Help
+
+* GitHub Issues: https://github.com/NMS-Belize/surface/issues
+* Contact: dscott@nms.gov.bz
+
+== Upgrading SURFACE
+
+This section covers upgrading an existing SURFACE installation to a newer version.
+
+=== Before Upgrading
+
+IMPORTANT: Always create a backup before upgrading.
+
+1. *Create backup*
++
+[source,bash]
+----
+# Trigger manual backup or verify recent automated backup exists
+docker exec surface-api python manage.py dbbackup
+----
+
+2. *Check release notes* - Review changes at https://github.com/NMS-Belize/surface/releases
+
+3. *Plan downtime* - Upgrades typically require 5-15 minutes of downtime
+
+4. *Test in staging* - If possible, test the upgrade on a non-production system first
+
+=== Upgrade Methods
+
+==== Method 1: Using the Installer (Recommended)
+
+The SURFACE installer can upgrade existing installations:
+
+[source,bash]
+----
+# Update installer
+cd surface-installer
+git pull origin main
+pipx upgrade surface-installer
+
+# Run upgrade
+surface upgrade
+----
+
+The installer will:
+
+* Detect existing installation
+* Pull latest Docker images
+* Run database migrations
+* Restart services
+
+==== Method 2: Manual Docker Upgrade
+
+For more control over the upgrade process:
+
+[source,bash]
+----
+# Navigate to SURFACE directory
+cd /path/to/surface
+
+# Pull latest changes
+git pull origin main
+
+# Pull new Docker images
+docker-compose pull
+
+# Stop services
+docker-compose down
+
+# Start with new images
+docker-compose up -d
+
+# Run migrations
+docker exec surface-api python manage.py migrate
+
+# Collect static files
+docker exec surface-api python manage.py collectstatic --noinput
+----
+
+=== Post-Upgrade Steps
+
+1. *Verify services are running*
++
+[source,bash]
+----
+docker ps
+----
+
+2. *Check application health*
++
+[source,bash]
+----
+# Check API logs for errors
+docker logs surface-api --tail 50
+----
+
+3. *Test critical functions*
+* Login works
+* Map displays stations
+* Data is being ingested
+* Reports generate correctly
+
+4. *Clear browser cache* - Users may need to clear cache for JavaScript changes
+
+=== Rollback Procedure
+
+If issues occur after upgrade:
+
+[source,bash]
+----
+# Stop services
+docker-compose down
+
+# Restore previous image versions (if known)
+# Edit docker-compose.yml to specify previous image tags
+
+# Or restore from backup
+# Follow restoration procedure in Backup and Restore chapter
+
+# Start services
+docker-compose up -d
+----
+
+=== Version-Specific Notes
+
+Check the release notes for version-specific upgrade instructions. Some upgrades may require:
+
+* Manual database migrations
+* Configuration file changes
+* New environment variables
+* Data transformation scripts
+
+=== Upgrading from Legacy Versions
+
+For major version upgrades (e.g., 0.x to 1.x):
+
+1. Review migration guide in release notes
+2. Export critical data before upgrade
+3. Consider fresh installation with data restore
+4. Plan extended downtime for testing
+
+== See Also
+
+* <<configuration,Configuration>> - Post-upgrade configuration
+* <<backup-restore,Backup and Restore>> - Backup procedures
+* <<troubleshooting,Troubleshooting>> - Resolving upgrade issues

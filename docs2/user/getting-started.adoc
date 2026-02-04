@@ -1,0 +1,151 @@
+= Getting Started
+:imagesdir: ../images
+
+This chapter introduces SURFACE and helps new users get started with the system.
+
+== What is SURFACE?
+
+SURFACE (System for Unified Real-time monitoring and Forecasting of Atmospheric and Climatic Events) is a comprehensive weather and hydrological data management system. It enables meteorological services to:
+
+* Collect data from automatic and manual weather stations
+* Process and store time-series environmental data
+* Monitor station performance in real-time
+* Generate reports and visualizations
+* Share data through WMO standards (WIS2, OSCAR)
+
+== Accessing SURFACE
+
+=== Login
+
+To access SURFACE:
+
+1. Open a web browser and navigate to your SURFACE instance URL (e.g., `http://localhost:8080` or your organization's URL)
+2. Enter your username and password on the login screen
+3. Click *Login*
+
+NOTE: Contact your system administrator if you don't have credentials or have forgotten your password.
+
+=== First-Time Login
+
+After your first login, it's recommended to:
+
+1. Change your default password using the password change feature
+2. Familiarize yourself with the main menu structure
+3. Review your assigned permissions and accessible features
+
+== Main Menu Overview
+
+SURFACE has eight main menus, with access depending on your assigned user role:
+
+[cols="1,3"]
+|===
+|Menu |Description
+
+|*Stations*
+|View station map, create stations, manage metadata, export to OSCAR, monitor station status
+
+|*Maintenance*
+|Manage equipment inventory and maintenance reports
+
+|*Data*
+|Monthly/SYNOP capture, data inventory, import and export functions
+
+|*WIS2 Dashboard*
+|Monitor and manage WIS2Box data publishing
+
+|*Quality Control*
+|Data validation, range/step/persistence threshold configuration
+
+|*Products*
+|Station reports, variable reports, station comparison, spatial analysis, extremes and means
+
+|*Agrometeorology*
+|Agricultural meteorology products and analysis
+
+|*Settings*
+|System configuration, user permissions, administrative area
+|===
+
+== User Roles
+
+SURFACE comes with seven predefined user groups with different access levels:
+
+[cols="1,3,1"]
+|===
+|Role |Description |Access Level
+
+|System Administrator
+|Full access to all frontend and Django backend menus
+|Full
+
+|Administrator
+|Full access to all frontend menus, no Django backend access
+|High
+
+|Climate Officer
+|Full access to Station, Quality Control, Data, and Report menus
+|Medium-High
+
+|Meteorologist/Forecaster
+|Full access to all Reports
+|Medium
+
+|Instrument Technician
+|Full access to Station, Maintenance, and Report menus
+|Medium
+
+|Data Entry Clerk
+|Access to Data import/capture, WIS2 dashboard, and Report menus
+|Low-Medium
+
+|Guest
+|View map and basic reports only
+|Low
+|===
+
+TIP: Your system administrator can customize these roles or create new ones based on organizational needs.
+
+== Quick Start Tasks
+
+=== Viewing the Station Map
+
+1. Click *Stations* > *Map* from the main menu
+2. The map displays all weather stations with current data values
+3. Use the layer controls to customize the display
+4. Click on any station marker to view details
+
+=== Viewing a Station Report
+
+1. Click *Products* > *Station Report*
+2. Select a station from the dropdown
+3. Choose data source and interval
+4. Set the date range
+5. Click the *Query* button to generate the report
+
+=== Exporting Data
+
+1. Click *Data* > *Export*
+2. Apply filters (district, watershed, station)
+3. Select variables and date range
+4. Click *Export* to generate the file
+5. Download from the data table when ready
+
+== Getting Help
+
+* Use this documentation for detailed guidance on all features
+* Contact your system administrator for access issues
+* Report bugs or request features at: https://github.com/NMS-Belize/surface/issues
+
+== Next Steps
+
+* <<station-map,Learn about the Station Map>> for real-time monitoring
+* <<data-management,Explore Data Management>> for import/export operations
+* <<products-reports,Generate Reports>> for data analysis
+
+
+== See Also
+
+* <<station-map,Station Map>> - View and monitor stations
+* <<data-management,Data Management>> - Import and export data
+* <<products-reports,Products and Reports>> - Generate reports
+* <<user-management,User Management>> - Understanding user roles

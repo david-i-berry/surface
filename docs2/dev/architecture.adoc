@@ -1,0 +1,381 @@
+= Architecture
+:imagesdir: ../images
+
+This chapter describes the SURFACE system architecture and design patterns.
+
+== Architecture Overview
+
+SURFACE follows a monolithic MVC architecture with asynchronous task processing, containerized using Docker.
+
+----
+                    ┌─────────────────────────────────────────────────┐
+                    │                   NGINX                          │
+                    │              (Reverse Proxy)                     │
+                    │                 Port 8080                        │
+                    └────────────────────┬────────────────────────────┘
+                                         │
+                    ┌────────────────────┴────────────────────────────┐
+                    │                                                  │
+        ┌───────────▼───────────┐                    ┌────────────────▼─────────────┐
+        │     Django/Gunicorn   │                    │         Static Files          │
+        │      (API + Views)    │                    │    (CSS, JS, Images)          │
+        │       Port 8000       │                    └──────────────────────────────┘
+        └───────────┬───────────┘
+                    │
+    ┌───────────────┼───────────────┬────────────────────────────┐
+    │               │               │                            │
+┌───▼───┐      ┌────▼────┐     ┌────▼────┐              ┌────────▼────────┐
+│ Redis │      │Memcached│     │PostgreSQL│              │  Celery Workers │
+│Broker │      │ Cache   │     │TimescaleDB│              │  + Celery Beat  │
+└───────┘      └─────────┘     └──────────┘              └─────────────────┘
+----
+
+== Docker Containers
+
+SURFACE consists of seven Docker containers:
+
+[cols="1,2,2"]
+|===
+|Container |Image |Purpose
+
+|surface-nginx
+|nmsbdocker/surface-nginx
+|Reverse proxy, static file serving
+
+|surface-api
+|nmsbdocker/surface-api
+|Django application, REST API
+
+|surface-postgres
+|timescale/timescaledb-ha
+|TimescaleDB with PostGIS
+
+|surface-cache
+|memcached
+|Query result caching
+
+|surface-redis
+|redis
+|Celery message broker
+
+|surface-celery-worker
+|nmsbdocker/surface-api
+|Background task processing
+
+|surface-celery-beat
+|nmsbdocker/surface-api
+|Task scheduling
+|===
+
+== Technology Stack
+
+=== Backend Framework
+
+* *Django 3.2* - Web framework
+* *Django REST Framework* - API development
+* *GeoDjango* - Geographic functionality
+* *Python 3.11* - Runtime
+
+=== Database Layer
+
+* *PostgreSQL 13* - Relational database
+* *TimescaleDB 2.3* - Time-series optimization
+* *PostGIS* - Spatial queries
+
+=== Task Queue
+
+* *Celery 5.2* - Distributed task queue
+* *Redis* - Message broker
+* *django-celery-beat* - Periodic task scheduling
+
+=== Caching
+
+* *Memcached* - Session and query caching
+
+=== Scientific Libraries
+
+* *NumPy/Pandas* - Data manipulation
+* *MetPy* - Meteorological calculations
+* *Cartopy/GeoPandas* - Geographic analysis
+* *AquaCrop* - Crop modeling
+
+== Request Flow
+
+=== Web Request
+
+----
+Browser → Nginx → Gunicorn → Django View → Response
+                                  ↓
+                             Database
+                                  ↓
+                              Cache
+----
+
+=== API Request
+
+----
+Client → Nginx → Gunicorn → DRF Serializer → Response
+                                 ↓
+                            Database
+----
+
+=== Async Task
+
+----
+View → Celery Task → Redis Queue → Worker → Database
+              ↑
+         Celery Beat (scheduled)
+----
+
+== Application Structure
+
+=== Django Project: tempestas_api
+
+----
+api/
+├── tempestas_api/          # Project configuration
+│   ├── settings.py         # Django settings
+│   ├── celery.py           # Celery configuration
+│   ├── urls.py             # Root URL routing
+│   └── wsgi.py             # WSGI entry point
+----
+
+=== Main Application: wx
+
+----
+api/wx/
+├── models.py               # Database models (65+ classes)
+├── views.py                # View logic & API endpoints
+├── urls.py                 # URL routing
+├── serializers.py          # REST API serializers
+├── admin.py                # Django admin configuration
+├── tasks.py                # Celery tasks
+├── permissions.py          # Custom permissions
+├── decoders/               # Data format parsers
+├── migrations/             # Database migrations
+├── templates/              # HTML templates
+└── static/                 # Static files
+----
+
+== Key Design Patterns
+
+=== Data Ingestion Pipeline
+
+----
+Raw Data → Decoder → Validation → QC Checks → Database → Aggregation
+----
+
+1. *Raw data* arrives via FTP, LRGS, or manual upload
+2. *Decoder* parses format-specific structure
+3. *Validation* checks data types and required fields
+4. *QC Checks* apply range, step, persistence tests
+5. *Database* stores raw measurements
+6. *Aggregation* computes hourly/daily/monthly summaries
+
+=== Quality Control Hierarchy
+
+----
+Check Individual Limits
+         ↓ (not found)
+Check Reference Limits
+         ↓ (not found)
+Apply Global Limits
+----
+
+Station-specific limits take precedence over reference and global defaults.
+
+=== Permission Framework
+
+----
+Request → Middleware → Permission Check → View
+              ↓
+    AttachWxPermissionsMiddleware
+              ↓
+    WxGroupPageAccess model
+----
+
+Custom middleware attaches permission objects to each request based on user's groups.
+
+=== Caching Strategy
+
+* *Session caching* - User sessions in Memcached
+* *Query caching* - Expensive queries cached
+* *View caching* - Cache middleware for HTTP responses
+* *Summary caching* - Pre-computed statistics
+
+== Database Design
+
+=== TimescaleDB Hypertables
+
+Time-series data stored in hypertables for:
+
+* Automatic partitioning by time
+* Efficient range queries
+* Data retention policies
+* Compression
+
+=== Key Entity Relationships
+
+----
+Station ─┬─ StationVariable ─── Variable
+         │
+         ├─ RawData (hypertable)
+         │
+         ├─ HourlySummary (hypertable)
+         │
+         ├─ DailySummary (hypertable)
+         │
+         ├─ Equipment
+         │
+         └─ MaintenanceReport
+----
+
+=== Geographic Data
+
+PostGIS enables:
+
+* Station coordinate storage
+* Spatial queries (watershed lookup)
+* Distance calculations
+* Map boundary rendering
+
+== API Architecture
+
+=== REST Endpoints
+
+----
+/api/stations/          # Station CRUD
+/api/rawdata/           # Raw measurements
+/api/hourlysummaries/   # Hourly aggregations
+/api/dailysummaries/    # Daily aggregations
+/api/monthlysummaries/  # Monthly aggregations
+/api/yearlysummaries/   # Yearly aggregations
+/api/livedata/{id}/     # Real-time data
+/api/variables/         # Variable definitions
+----
+
+=== Authentication
+
+* Session-based (web interface)
+* Token authentication (API)
+* JWT (configurable)
+
+=== Serialization
+
+Django REST Framework serializers handle:
+
+* Data validation
+* Object transformation
+* Nested relationships
+* Custom field formatting
+
+== Background Tasks
+
+=== Celery Workers
+
+Process asynchronous tasks:
+
+* Data aggregation
+* File exports
+* WIS2 publishing
+* Backup operations
+* Spatial analysis
+
+=== Celery Beat
+
+Schedules periodic tasks:
+
+* Hourly summary calculations
+* Daily reconciliation
+* FTP data polling
+* Database maintenance
+* Cache cleanup
+
+== WIS2 Integration
+
+----
+Station Data → Message Generator → WIS2Box API → Global WIS2
+                     ↓
+              GBON CSV Format
+                     ↓
+              GTS Headers (optional)
+----
+
+== External Integrations
+
+[cols="1,3"]
+|===
+|System |Integration
+
+|NOAA LRGS
+|Java client for satellite DCP data
+
+|WIS2Box
+|MQTT publishing via REST API
+
+|OSCAR
+|Metadata export via WMO API
+
+|AquaCrop
+|Crop model calculations
+
+|Supabase
+|Optional remote services
+|===
+
+== Deployment Architecture
+
+=== Single Server
+
+All containers on one host:
+
+----
+Ubuntu Server
+├── Docker Engine
+│   ├── nginx
+│   ├── api
+│   ├── postgres
+│   ├── redis
+│   ├── memcached
+│   ├── celery-worker
+│   └── celery-beat
+└── Data Volumes
+----
+
+=== Production Considerations
+
+* Reverse proxy with SSL termination
+* External database for high availability
+* Separate worker nodes for scaling
+* Load balancer for multiple API instances
+* Monitoring and alerting
+
+== Security Architecture
+
+=== Authentication Layers
+
+1. Nginx (optional basic auth)
+2. Django authentication
+3. DRF permission classes
+4. Custom wx permissions
+
+=== Data Protection
+
+* Fernet encryption for sensitive fields
+* Environment-based secrets
+* CORS configuration
+* CSRF protection
+
+=== Network Security
+
+* Container network isolation
+* Port exposure only via Nginx
+* Internal service communication
+
+
+== See Also
+
+* <<database-schema,Database Schema>> - Detailed database structure
+* <<api-reference,API Reference>> - REST API endpoints
+* <<installation,Installation>> - Docker deployment
+* <<contributing,Contributing>> - Development setup

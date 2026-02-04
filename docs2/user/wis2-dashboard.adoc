@@ -1,0 +1,239 @@
+= WIS2 Dashboard
+:imagesdir: ../images
+
+The WIS2 Dashboard manages data publishing to WIS2Box nodes for international meteorological data sharing.
+
+== WIS2 Overview
+
+=== What is WIS2?
+
+WIS2 (WMO Information System 2.0) is the World Meteorological Organization's framework for sharing weather, climate, and water data globally. SURFACE integrates with WIS2Box to automatically publish hourly observations.
+
+=== SURFACE WIS2 Integration
+
+SURFACE can:
+
+* Generate GBON-compliant messages from station data
+* Automatically publish hourly observations to WIS2Box
+* Support hybrid stations (combined manual and automatic)
+* Push to up to two WIS2Box nodes simultaneously
+* Add GTS headers for WIS2-to-GTS gateway
+
+== Dashboard Overview
+
+Navigate to *WIS2 Dashboard* from the main menu.
+
+The dashboard displays all WIS2-enabled stations:
+
+[cols="1,3"]
+|===
+|Column |Description
+
+|Station Name
+|Name of the publishing station
+
+|WIGOS Station ID (WSI)
+|Unique WMO identifier
+
+|Publish Last 24 hrs
+|Count of successful publications
+
+|Fail Last 24 hrs
+|Count of failed publication attempts
+
+|Status
+|Current publishing status
+|===
+
+NOTE: Only stations with "Enable Publishing to WIS2" enabled in their metadata appear here. Stations must have a valid WSI (WIGOS Station Identifier).
+
+== Configuring WIS2 Publishing
+
+=== Step 1: Configure WIS2Box Credentials
+
+1. Click the *WIS2box Settings* button
+2. Select *Update WIS2 Credentials*
+3. Enter connection details:
+
+[cols="1,3"]
+|===
+|Field |Description
+
+|IP Address
+|WIS2Box server address
+
+|Port
+|Connection port number
+
+|Username
+|Authentication username
+
+|Password
+|Authentication password
+|===
+
+You can configure:
+
+* *Primary WIS2Box* - Main publishing target
+* *Secondary WIS2Box* - Backup or regional node (optional)
+
+TIP: Obtain credentials from your WIS2Box administrator.
+
+=== Step 2: Enable Station Publishing
+
+1. Ensure the station has:
+** "Enable Publishing to WIS2" checked in station metadata
+** Valid WIGOS Station ID (WSI)
+** WMO Region assigned
+** WMO Station Type set
+** WMO Reporting Status configured
+
+2. Click the *Status* button for the station (e.g., "Not Publishing")
+3. The *Publish Settings* window opens
+
+=== Step 3: Configure Publish Settings
+
+==== Default Settings Tab
+
+[cols="1,3"]
+|===
+|Setting |Description
+
+|Publishing
+|Master toggle - enables/disables all publishing for this station
+
+|Push to Primary WIS2Box
+|Enable publishing to primary node
+
+|Push to Secondary WIS2Box
+|Enable publishing to secondary node (if configured)
+
+|Add GTS Headers
+|Include GTS headers for WIS2-to-GTS gateway compatibility
+
+|Minute Offset
+|Minutes after the hour when message is sent (e.g., 15 = XX:15)
+|===
+
+==== Hybrid Publishing Settings
+
+For sites with both manual (conventional) and automatic weather stations:
+
+[cols="1,3"]
+|===
+|Setting |Description
+
+|Hybrid Mode
+|Enable hybrid station functionality
+
+|Secondary Station
+|Select the AWS to link with the manual station
+|===
+
+IMPORTANT: Both stations in a hybrid configuration must have the same WSI.
+
+== Hybrid Stations
+
+=== What is a Hybrid Station?
+
+A hybrid station combines:
+
+* Manual/Conventional station (with human observer)
+* Automatic Weather Station (AWS) at the same location
+
+=== How Hybrid Publishing Works
+
+1. SURFACE first retrieves data from the AWS
+2. AWS data fills GBON CSV requirements
+3. Additional SYNOP data (visibility, cloud observations, etc.) comes from manual entry
+4. If AWS data is unavailable, all data comes from SYNOP entry
+5. If no data from either source, no message is sent
+
+=== Use Cases
+
+* Daytime: Human observer enters synoptic observations
+* Nighttime: AWS continues automatic reporting
+* Backup: AWS provides data if observer is unavailable
+
+== Message Types
+
+=== Currently Supported
+
+* *GBON/SYNOP* - Hourly surface observations
+
+=== Planned Future Support
+
+* *DAYCLI* - Daily climate observations
+* *CLIMAT* - Monthly climate summaries
+
+== Monitoring Publishing
+
+=== Success Indicators
+
+* Green status or high "Publish Last 24 hrs" count
+* Check WIS2Box logs for message receipt confirmation
+
+=== Troubleshooting Failures
+
+Common issues:
+
+[cols="1,3"]
+|===
+|Issue |Solution
+
+|Credential errors
+|Verify WIS2Box credentials in settings
+
+|Network connectivity
+|Check firewall and network access to WIS2Box
+
+|Missing WSI
+|Ensure station has valid WIGOS Station ID
+
+|Data gaps
+|Verify station is receiving data
+
+|Invalid message format
+|Check variable mappings in station configuration
+|===
+
+=== Viewing Logs
+
+For detailed publishing logs:
+
+1. Access Django admin area
+2. Navigate to WIS2 publish logs
+3. Filter by station and date
+4. Review success/failure details
+
+== WIS2 Requirements Checklist
+
+For successful WIS2 publishing:
+
+* [ ] WIS2Box credentials configured
+* [ ] Station has valid WSI (WIGOS Station Identifier)
+* [ ] WMO Region assigned
+* [ ] WMO Station Type set
+* [ ] WMO Reporting Status configured
+* [ ] "Enable Publishing to WIS2" enabled
+* [ ] Station receiving regular data
+* [ ] Network access to WIS2Box server
+* [ ] Publishing enabled in station settings
+
+== OSCAR Integration
+
+SURFACE can also export station metadata to OSCAR (Observing Systems Capability Analysis and Review Tool):
+
+1. Navigate to *Stations* > *OSCAR Export*
+2. Select stations meeting OSCAR requirements
+3. Enter OSCAR API token
+4. Click *Export Selected* or *Export All*
+
+NOTE: Currently, SURFACE creates new stations in OSCAR. Update functionality is planned for future releases.
+
+
+== See Also
+
+* <<station-management,Station Management>> - Configuring stations for WIS2
+* <<getting-started,Getting Started>> - SURFACE overview
+* <<glossary,Glossary>> - WIS2 and WMO terminology

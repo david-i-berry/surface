@@ -1,0 +1,445 @@
+= Troubleshooting
+:imagesdir: ../images
+
+This chapter provides guidance for diagnosing and resolving common SURFACE issues.
+
+== General Troubleshooting Approach
+
+When encountering issues:
+
+1. *Identify symptoms* - What exactly is happening (or not happening)?
+2. *Check logs* - Review relevant container logs
+3. *Verify configuration* - Check environment variables and settings
+4. *Test components* - Isolate which component is failing
+5. *Search known issues* - Check GitHub Issues for similar problems
+
+== Viewing Logs
+
+=== Container Logs
+
+View logs for specific containers:
+
+[source,bash]
+----
+# API/Django logs
+docker logs surface-api
+
+# Follow logs in real-time
+docker logs -f surface-api
+
+# Last 100 lines
+docker logs --tail 100 surface-api
+
+# Logs with timestamps
+docker logs -t surface-api
+----
+
+=== All Container Logs
+
+[source,bash]
+----
+# View all container logs
+docker-compose logs
+
+# Follow all logs
+docker-compose logs -f
+
+# Specific service
+docker-compose logs -f api celery_worker
+----
+
+=== Log Locations Inside Containers
+
+[cols="1,2"]
+|===
+|Container |Log Location
+
+|surface-api
+|stdout (Django logs)
+
+|surface-postgres
+|`/var/log/postgresql/`
+
+|surface-nginx
+|`/var/log/nginx/`
+
+|surface-celery-worker
+|stdout (Celery logs)
+|===
+
+== Common Issues
+
+=== Application Won't Start
+
+==== Symptoms
+- Cannot access SURFACE at `http://localhost:8080`
+- Containers exit immediately after starting
+
+==== Diagnosis
+
+Check container status:
+[source,bash]
+----
+docker ps -a
+----
+
+Look for containers with status "Exited" or "Restarting".
+
+==== Solutions
+
+[cols="1,3"]
+|===
+|Cause |Solution
+
+|Database not ready
+|Wait for PostgreSQL to initialize; check `docker logs surface-postgres`
+
+|Port conflict
+|Change port in docker-compose.yml or stop conflicting service
+
+|Missing environment variables
+|Verify all required variables in production.env are set
+
+|Disk space full
+|Free disk space: `df -h`
+
+|Memory insufficient
+|Check available memory: `free -m`; increase Docker memory allocation
+|===
+
+=== Database Connection Errors
+
+==== Symptoms
+- "connection refused" errors in API logs
+- "could not connect to server" messages
+- Application shows database errors
+
+==== Diagnosis
+
+[source,bash]
+----
+# Check if PostgreSQL is running
+docker ps | grep postgres
+
+# Test database connection
+docker exec -it surface-postgres psql -U surface_user -d surface_db -c "SELECT 1;"
+
+# Check PostgreSQL logs
+docker logs surface-postgres
+----
+
+==== Solutions
+
+[cols="1,3"]
+|===
+|Cause |Solution
+
+|PostgreSQL not started
+|`docker-compose up -d postgres`; wait for initialization
+
+|Wrong credentials
+|Verify SURFACE_DB_* variables match POSTGRES_* variables
+
+|Database doesn't exist
+|Run migrations: `docker exec surface-api python manage.py migrate`
+
+|Connection pool exhausted
+|Restart API container; consider increasing pool size
+|===
+
+=== Data Not Appearing
+
+==== Symptoms
+- Stations show no data
+- Maps display without values
+- Reports return empty results
+
+==== Diagnosis
+
+[source,bash]
+----
+# Check if data exists in database
+docker exec -it surface-postgres psql -U surface_user -d surface_db \
+  -c "SELECT COUNT(*) FROM wx_rawdata;"
+
+# Check recent data
+docker exec -it surface-postgres psql -U surface_user -d surface_db \
+  -c "SELECT MAX(datetime) FROM wx_rawdata;"
+
+# Check Celery worker status
+docker logs surface-celery-worker --tail 50
+----
+
+==== Solutions
+
+[cols="1,3"]
+|===
+|Cause |Solution
+
+|Data ingestion not running
+|Check FTP/LRGS configuration; verify Celery worker is running
+
+|Decoder misconfigured
+|Verify decoder and format settings match data files
+
+|Time zone issues
+|Check UTC offset settings for stations
+
+|QC flags excluding data
+|Review QC thresholds; check if all data flagged as "Bad"
+
+|Summaries not calculated
+|Trigger aggregation task manually; check Celery Beat
+|===
+
+=== Celery Tasks Not Running
+
+==== Symptoms
+- Data not being aggregated
+- Exports not completing
+- Scheduled tasks not executing
+
+==== Diagnosis
+
+[source,bash]
+----
+# Check Celery worker status
+docker logs surface-celery-worker
+
+# Check Celery Beat (scheduler)
+docker logs surface-celery-beat
+
+# Check Redis connection
+docker exec -it surface-redis redis-cli ping
+----
+
+==== Solutions
+
+[cols="1,3"]
+|===
+|Cause |Solution
+
+|Worker not running
+|`docker-compose up -d celery_worker`
+
+|Redis connection failed
+|Verify SURFACE_BROKER_URL; restart Redis container
+
+|Beat scheduler stopped
+|Restart Celery Beat: `docker-compose restart celery_beat`
+
+|Task queue backed up
+|Check queue length; add more workers if needed
+|===
+
+=== Login Issues
+
+==== Symptoms
+- Cannot log in with valid credentials
+- Session expires immediately
+- "CSRF verification failed" errors
+
+==== Solutions
+
+[cols="1,3"]
+|===
+|Cause |Solution
+
+|Wrong password
+|Reset via Django admin or `manage.py changepassword`
+
+|User inactive
+|Check "Active" checkbox in Django Admin > Users
+
+|Session/Cache issues
+|Clear browser cookies; restart Memcached
+
+|CSRF errors
+|Ensure HTTPS if required; check ALLOWED_HOSTS setting
+|===
+
+=== Slow Performance
+
+==== Symptoms
+- Pages load slowly
+- Reports take long to generate
+- Database queries timing out
+
+==== Diagnosis
+
+[source,bash]
+----
+# Check system resources
+docker stats
+
+# Check database connections
+docker exec -it surface-postgres psql -U surface_user -d surface_db \
+  -c "SELECT count(*) FROM pg_stat_activity;"
+
+# Check slow queries (if logging enabled)
+docker exec -it surface-postgres psql -U surface_user -d surface_db \
+  -c "SELECT query, calls, mean_time FROM pg_stat_statements ORDER BY mean_time DESC LIMIT 10;"
+----
+
+==== Solutions
+
+[cols="1,3"]
+|===
+|Cause |Solution
+
+|Insufficient memory
+|Increase Docker memory allocation; add RAM to server
+
+|Missing indexes
+|Run `ANALYZE` on database; check query plans
+
+|Cache not working
+|Verify Memcached is running; check cache configuration
+
+|Too much data queried
+|Use smaller date ranges; add pagination
+
+|TimescaleDB compression needed
+|Run compression policy on old data
+|===
+
+=== WIS2 Publishing Failures
+
+==== Symptoms
+- Messages not appearing in WIS2Box
+- "Fail Last 24 hrs" count increasing
+- Publishing status shows errors
+
+==== Diagnosis
+
+[source,bash]
+----
+# Check WIS2 publish logs in Django Admin
+# Navigate to: Admin > Wis2 Box Publish Logs
+
+# Check API logs for WIS2-related errors
+docker logs surface-api | grep -i wis2
+----
+
+==== Solutions
+
+[cols="1,3"]
+|===
+|Cause |Solution
+
+|Invalid credentials
+|Verify WIS2Box credentials in Settings
+
+|Network connectivity
+|Check firewall rules; test connection to WIS2Box
+
+|Missing WSI
+|Ensure station has valid WIGOS Station Identifier
+
+|Data gaps
+|Verify station is receiving data at publish time
+|===
+
+== Database Maintenance
+
+=== Vacuum and Analyze
+
+Regular maintenance improves performance:
+
+[source,bash]
+----
+# Analyze tables for query optimization
+docker exec -it surface-postgres psql -U surface_user -d surface_db \
+  -c "ANALYZE;"
+
+# Vacuum to reclaim space
+docker exec -it surface-postgres psql -U surface_user -d surface_db \
+  -c "VACUUM ANALYZE;"
+----
+
+=== Check Database Size
+
+[source,bash]
+----
+docker exec -it surface-postgres psql -U surface_user -d surface_db \
+  -c "SELECT pg_size_pretty(pg_database_size('surface_db'));"
+----
+
+=== Check Table Sizes
+
+[source,bash]
+----
+docker exec -it surface-postgres psql -U surface_user -d surface_db \
+  -c "SELECT relname, pg_size_pretty(pg_total_relation_size(relid))
+      FROM pg_catalog.pg_statio_user_tables
+      ORDER BY pg_total_relation_size(relid) DESC
+      LIMIT 10;"
+----
+
+== Resetting Components
+
+=== Restart All Services
+
+[source,bash]
+----
+docker-compose restart
+----
+
+=== Restart Specific Service
+
+[source,bash]
+----
+docker-compose restart api
+docker-compose restart celery_worker
+----
+
+=== Full Reset (Caution)
+
+WARNING: This removes all data. Ensure you have backups.
+
+[source,bash]
+----
+# Stop all containers
+docker-compose down
+
+# Remove volumes (DATA LOSS)
+docker-compose down -v
+
+# Rebuild and start
+docker-compose up -d --build
+----
+
+== Getting Help
+
+=== Collecting Diagnostic Information
+
+When reporting issues, include:
+
+1. *SURFACE version* - Check in Django Admin or docker image tags
+2. *Container status* - Output of `docker ps -a`
+3. *Relevant logs* - Last 100 lines of affected container
+4. *Configuration* - Relevant environment variables (redact secrets)
+5. *Steps to reproduce* - What actions lead to the issue
+
+=== Resources
+
+* GitHub Issues: https://github.com/NMS-Belize/surface/issues
+* Email: dscott@nms.gov.bz
+
+=== Creating a Support Bundle
+
+[source,bash]
+----
+# Create diagnostic bundle
+mkdir -p /tmp/surface-diag
+docker ps -a > /tmp/surface-diag/containers.txt
+docker-compose logs --tail 500 > /tmp/surface-diag/logs.txt
+docker stats --no-stream > /tmp/surface-diag/stats.txt
+tar -czf surface-diagnostics.tar.gz /tmp/surface-diag/
+----
+
+== See Also
+
+* <<installation,Installation>> - For setup issues
+* <<configuration,Configuration>> - For settings issues
+* <<backup-restore,Backup and Restore>> - For data recovery

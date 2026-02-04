@@ -1,0 +1,164 @@
+= Station Map
+:imagesdir: ../images
+
+The Station Map is the primary interface for viewing weather station locations and their current data values.
+
+== Accessing the Map
+
+Navigate to *Stations* > *Map* from the main menu.
+
+== Map Interface
+
+=== Station Markers
+
+Stations are displayed as markers on the map with associated data values:
+
+* *Temperature* in Celsius (e.g., 21.4, 22.1)
+* *Barometric pressure* in hPa (e.g., 1010.2)
+* *Wind direction and speed* shown with arrows and values
+* Other variables as configured
+
+=== Map Controls
+
+==== Zoom Controls
+Located in the top-left corner:
+
+* `+` to zoom in
+* `-` to zoom out
+* Mouse scroll wheel for quick zooming
+
+==== Layer Controls
+Click the layers icon to customize the display:
+
+*Overlays:*
+
+* Station markers
+* Data values
+* Administrative boundaries
+* Watersheds
+
+*Basemaps:*
+
+* Standard map
+* Satellite imagery
+* Terrain view
+
+==== Filters
+Click the filter icon to refine displayed stations:
+
+[cols="1,3"]
+|===
+|Filter |Options
+
+|Status
+|Active / Inactive stations
+
+|Type
+|Automatic / Manual stations
+
+|Profile
+|Meteorological, Climatological, Hydrological, Aviation
+
+|Region
+|Filter by administrative region
+
+|Watershed
+|Filter by watershed area
+
+|Communication
+|Filter by communication type
+|===
+
+== Data Display Options
+
+=== Time Selection
+
+Use the dropdown menu (top-left) to select the data timeframe:
+
+* *Current Day (Synoptic)* - Today's observations
+* *Last 24 Hours* - Rolling 24-hour data
+* *Pick a Day* - Select a specific historical date
+
+=== Variable Selection
+
+Choose which variable to display on the map:
+
+* Synoptic (combined view)
+* Precipitation
+* Average Temperature
+* Maximum Temperature
+* Minimum Temperature
+* Relative Humidity
+* Solar Radiation
+* Atmospheric Pressure
+* Wind Speed
+* Wind Direction
+* Wind Gust
+
+TIP: Enable "Show values" checkbox to display numerical values directly on the map.
+
+== Measurement Tools
+
+To measure distances and areas on the map:
+
+1. Click the measurement symbol (ruler icon)
+2. Select "Create a new measurement"
+3. Click points on the map to draw lines or shapes
+4. The tool calculates distance between points or area of selected regions
+
+== Station Information
+
+=== Search
+
+Use the search bar (bottom-left) to find stations by name.
+
+=== Information Panel
+
+The panel displays:
+
+* Total number of visible stations
+* Date and time of most recent data update
+* Current cursor coordinates (latitude/longitude)
+
+=== Station Details
+
+Click on any station marker to view:
+
+* Station name and ID
+* Current data values
+* Communication status
+* Link to detailed station information
+
+== Map Legend
+
+The map legend (typically bottom-right) explains:
+
+* Color coding for data values
+* Station status indicators
+* Variable units and scales
+
+== Synoptic Display
+
+The default "Synoptic" view shows a meteorological chart with:
+
+* Temperature values
+* Wind barbs indicating direction and speed
+* Pressure values
+* Weather conditions
+
+This format follows standard meteorological conventions used in weather analysis.
+
+== Tips for Effective Use
+
+. *Combine filters* - Use multiple filters to focus on specific station subsets
+. *Adjust layers* - Toggle overlays to reduce map clutter
+. *Use zoom* - Zoom in on regions of interest for clearer station separation
+. *Time navigation* - Compare current conditions with historical data using the date picker
+. *Regular monitoring* - Bookmark the map page for daily station checks
+
+
+== See Also
+
+* <<getting-started,Getting Started>> - Introduction to SURFACE
+* <<products-reports,Products and Reports>> - Station reports and analysis
+* <<quality-control,Quality Control>> - Understanding data quality flags

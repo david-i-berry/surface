@@ -1,0 +1,398 @@
+= Agrometeorology
+:imagesdir: ../images
+
+This chapter covers SURFACE's agricultural meteorology features, including agromet summaries, products, and crop modeling with AquaCrop.
+
+== Agrometeorology Overview
+
+SURFACE provides tools for agricultural meteorology applications:
+
+* *Agromet Summaries* - Statistical summaries of weather variables relevant to agriculture
+* *Agromet Products* - Derived agricultural weather products
+* *AquaCrop Integration* - FAO crop water productivity modeling
+
+These features help agricultural planners, farmers, and researchers understand weather impacts on crop production.
+
+== Agromet Summaries
+
+Navigate to *Agrometeorology* > *Summaries* to access agricultural weather summaries.
+
+=== Available Variables
+
+Agromet summaries include variables critical for agriculture:
+
+[cols="1,2,3"]
+|===
+|Variable |Symbol |Agricultural Relevance
+
+|Precipitation
+|precip
+|Water availability for crops
+
+|Maximum Temperature
+|temp_max
+|Heat stress assessment
+
+|Minimum Temperature
+|temp_min
+|Frost risk evaluation
+
+|Average Temperature
+|temp_avg
+|Growing degree day calculations
+
+|Relative Humidity
+|rh
+|Disease pressure, evapotranspiration
+
+|Solar Radiation
+|solar_rad
+|Photosynthesis potential
+
+|Wind Speed
+|wind_spd
+|Evapotranspiration, crop lodging risk
+
+|Evapotranspiration
+|eto
+|Irrigation scheduling
+|===
+
+=== Generating Summaries
+
+1. Navigate to *Agrometeorology* > *Summaries*
+2. Select station(s) of interest
+3. Choose variables to include
+4. Set the time period:
+** Daily
+** Weekly (7-day)
+** Dekadal (10-day)
+** Monthly
+** 3-Month aggregation
+** 6-Month aggregation
+5. Click *Generate*
+
+=== Summary Statistics
+
+For each variable and period, summaries include:
+
+* *Minimum* - Lowest value in period
+* *Maximum* - Highest value in period
+* *Mean* - Average value
+* *Sum* - Total (for cumulative variables like precipitation)
+* *Count* - Number of observations
+
+=== Use Cases
+
+* *Drought monitoring* - Track precipitation deficits
+* *Planting decisions* - Assess soil moisture conditions
+* *Harvest planning* - Monitor temperature and precipitation forecasts
+* *Pest/disease alerts* - Identify conditions favorable for outbreaks
+
+== Agromet Products
+
+Navigate to *Agrometeorology* > *Products* for derived agricultural products.
+
+=== Available Products
+
+[cols="1,3"]
+|===
+|Product |Description
+
+|Growing Degree Days (GDD)
+|Accumulated heat units above base temperature
+
+|Chill Hours
+|Hours below threshold temperature (fruit crops)
+
+|Precipitation Anomaly
+|Departure from normal precipitation
+
+|Temperature Anomaly
+|Departure from normal temperature
+
+|Drought Index
+|Standardized precipitation index
+
+|Heat Stress Days
+|Days exceeding temperature threshold
+
+|Frost Days
+|Days with minimum below freezing
+|===
+
+=== Generating Products
+
+1. Navigate to *Agrometeorology* > *Products*
+2. Select the product type
+3. Choose station(s)
+4. Configure product parameters:
+** Base temperature (for GDD)
+** Threshold values
+** Reference period (for anomalies)
+5. Set date range
+6. Click *Calculate*
+
+=== Product Output
+
+Products are displayed as:
+
+* *Tables* - Numerical values by station and date
+* *Charts* - Time series visualization
+* *Maps* - Spatial distribution (if multiple stations)
+
+== AquaCrop Integration
+
+SURFACE integrates with FAO's AquaCrop model for crop water productivity simulation.
+
+=== What is AquaCrop?
+
+AquaCrop is a crop growth model developed by FAO that simulates:
+
+* Crop yield response to water
+* Biomass production
+* Water use efficiency
+* Irrigation requirements
+
+=== Running AquaCrop Simulations
+
+==== Prerequisites
+
+Before running simulations:
+
+1. Station must have required weather variables:
+** Minimum temperature
+** Maximum temperature
+** Precipitation
+** Reference evapotranspiration (ETo) or data to calculate it
+2. Crop parameters must be configured
+3. Soil parameters must be defined
+
+==== Simulation Steps
+
+1. Navigate to *Agrometeorology* > *AquaCrop*
+2. Select the weather station
+3. Choose crop type from available options
+4. Configure simulation parameters:
++
+[cols="1,3"]
+|===
+|Parameter |Description
+
+|Planting Date
+|Crop sowing/transplanting date
+
+|Soil Type
+|Soil characteristics for water balance
+
+|Initial Water Content
+|Soil moisture at planting
+
+|Irrigation Management
+|Rainfed or irrigated scenario
+|===
+
+5. Set simulation period
+6. Click *Run Simulation*
+
+=== Checking Data Availability
+
+Before running simulations, verify data availability:
+
+1. Navigate to *Agrometeorology* > *AquaCrop* > *Data Availability*
+2. Select station and date range
+3. System displays:
+** Available variables
+** Data completeness percentage
+** Gap identification
+
+=== Simulation Outputs
+
+AquaCrop simulations produce:
+
+==== Crop Growth Metrics
+
+[cols="1,3"]
+|===
+|Output |Description
+
+|Canopy Cover (CC)
+|Percentage ground cover by crop canopy
+
+|Biomass
+|Above-ground dry matter (tonnes/ha)
+
+|Root Depth
+|Root zone depth over time
+
+|Harvest Index
+|Ratio of yield to biomass
+|===
+
+==== Yield Estimates
+
+[cols="1,3"]
+|===
+|Output |Description
+
+|Dry Yield
+|Harvested dry matter (tonnes/ha)
+
+|Fresh Yield
+|Harvested fresh weight (tonnes/ha)
+
+|Yield Potential
+|Maximum achievable yield
+|===
+
+==== Water Balance
+
+[cols="1,3"]
+|===
+|Output |Description
+
+|Evapotranspiration
+|Actual crop water use
+
+|Soil Water Content
+|Daily soil moisture levels
+
+|Water Productivity
+|Yield per unit water consumed
+
+|Irrigation Requirement
+|Water needed to meet crop demand
+|===
+
+=== Interpreting Results
+
+Results are displayed as:
+
+* *Time series charts* - Growth progression over the season
+* *Summary tables* - Final yield and water use statistics
+* *Comparison views* - Multiple scenarios side by side
+
+==== Example Interpretation
+
+----
+Simulation Results:
+- Final Yield: 4.2 tonnes/ha
+- Water Productivity: 1.1 kg/m³
+- Total ET: 380 mm
+- Irrigation Applied: 150 mm
+----
+
+This indicates moderate water use efficiency with supplemental irrigation.
+
+== Crop Configuration
+
+Administrators can configure crop parameters in Django Admin.
+
+=== Available Crops
+
+SURFACE includes pre-configured parameters for common crops:
+
+* Maize (corn)
+* Rice
+* Wheat
+* Soybean
+* Sugarcane
+* Vegetables
+
+=== Adding Custom Crops
+
+1. Access Django Admin > *Crops*
+2. Click *Add Crop*
+3. Configure AquaCrop parameters:
+** Crop name
+** Planting method
+** Growing degree days to maturity
+** Canopy parameters
+** Root depth parameters
+** Harvest index
+4. Save
+
+=== Soil Configuration
+
+Configure soil types in Django Admin > *Soils*:
+
+* Soil texture class
+* Water holding capacity
+* Hydraulic conductivity
+* Initial moisture content
+
+== API Access
+
+Agromet data is available via API for integration with other systems.
+
+=== Endpoints
+
+[source,http]
+----
+# Run AquaCrop simulation
+POST /api/agromet/aquacrop/run/
+
+# Check data availability
+GET /api/agromet/aquacrop/available/
+
+# Get agromet summaries
+GET /wx/agromet/summaries/get/
+
+# Get agromet products
+GET /wx/agromet/products/get/
+----
+
+=== Example API Request
+
+[source,json]
+----
+POST /api/agromet/aquacrop/run/
+{
+    "station_id": 122,
+    "crop_id": 1,
+    "planting_date": "2024-05-15",
+    "soil_id": 2,
+    "start_date": "2024-05-01",
+    "end_date": "2024-10-31"
+}
+----
+
+== Best Practices
+
+=== Data Quality
+
+* Ensure weather stations have complete data for simulation periods
+* Fill gaps using nearby stations or interpolation
+* Validate ETo calculations against pan evaporation where available
+
+=== Simulation Accuracy
+
+* Use locally calibrated crop parameters when available
+* Validate model outputs against observed yields
+* Run multiple scenarios to assess uncertainty
+
+=== Operational Use
+
+* Update simulations regularly during growing season
+* Combine with weather forecasts for irrigation scheduling
+* Archive results for climate trend analysis
+
+== Limitations
+
+* AquaCrop is a water-driven model; nutrient limitations not fully captured
+* Pest and disease impacts not simulated
+* Requires quality weather data for accurate results
+* Crop parameters may need local calibration
+
+== Further Reading
+
+* FAO AquaCrop Reference Manual: http://www.fao.org/aquacrop
+* AquaCrop Training Materials: http://www.fao.org/aquacrop/resources
+
+
+== See Also
+
+* <<products-reports,Products and Reports>> - Weather analysis and reports
+* <<data-management,Data Management>> - Exporting agromet data
+* <<api-reference,API Reference>> - AquaCrop API endpoints
+* <<glossary,Glossary>> - Agricultural meteorology terminology

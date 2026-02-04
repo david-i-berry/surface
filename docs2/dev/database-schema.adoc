@@ -1,0 +1,801 @@
+= Database Schema
+:imagesdir: ../images
+
+This chapter documents the SURFACE database structure.
+
+== Database Overview
+
+SURFACE uses PostgreSQL with two key extensions:
+
+* *TimescaleDB* - Time-series data optimization
+* *PostGIS* - Geographic/spatial queries
+
+== Core Entity Relationships
+
+----
+Country
+   └── AdministrativeRegion
+          └── District
+                 └── Station
+                        ├── StationVariable → Variable → Unit
+                        ├── Equipment → EquipmentType → Manufacturer
+                        ├── MaintenanceReport → Technician
+                        ├── RawData (hypertable)
+                        ├── HourlySummary (hypertable)
+                        ├── DailySummary (hypertable)
+                        ├── MonthlySummary
+                        └── YearlySummary
+----
+
+== Station Tables
+
+=== Station
+
+Core station metadata.
+
+[cols="1,1,3"]
+|===
+|Column |Type |Description
+
+|id
+|integer
+|Primary key
+
+|code
+|varchar
+|Station identifier
+
+|name
+|varchar
+|Station name
+
+|alias_name
+|varchar
+|Alternate name
+
+|latitude
+|decimal
+|Decimal degrees
+
+|longitude
+|decimal
+|Decimal degrees
+
+|elevation
+|decimal
+|Meters ASL
+
+|is_active
+|boolean
+|Operational status
+
+|is_automatic
+|boolean
+|AWS vs manual
+
+|begin_date
+|date
+|Start of operations
+
+|end_date
+|date
+|End of operations (if applicable)
+
+|utc_offset_minutes
+|integer
+|Time zone offset
+
+|wsi
+|varchar
+|WIGOS Station Identifier
+
+|wmo_station_type
+|FK
+|WMO classification
+
+|wmo_region
+|FK
+|WMO regional association
+
+|country
+|FK
+|Country reference
+
+|region
+|FK
+|Administrative region
+
+|watershed
+|FK
+|Watershed reference
+
+|communication
+|FK
+|Communication type
+
+|profile
+|FK
+|Station profile
+|===
+
+=== StationVariable
+
+Variables measured at each station.
+
+[cols="1,1,3"]
+|===
+|Column |Type |Description
+
+|id
+|integer
+|Primary key
+
+|station
+|FK
+|Station reference
+
+|variable
+|FK
+|Variable reference
+
+|first_measurement
+|timestamp
+|First data point
+
+|last_measurement
+|timestamp
+|Most recent data
+
+|height
+|decimal
+|Sensor height (meters)
+|===
+
+=== StationProfile
+
+Station classification profiles.
+
+[cols="1,1,3"]
+|===
+|Column |Type |Description
+
+|id
+|integer
+|Primary key
+
+|name
+|varchar
+|Profile name (Meteorological, Hydrological, etc.)
+
+|description
+|text
+|Profile description
+|===
+
+== Variable Tables
+
+=== Variable
+
+Measurement variable definitions.
+
+[cols="1,1,3"]
+|===
+|Column |Type |Description
+
+|id
+|integer
+|Primary key
+
+|name
+|varchar
+|Variable name
+
+|symbol
+|varchar
+|Short symbol
+
+|unit
+|FK
+|Unit reference
+
+|physical_quantity
+|FK
+|Physical quantity type
+
+|sampling_operation
+|FK
+|How values are sampled
+|===
+
+=== Unit
+
+Units of measurement.
+
+[cols="1,1,3"]
+|===
+|Column |Type |Description
+
+|id
+|integer
+|Primary key
+
+|name
+|varchar
+|Unit name
+
+|symbol
+|varchar
+|Unit symbol
+|===
+
+=== Interval
+
+Data collection intervals.
+
+[cols="1,1,3"]
+|===
+|Column |Type |Description
+
+|id
+|integer
+|Primary key
+
+|symbol
+|varchar
+|Interval code
+
+|description
+|varchar
+|Description
+
+|seconds
+|integer
+|Duration in seconds
+|===
+
+== Time-Series Tables (Hypertables)
+
+=== RawData
+
+Native measurements from stations.
+
+[cols="1,1,3"]
+|===
+|Column |Type |Description
+
+|datetime
+|timestamp
+|Observation time (partition key)
+
+|station
+|FK
+|Station reference
+
+|variable
+|FK
+|Variable reference
+
+|measured
+|decimal
+|Measured value
+
+|quality_flag
+|FK
+|QC flag
+
+|interval
+|FK
+|Measurement interval
+
+|ml_flag
+|integer
+|Machine learning flag
+
+|manual_flag
+|integer
+|Manual QC flag
+
+|consisted
+|boolean
+|Consistency check result
+
+|remarks
+|text
+|Notes
+|===
+
+=== HourlySummary
+
+Hourly aggregations from raw data.
+
+[cols="1,1,3"]
+|===
+|Column |Type |Description
+
+|datetime
+|timestamp
+|Hour start (partition key)
+
+|station
+|FK
+|Station reference
+
+|variable
+|FK
+|Variable reference
+
+|min_value
+|decimal
+|Minimum in hour
+
+|max_value
+|decimal
+|Maximum in hour
+
+|avg_value
+|decimal
+|Average
+
+|sum_value
+|decimal
+|Sum (for cumulative vars)
+
+|count
+|integer
+|Number of observations
+
+|quality_flag
+|FK
+|Dominant QC flag
+|===
+
+=== DailySummary
+
+Daily aggregations from hourly data.
+
+[cols="1,1,3"]
+|===
+|Column |Type |Description
+
+|day
+|date
+|Date (partition key)
+
+|station
+|FK
+|Station reference
+
+|variable
+|FK
+|Variable reference
+
+|min_value
+|decimal
+|Daily minimum
+
+|max_value
+|decimal
+|Daily maximum
+
+|avg_value
+|decimal
+|Daily average
+
+|sum_value
+|decimal
+|Daily sum
+
+|count
+|integer
+|Number of observations
+|===
+
+=== MonthlySummary / YearlySummary
+
+Similar structure to DailySummary with monthly/yearly aggregations.
+
+== Quality Control Tables
+
+=== QualityFlag
+
+Quality flag definitions.
+
+[cols="1,1,3"]
+|===
+|Column |Type |Description
+
+|id
+|integer
+|Primary key
+
+|symbol
+|varchar
+|Flag symbol
+
+|name
+|varchar
+|Flag name
+
+|description
+|text
+|Description
+|===
+
+Standard flags:
+
+* 1 = Not Checked
+* 2 = Suspicious
+* 3 = Bad
+* 4 = Good
+
+=== QcRangeThreshold
+
+Range check limits.
+
+[cols="1,1,3"]
+|===
+|Column |Type |Description
+
+|id
+|integer
+|Primary key
+
+|station
+|FK
+|Station (null for global)
+
+|variable
+|FK
+|Variable reference
+
+|interval
+|FK
+|Measurement interval
+
+|min_value
+|decimal
+|Minimum allowed
+
+|max_value
+|decimal
+|Maximum allowed
+
+|reference_station
+|FK
+|Reference station (for reference limits)
+|===
+
+=== QcStepThreshold
+
+Step check limits.
+
+[cols="1,1,3"]
+|===
+|Column |Type |Description
+
+|id
+|integer
+|Primary key
+
+|station
+|FK
+|Station reference
+
+|variable
+|FK
+|Variable reference
+
+|interval
+|FK
+|Measurement interval
+
+|step_value
+|decimal
+|Maximum allowed step
+|===
+
+=== QcPersistThreshold
+
+Persistence check limits.
+
+[cols="1,1,3"]
+|===
+|Column |Type |Description
+
+|id
+|integer
+|Primary key
+
+|station
+|FK
+|Station reference
+
+|variable
+|FK
+|Variable reference
+
+|interval
+|FK
+|Measurement interval
+
+|duration
+|integer
+|Check duration (seconds)
+
+|variance
+|decimal
+|Minimum required variance
+|===
+
+== Equipment Tables
+
+=== Equipment
+
+Equipment inventory.
+
+[cols="1,1,3"]
+|===
+|Column |Type |Description
+
+|id
+|integer
+|Primary key
+
+|equipment_type
+|FK
+|Equipment type
+
+|model
+|FK
+|Equipment model
+
+|serial_number
+|varchar
+|Serial number
+
+|acquisition_date
+|date
+|When received
+
+|status
+|varchar
+|Current status
+
+|station
+|FK
+|Current station (if deployed)
+|===
+
+=== EquipmentType
+
+Equipment classifications.
+
+[cols="1,1,3"]
+|===
+|Column |Type |Description
+
+|id
+|integer
+|Primary key
+
+|name
+|varchar
+|Type name
+
+|description
+|text
+|Description
+|===
+
+=== MaintenanceReport
+
+Station maintenance records.
+
+[cols="1,1,3"]
+|===
+|Column |Type |Description
+
+|id
+|integer
+|Primary key
+
+|station
+|FK
+|Station reference
+
+|visit_date
+|date
+|Date of visit
+
+|visit_type
+|FK
+|Type of visit
+
+|technician
+|FK
+|Lead technician
+
+|status
+|varchar
+|Report status (draft/published/approved)
+
+|initial_description
+|text
+|Station condition on arrival
+
+|summary
+|text
+|Work summary
+
+|next_visit_date
+|date
+|Scheduled next visit
+|===
+
+== Geographic Tables
+
+=== Country
+
+[cols="1,1,3"]
+|===
+|Column |Type |Description
+
+|id
+|integer
+|Primary key
+
+|name
+|varchar
+|Country name
+
+|code
+|varchar
+|Country code
+
+|geometry
+|geometry
+|Country boundary (PostGIS)
+|===
+
+=== AdministrativeRegion
+
+Regional boundaries.
+
+=== District
+
+District boundaries.
+
+=== Watershed
+
+Watershed boundaries with PostGIS geometry.
+
+== Data Ingestion Tables
+
+=== Decoder
+
+Data format decoders.
+
+[cols="1,1,3"]
+|===
+|Column |Type |Description
+
+|id
+|integer
+|Primary key
+
+|name
+|varchar
+|Decoder name
+
+|description
+|text
+|Description
+
+|format
+|FK
+|Associated format
+|===
+
+=== DataSource
+
+External data sources.
+
+=== StationFileIngestion
+
+FTP ingestion configuration.
+
+=== NoaaDcp / NoaaDcpsStation
+
+NOAA DCP satellite configuration.
+
+== WIS2 Tables
+
+=== Wis2BoxPublish
+
+WIS2 publishing configuration per station.
+
+=== Wis2PublishOffset
+
+Time offsets for WIS2 delivery.
+
+=== LocalWisCredentials / RegionalWisCredentials
+
+WIS2Box connection credentials.
+
+=== Wis2BoxPublishLogs
+
+Publishing audit logs.
+
+== Permission Tables
+
+=== WxPermissionPages
+
+Page-level permission definitions.
+
+=== WxGroupPageAccess
+
+Group access to pages.
+
+== TimescaleDB Configuration
+
+=== Hypertable Setup
+
+[source,sql]
+----
+SELECT create_hypertable('wx_rawdata', 'datetime');
+SELECT create_hypertable('wx_hourlysummary', 'datetime');
+SELECT create_hypertable('wx_dailysummary', 'day');
+----
+
+=== Compression Policy
+
+[source,sql]
+----
+SELECT add_compression_policy('wx_rawdata', INTERVAL '7 days');
+----
+
+=== Retention Policy
+
+[source,sql]
+----
+SELECT add_retention_policy('wx_rawdata', INTERVAL '2 years');
+----
+
+== Index Recommendations
+
+Key indexes for query performance:
+
+[source,sql]
+----
+-- Station-time queries
+CREATE INDEX idx_rawdata_station_datetime
+    ON wx_rawdata (station_id, datetime DESC);
+
+-- Variable queries
+CREATE INDEX idx_rawdata_variable_datetime
+    ON wx_rawdata (variable_id, datetime DESC);
+
+-- Geographic queries
+CREATE INDEX idx_station_location
+    ON wx_station USING GIST (location);
+----
+
+== Migration Notes
+
+Django manages schema migrations in:
+----
+api/wx/migrations/
+----
+
+Apply migrations with:
+[source,bash]
+----
+python manage.py migrate
+----
+
+
+== See Also
+
+* <<architecture,Architecture>> - System architecture overview
+* <<api-reference,API Reference>> - Data access via API
+* <<contributing,Contributing>> - Database development guidelines

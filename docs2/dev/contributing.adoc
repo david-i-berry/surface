@@ -1,0 +1,376 @@
+= Contributing
+:imagesdir: ../images
+
+This chapter provides guidelines for contributing to SURFACE development.
+
+== Getting Started
+
+=== Prerequisites
+
+* Python 3.11+
+* Docker and Docker Compose
+* Git
+* PostgreSQL client tools (optional, for debugging)
+
+=== Clone Repository
+
+[source,bash]
+----
+git clone https://github.com/NMS-Belize/surface.git
+cd surface
+----
+
+=== Development Setup
+
+==== Using Docker (Recommended)
+
+[source,bash]
+----
+# Copy environment template
+cp api/production.env.example api/production.env
+
+# Edit production.env with development values
+
+# Build and start containers
+docker-compose up -d --build
+
+# Run migrations
+docker exec -it surface-api python manage.py migrate
+
+# Create superuser
+docker exec -it surface-api python manage.py createsuperuser
+----
+
+==== Local Python Environment
+
+[source,bash]
+----
+cd api
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# or: venv\Scripts\activate  # Windows
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+export $(cat production.env | xargs)
+
+# Run migrations
+python manage.py migrate
+
+# Start development server
+python manage.py runserver
+----
+
+== Project Structure
+
+----
+surface/
+├── api/                        # Django project root
+│   ├── tempestas_api/          # Project configuration
+│   │   ├── settings.py         # Django settings
+│   │   ├── celery.py           # Celery configuration
+│   │   └── urls.py             # Root URL configuration
+│   ├── wx/                     # Main application
+│   │   ├── models.py           # Database models
+│   │   ├── views.py            # View logic
+│   │   ├── serializers.py      # API serializers
+│   │   ├── urls.py             # URL routing
+│   │   ├── tasks.py            # Celery tasks
+│   │   ├── admin.py            # Admin configuration
+│   │   ├── decoders/           # Data format parsers
+│   │   ├── migrations/         # Database migrations
+│   │   └── templates/          # HTML templates
+│   ├── fixtures/               # Initial data
+│   ├── static/                 # Static files
+│   ├── requirements.txt        # Python dependencies
+│   └── Dockerfile              # API container definition
+├── nginx/                      # Nginx configuration
+├── docker-compose.yml          # Container orchestration
+└── docs/                       # Documentation
+----
+
+== Coding Standards
+
+=== Python Style
+
+* Follow PEP 8 guidelines
+* Use 4 spaces for indentation
+* Maximum line length: 120 characters
+* Use type hints where practical
+
+=== Django Conventions
+
+* Use class-based views when appropriate
+* Keep views thin, logic in models/services
+* Use Django REST Framework for APIs
+* Follow Django naming conventions
+
+=== Documentation
+
+* Document all public functions with docstrings
+* Use Google-style docstrings
+* Keep README and docs updated
+
+Example docstring:
+[source,python]
+----
+def calculate_daily_summary(station_id: int, date: datetime.date) -> dict:
+    """Calculate daily summary statistics for a station.
+
+    Args:
+        station_id: Database ID of the station.
+        date: Date for which to calculate summary.
+
+    Returns:
+        Dictionary containing min, max, avg, and count values.
+
+    Raises:
+        Station.DoesNotExist: If station_id is invalid.
+    """
+----
+
+== Making Changes
+
+=== Branch Naming
+
+Use descriptive branch names:
+
+* `feature/add-climate-report` - New features
+* `bugfix/fix-data-export` - Bug fixes
+* `docs/update-api-reference` - Documentation
+* `refactor/improve-decoder` - Code improvements
+
+=== Commit Messages
+
+Write clear, descriptive commit messages:
+
+----
+Add climate extremes report for monthly summaries
+
+- Add new view for climate extremes calculation
+- Create serializer for extremes response
+- Add URL routing for /api/climate-extremes/
+- Include unit tests for edge cases
+----
+
+=== Testing
+
+==== Run Tests
+
+[source,bash]
+----
+# In Docker
+docker exec -it surface-api python manage.py test
+
+# Local
+python manage.py test
+----
+
+==== Write Tests
+
+Create tests in `wx/tests/`:
+
+[source,python]
+----
+from django.test import TestCase
+from wx.models import Station
+
+class StationModelTest(TestCase):
+    def setUp(self):
+        self.station = Station.objects.create(
+            name="Test Station",
+            code="TEST001",
+            latitude=17.25,
+            longitude=-88.77
+        )
+
+    def test_station_creation(self):
+        self.assertEqual(self.station.name, "Test Station")
+        self.assertTrue(self.station.is_active)
+----
+
+== Pull Request Process
+
+=== Before Submitting
+
+1. Ensure code follows style guidelines
+2. Run all tests and verify they pass
+3. Update documentation if needed
+4. Rebase on latest main branch
+
+=== PR Description
+
+Include in your pull request:
+
+* Summary of changes
+* Motivation and context
+* Type of change (feature, fix, docs)
+* Testing performed
+* Screenshots (for UI changes)
+
+=== Review Process
+
+1. Submit PR to `dev` branch
+2. Automated tests run
+3. Maintainer reviews code
+4. Address feedback
+5. Merge when approved
+
+== Development Workflow
+
+=== Local Development
+
+[source,bash]
+----
+# Start containers
+docker-compose up -d
+
+# Watch logs
+docker-compose logs -f api
+
+# Run Django commands
+docker exec -it surface-api python manage.py <command>
+
+# Restart after code changes
+docker-compose restart api
+----
+
+=== Database Operations
+
+[source,bash]
+----
+# Access database shell
+docker exec -it surface-postgres psql -U surface_user -d surface_db
+
+# Create new migration
+docker exec -it surface-api python manage.py makemigrations
+
+# Apply migrations
+docker exec -it surface-api python manage.py migrate
+----
+
+=== Celery Development
+
+[source,bash]
+----
+# View worker logs
+docker-compose logs -f celery_worker
+
+# Test task manually
+docker exec -it surface-api python manage.py shell
+>>> from wx.tasks import your_task
+>>> your_task.delay(args)
+----
+
+== Adding New Features
+
+=== New API Endpoint
+
+1. Create serializer in `serializers.py`
+2. Create view in `views.py`
+3. Add URL route in `urls.py`
+4. Write tests
+5. Document in API reference
+
+=== New Data Decoder
+
+1. Create decoder file in `wx/decoders/`
+2. Implement parse function
+3. Register in decoder factory
+4. Add Django admin configuration
+5. Test with sample data
+
+=== New Celery Task
+
+1. Define task in `tasks.py`
+2. Configure schedule in Celery Beat (if periodic)
+3. Add error handling
+4. Test task execution
+
+== Debugging
+
+=== Django Debug Toolbar
+
+Enable in development settings:
+[source,python]
+----
+INSTALLED_APPS += ['debug_toolbar']
+MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware']
+----
+
+=== Logging
+
+[source,python]
+----
+import logging
+logger = logging.getLogger(__name__)
+
+logger.debug("Debug message")
+logger.info("Info message")
+logger.warning("Warning message")
+logger.error("Error message")
+----
+
+=== Database Queries
+
+[source,python]
+----
+from django.db import connection
+# After query
+print(connection.queries[-1])
+----
+
+== Community
+
+=== Communication
+
+* GitHub Issues: Bug reports and feature requests
+* Pull Requests: Code contributions
+* Email: dscott@nms.gov.bz for general inquiries
+
+=== Code of Conduct
+
+* Be respectful and inclusive
+* Provide constructive feedback
+* Help others learn and grow
+* Focus on the code, not the person
+
+== Release Process
+
+=== Version Numbering
+
+SURFACE follows semantic versioning: `MAJOR.MINOR.PATCH`
+
+* MAJOR: Breaking changes
+* MINOR: New features (backwards compatible)
+* PATCH: Bug fixes
+
+=== Release Cycle
+
+* Beta releases: November (planned)
+* Stable releases: May (planned)
+* Patches: As needed
+
+== Resources
+
+* Django Documentation: https://docs.djangoproject.com/
+* Django REST Framework: https://www.django-rest-framework.org/
+* Celery Documentation: https://docs.celeryq.dev/
+* TimescaleDB: https://docs.timescale.com/
+* PostGIS: https://postgis.net/documentation/
+
+== License
+
+SURFACE is released under the GNU General Public License v3.0. By contributing, you agree to license your contributions under the same license.
+
+
+== See Also
+
+* <<architecture,Architecture>> - System architecture overview
+* <<api-reference,API Reference>> - API endpoint documentation
+* <<database-schema,Database Schema>> - Database structure
+* <<installation,Installation>> - Development environment setup

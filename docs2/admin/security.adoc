@@ -1,0 +1,408 @@
+= Security
+:imagesdir: ../images
+
+This chapter covers security best practices for SURFACE deployments.
+
+== Security Overview
+
+SURFACE handles sensitive meteorological data and user credentials. Proper security configuration is essential for production deployments.
+
+== Authentication Security
+
+=== Password Policies
+
+Implement strong password requirements:
+
+* Minimum 12 characters
+* Mix of uppercase, lowercase, numbers, and symbols
+* No dictionary words or common patterns
+* Regular rotation (every 90 days recommended)
+
+=== Admin Account Protection
+
+1. Change default admin password immediately after installation
+2. Limit number of admin accounts
+3. Use unique passwords for each admin
+4. Enable two-factor authentication (if available)
+
+=== Session Security
+
+Configure session settings in Django:
+
+[source,python]
+----
+# Recommended session settings (in settings.py or environment)
+SESSION_COOKIE_SECURE = True          # HTTPS only
+SESSION_COOKIE_HTTPONLY = True        # No JavaScript access
+SESSION_COOKIE_AGE = 3600             # 1 hour timeout
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+----
+
+=== API Token Security
+
+* Generate unique tokens per user/application
+* Rotate tokens periodically
+* Revoke tokens when no longer needed
+* Never share tokens in logs or error messages
+
+== HTTPS/SSL Configuration
+
+=== Why HTTPS is Essential
+
+* Encrypts data in transit
+* Prevents credential interception
+* Required for secure cookies
+* Builds user trust
+
+=== Option 1: Let's Encrypt with Certbot
+
+Free SSL certificates from Let's Encrypt:
+
+[source,bash]
+----
+# Install Certbot
+sudo apt install certbot python3-certbot-nginx
+
+# Obtain certificate
+sudo certbot --nginx -d your-domain.com
+
+# Auto-renewal (cron job)
+0 0 * * * certbot renew --quiet
+----
+
+=== Option 2: Commercial SSL Certificate
+
+1. Purchase certificate from trusted CA
+2. Generate CSR (Certificate Signing Request)
+3. Install certificate files
+4. Configure Nginx
+
+=== Nginx SSL Configuration
+
+Update `nginx/nginx.conf`:
+
+[source,nginx]
+----
+server {
+    listen 80;
+    server_name your-domain.com;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name your-domain.com;
+
+    ssl_certificate /etc/nginx/ssl/fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/privkey.pem;
+
+    # Modern SSL configuration
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
+    ssl_prefer_server_ciphers off;
+
+    # HSTS (optional but recommended)
+    add_header Strict-Transport-Security "max-age=63072000" always;
+
+    # Other headers
+    add_header X-Frame-Options DENY;
+    add_header X-Content-Type-Options nosniff;
+    add_header X-XSS-Protection "1; mode=block";
+
+    location / {
+        proxy_pass http://api:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+----
+
+== Firewall Configuration
+
+=== Required Ports
+
+[cols="1,2,2"]
+|===
+|Port |Service |Access
+
+|22
+|SSH
+|Admin IPs only
+
+|80
+|HTTP
+|Redirect to HTTPS
+
+|443
+|HTTPS
+|Public (or restricted)
+
+|8080
+|SURFACE (if no reverse proxy)
+|Internal network
+|===
+
+=== UFW (Ubuntu Firewall)
+
+[source,bash]
+----
+# Enable firewall
+sudo ufw enable
+
+# Allow SSH (from specific IP)
+sudo ufw allow from 192.168.1.0/24 to any port 22
+
+# Allow HTTPS
+sudo ufw allow 443/tcp
+
+# Allow HTTP (for Let's Encrypt)
+sudo ufw allow 80/tcp
+
+# Deny direct access to application port
+sudo ufw deny 8080
+
+# Check status
+sudo ufw status
+----
+
+=== iptables Alternative
+
+[source,bash]
+----
+# Allow established connections
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# Allow SSH from specific subnet
+iptables -A INPUT -p tcp -s 192.168.1.0/24 --dport 22 -j ACCEPT
+
+# Allow HTTP/HTTPS
+iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+iptables -A INPUT -p tcp --dport 443 -j ACCEPT
+
+# Drop everything else
+iptables -A INPUT -j DROP
+----
+
+== Database Security
+
+=== Password Protection
+
+* Use strong, unique database passwords
+* Never use default credentials
+* Store credentials in environment variables, not code
+
+=== Network Isolation
+
+Database should not be accessible from outside Docker network:
+
+[source,yaml]
+----
+# docker-compose.yml - database without exposed ports
+postgres:
+  # ports:           # Comment out to prevent external access
+  #   - "5432:5432"
+  networks:
+    - internal
+----
+
+=== Backup Encryption
+
+Encrypt backup files before transfer:
+
+[source,bash]
+----
+# Encrypt backup with GPG
+gpg --symmetric --cipher-algo AES256 backup.sql
+
+# Decrypt when needed
+gpg --decrypt backup.sql.gpg > backup.sql
+----
+
+== Secrets Management
+
+=== Environment Variables
+
+Never commit secrets to version control:
+
+[source,bash]
+----
+# .gitignore
+production.env
+*.key
+*.pem
+----
+
+=== Secret Generation
+
+Generate secure secrets:
+
+[source,bash]
+----
+# Django secret key
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+
+# Fernet encryption key
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+
+# Random password
+openssl rand -base64 32
+----
+
+=== Encryption Key Security
+
+The `SURFACE_SECRET_ENCRYPTION_KEY` is critical:
+
+* *Never* share or expose this key
+* Changing it will make existing encrypted data unreadable
+* Store a backup in a secure location (password manager, vault)
+* Same key must be used when restoring backups
+
+== Container Security
+
+=== Keep Images Updated
+
+Regularly update Docker images:
+
+[source,bash]
+----
+# Pull latest images
+docker-compose pull
+
+# Rebuild with updates
+docker-compose up -d --build
+----
+
+=== Read-Only Containers
+
+Where possible, run containers as read-only:
+
+[source,yaml]
+----
+services:
+  nginx:
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+----
+
+=== Non-Root Users
+
+Run containers as non-root when possible (already configured in SURFACE images).
+
+== Access Control
+
+=== Principle of Least Privilege
+
+* Give users minimum required permissions
+* Use role-based access (Guest, Data Entry, etc.)
+* Regularly audit user permissions
+* Disable inactive accounts
+
+=== IP Restrictions
+
+Restrict admin access by IP:
+
+[source,nginx]
+----
+# Nginx location block for admin
+location /admin/ {
+    allow 192.168.1.0/24;
+    deny all;
+    proxy_pass http://api:8000;
+}
+----
+
+== Logging and Monitoring
+
+=== Enable Security Logging
+
+Configure Django to log security events:
+
+[source,python]
+----
+LOGGING = {
+    'handlers': {
+        'security': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': '/var/log/surface/security.log',
+        },
+    },
+    'loggers': {
+        'django.security': {
+            'handlers': ['security'],
+            'level': 'INFO',
+        },
+    },
+}
+----
+
+=== Monitor Failed Logins
+
+Watch for brute force attempts:
+
+[source,bash]
+----
+# Check for failed logins
+grep -i "failed" /var/log/surface/security.log
+----
+
+=== Set Up Alerts
+
+Consider tools like:
+* Fail2ban - Block IPs after failed login attempts
+* Prometheus/Grafana - Monitor system metrics
+* ELK Stack - Centralized log analysis
+
+== Security Checklist
+
+=== Initial Setup
+
+* [ ] Change all default passwords
+* [ ] Generate unique secret keys
+* [ ] Configure HTTPS/SSL
+* [ ] Enable firewall
+* [ ] Disable unnecessary ports
+
+=== Ongoing Maintenance
+
+* [ ] Update Docker images monthly
+* [ ] Rotate passwords quarterly
+* [ ] Review user accounts monthly
+* [ ] Check logs for anomalies weekly
+* [ ] Test backup restoration quarterly
+
+=== Before Going Public
+
+* [ ] Security audit completed
+* [ ] HTTPS enforced
+* [ ] Admin area IP-restricted
+* [ ] Rate limiting configured
+* [ ] Error messages don't leak information
+
+== Incident Response
+
+=== If Credentials are Compromised
+
+1. Immediately change affected passwords
+2. Revoke API tokens
+3. Review recent activity logs
+4. Notify affected users
+5. Investigate source of breach
+
+=== If Server is Compromised
+
+1. Isolate affected system
+2. Preserve logs for analysis
+3. Restore from known-good backup
+4. Change all credentials
+5. Review and patch vulnerability
+
+== See Also
+
+* <<configuration,Configuration>> - Environment variable settings
+* <<backup-restore,Backup and Restore>> - Data protection
+* <<troubleshooting,Troubleshooting>> - Diagnosing security issues

@@ -1,0 +1,394 @@
+= Station Management
+:imagesdir: ../images
+
+This chapter covers creating, configuring, and managing weather stations in SURFACE.
+
+== Station Overview
+
+Stations are the core entities in SURFACE, representing physical observation locations that collect meteorological and hydrological data.
+
+== Creating a Station
+
+Navigate to *Stations* > *Create Station*.
+
+=== Step 1: Integration Options
+
+Toggle integration with external systems:
+
+* *OSCAR Association* - Enable metadata export to WMO OSCAR
+* *WIS2Box Association* - Enable data publishing to WIS2
+
+=== Step 2: Select Location
+
+1. Navigate the map to your station's location
+2. Click on the map to place the station marker
+3. Latitude and longitude are automatically populated
+
+TIP: Use zoom controls and search to locate the exact position.
+
+=== Step 3: Enter Required Metadata
+
+[cols="1,3"]
+|===
+|Field |Description
+
+|Station Name
+|Official name of the station
+
+|Station ID (Local)
+|Your organization's identifier
+
+|Latitude
+|Decimal degrees (auto-filled from map)
+
+|Longitude
+|Decimal degrees (auto-filled from map)
+
+|Elevation
+|Height above sea level (meters)
+
+|UTC Offset
+|Time zone offset from UTC (minutes)
+
+|Country
+|Country where station is located
+
+|Administrative Region
+|Regional/state location
+
+|Station Start Date
+|When station became operational
+
+|Communication Type
+|How station transmits data
+|===
+
+=== Step 4: Station Flags
+
+[cols="1,3"]
+|===
+|Flag |Meaning
+
+|Active Station
+|Station is currently operational
+
+|Automatic Station
+|Station is automated (AWS)
+
+|Synoptic Station
+|Station performs manual synoptic observations
+
+|Enable Publishing to WIS2
+|Hourly data published to WIS2Box
+|===
+
+=== Step 5: WIS2 Metadata (if enabled)
+
+If WIS2Box association is enabled:
+
+[cols="1,3"]
+|===
+|Field |Description
+
+|WSI Number
+|WIGOS Station Identifier
+
+|WMO Region
+|WMO regional association (I-VI)
+
+|WMO Station Type
+|Classification (surface, upper-air, etc.)
+
+|WMO Reporting Status
+|Operational status
+|===
+
+=== Step 6: OSCAR Integration (if enabled)
+
+1. Toggle the OSCAR API token option
+2. Paste your OSCAR API token
+3. Submit to create the station in OSCAR
+
+NOTE: Currently SURFACE creates new OSCAR entries. Update functionality is planned.
+
+=== Step 7: Save
+
+Click *Submit* to create the station.
+
+== Station List
+
+Navigate to *Stations* > *List* to view all stations.
+
+=== Columns
+
+[cols="1,3"]
+|===
+|Column |Description
+
+|Code
+|Station ID
+
+|Name
+|Station name
+
+|Alias Name
+|Alternate name
+
+|Profile
+|Station profile (Meteorological, Hydrological, etc.)
+
+|Status
+|Active (True) or Inactive (False)
+
+|Type
+|Automatic (True) or Manual (False)
+
+|Watershed
+|Associated watershed
+
+|District
+|Administrative district
+
+|UTC Offset
+|Time zone offset in minutes
+
+|Longitude/Latitude
+|Geographic coordinates
+
+|Elevation
+|Height in meters
+
+|Comm. Type
+|Communication method
+
+|Last Update
+|Last metadata modification
+|===
+
+=== Actions
+
+* Click column headers to sort
+* Use search to filter stations
+* Click *Add Station* to create new station
+
+== Station Metadata
+
+Navigate to *Stations* > *Metadata* to view and edit detailed station information.
+
+=== Selecting a Station
+
+Use the dropdown to select a station alphabetically.
+
+=== Metadata Sections
+
+==== Station Information
+Core details including name, ID, location, status, dates, and classification.
+
+==== Local Environment
+Description of the station's surroundings:
+* Land use (urban, rural, forest)
+* Nearby features and obstructions
+* Surface type and vegetation
+
+==== Instrumentation and Maintenance
+Equipment details:
+* Sensor types and models
+* Calibration history
+* Maintenance records
+
+==== Observing Practices
+Observation methods:
+* Frequency (hourly, daily)
+* Manual vs automatic readings
+* QC procedures applied
+
+==== Data Processing
+How data is handled:
+* Processing algorithms
+* Corrections and filtering
+* Software used
+
+==== Historical Events
+Significant changes:
+* Station relocations
+* Equipment upgrades
+* Outages and failures
+
+==== Other Metadata
+Additional information:
+* Administrative notes
+* Related datasets
+* Custom fields
+
+=== Metadata Actions
+
+[cols="1,3"]
+|===
+|Button |Function
+
+|METADATA
+|View full metadata details
+
+|EDIT
+|Modify station configuration
+
+|FILES
+|Access related documents and data files
+
+|VARIABLES
+|Manage measured variables
+
+|DELETE
+|Remove station (requires confirmation)
+
+|STATION LIST
+|Return to station list
+|===
+
+== Managing Station Variables
+
+Station variables define what measurements a station records.
+
+=== Viewing Variables
+
+1. Select station from *Metadata* page
+2. Click *VARIABLES* button
+3. View list of configured variables
+
+=== Variable Configuration
+
+Each variable includes:
+
+* Variable name and type
+* Measurement unit
+* Data interval
+* QC thresholds
+* Aggregation settings
+
+=== Adding Variables
+
+1. Access Django Admin > Station Variables
+2. Click *Add Station Variable*
+3. Select station and variable
+4. Configure interval and settings
+5. Save
+
+== Station Monitoring
+
+Navigate to *Stations* > *Monitoring* for real-time station health.
+
+=== Map View
+
+Stations are color-coded by recent data count:
+
+[cols="1,2,2"]
+|===
+|Color |Observations (24h) |Status
+
+|Green
+|20 or more
+|Good communication
+
+|Yellow
+|8-19
+|Moderate communication
+
+|Orange
+|1-7
+|Low communication
+
+|White
+|None
+|No communication
+|===
+
+=== Filters
+
+* *Communication* dropdown - Select time window (Last 24H, etc.)
+* *Search* - Find specific stations
+
+=== Station Panel
+
+Click a station to view:
+
+==== Data Delays Tab
+* Variable-by-variable delay information
+* Charts showing data gaps
+
+==== Latest Values Tab
+* Most recent measurements
+* Timestamps for each variable
+
+== OSCAR Export
+
+Export station metadata to WMO OSCAR system.
+
+=== Export Process
+
+1. Navigate to *Stations* > *OSCAR Export*
+2. View stations meeting OSCAR requirements
+3. Use checkbox to select stations
+4. Enter OSCAR API token
+5. Click *Export Selected* or *Export All*
+
+=== Requirements
+
+Only stations with complete metadata appear:
+* Valid WIGOS ID
+* Correct coordinates
+* Station type assigned
+* Begin date set
+
+== Station Files
+
+Manage documents and data files associated with stations.
+
+=== Accessing Files
+
+1. Go to station *Metadata*
+2. Click *FILES* button
+3. View/download associated files
+
+=== File Types
+
+* Station documentation
+* Calibration certificates
+* Photos
+* Data logger programs
+* Historical records
+
+=== Uploading Files
+
+1. Click *Add File* or upload button
+2. Select file from your computer
+3. Add description
+4. Save
+
+== Best Practices
+
+=== Station Creation
+* Verify coordinates with GPS or authoritative source
+* Complete all required metadata
+* Configure variables before data ingestion begins
+* Enable WIS2 publishing for GBON compliance
+
+=== Ongoing Management
+* Regularly review station status on monitoring page
+* Update metadata when changes occur
+* Document equipment changes
+* Maintain file attachments
+
+=== Quality Assurance
+* Set appropriate QC thresholds for each variable
+* Monitor data quality flags
+* Investigate communication issues promptly
+* Keep maintenance records current
+
+
+== See Also
+
+* <<station-map,Station Map>> - Viewing stations on the map
+* <<quality-control,Quality Control>> - Configuring QC thresholds
+* <<maintenance,Equipment and Maintenance>> - Station equipment management
+* <<wis2-dashboard,WIS2 Dashboard>> - WIS2 publishing configuration
+* <<decoders,Data Decoders>> - Configuring data ingestion

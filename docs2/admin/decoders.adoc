@@ -1,0 +1,410 @@
+= Data Decoders
+:imagesdir: ../images
+
+This chapter covers data format decoders and automatic data ingestion configuration.
+
+== Decoder Overview
+
+Decoders parse incoming data files and convert them to SURFACE's internal format. SURFACE supports multiple data formats from various station types and manufacturers.
+
+=== Supported Formats
+
+[cols="1,3"]
+|===
+|Format |Description
+
+|SURFACE CSV
+|Native SURFACE format
+
+|TOA5
+|Campbell Scientific datalogger format
+
+|HOBO
+|Onset HOBO logger format
+
+|SURTRON
+|Surtron format
+
+|NESA
+|NESA format
+
+|SAT_TX325
+|Satellite transmission format
+
+|HYDRO
+|Hydrological data format
+
+|Manual Data
+|Excel-based manual entry
+
+|SYNOP
+|Synoptic observation format
+
+|FLASH
+|NOAA Flash Flood data
+
+|PGIA
+|PGIA format
+|===
+
+== Decoder Architecture
+
+=== Data Flow
+
+----
+Raw Data File
+    ↓
+Format Detection
+    ↓
+Decoder Selection
+    ↓
+Data Parsing
+    ↓
+Variable Mapping
+    ↓
+Quality Control
+    ↓
+Database Insertion
+    ↓
+Aggregation Tasks
+----
+
+=== Key Concepts
+
+[cols="1,3"]
+|===
+|Concept |Description
+
+|Format
+|Defines how to read data structure (header, separator, field positions)
+
+|Decoder
+|Parses the data according to format rules
+
+|Variable Format
+|Maps format positions to database variables
+
+|Element Decoder
+|Links specific data elements to variables and intervals
+|===
+
+== Configuring Decoders
+
+=== Step 1: Create Format
+
+1. Navigate to Django Admin > *Formats*
+2. Click *Add Format*
+3. Configure:
++
+[cols="1,3"]
+|===
+|Field |Description
+
+|Name
+|Format identifier (matches source code name)
+
+|Description
+|Human-readable description
+
+|Separator
+|Field delimiter (comma, tab, etc.)
+
+|Header Lines
+|Number of header rows to skip
+|===
+4. Save
+
+=== Step 2: Create Decoder
+
+1. Navigate to Django Admin > *Decoders*
+2. Click *Add Decoder*
+3. Configure:
++
+[cols="1,3"]
+|===
+|Field |Description
+
+|Name
+|Decoder identifier (matches source code name)
+
+|Description
+|Description of decoder function
+
+|Format
+|Associated format
+|===
+4. Save
+
+=== Step 3: Create Variable Formats
+
+Map data positions to variables:
+
+1. Navigate to Django Admin > *Variable Formats*
+2. Click *Add Variable Format*
+3. Configure:
++
+[cols="1,3"]
+|===
+|Field |Description
+
+|Format
+|The format this mapping belongs to
+
+|Variable
+|Target database variable
+
+|Interval
+|Data collection interval
+
+|Lookup Key
+|Position or identifier in data string
+|===
+4. Repeat for each variable in the format
+
+== FTP Data Ingestion
+
+Configure automatic data retrieval from FTP servers.
+
+=== Configure FTP Server
+
+1. Navigate to Django Admin > *FTP Servers*
+2. Click *Add FTP Server*
+3. Enter connection details:
++
+[cols="1,3"]
+|===
+|Field |Description
+
+|Name
+|Descriptive name
+
+|Host
+|FTP server address
+
+|Port
+|Connection port (default: 21)
+
+|Username
+|FTP account username
+
+|Password
+|FTP account password
+
+|Path
+|Base directory path
+|===
+4. Save
+
+=== Configure Station File Ingestion
+
+1. Navigate to Django Admin > *Station File Ingestions*
+2. Click *Add Station File Ingestion*
+3. Configure:
++
+[cols="1,3"]
+|===
+|Field |Description
+
+|Station
+|Target station for data
+
+|FTP Server
+|Source FTP server
+
+|Remote Path
+|File path pattern on FTP
+
+|Decoder
+|Decoder to use for parsing
+
+|Format
+|Data format specification
+
+|Interval
+|How often to check for files
+
+|Active
+|Enable/disable ingestion
+|===
+4. Save
+
+== NOAA LRGS Ingestion
+
+Configure data ingestion from NOAA satellite DCPs.
+
+=== Step 1: Create Format
+
+If needed, create a format matching your DCP data structure.
+
+=== Step 2: Create Decoder
+
+Create or select decoder for DCP data parsing.
+
+=== Step 3: Configure NOAA DCP
+
+1. Navigate to Django Admin > *NOAA DCPs*
+2. Click *Add NOAA DCP*
+3. Enter DCP information:
++
+[cols="1,3"]
+|===
+|Field |Description
+
+|DCP Address
+|Unique DCP identifier
+
+|Description
+|DCP description
+
+|Transmission Type
+|Self-timed, random, etc.
+
+|Transmission Interval
+|How often DCP transmits
+|===
+4. Save
+
+=== Step 4: Link Station to DCP
+
+1. Navigate to Django Admin > *NMS DCP Stations*
+2. Click *Add NMS DCP Station*
+3. Configure:
++
+[cols="1,3"]
+|===
+|Field |Description
+
+|Station
+|SURFACE station
+
+|NOAA DCP
+|Associated DCP
+
+|Decoder
+|Decoder for data parsing
+
+|Format
+|Data format specification
+
+|Interval
+|Data collection interval
+|===
+4. Save
+
+=== Step 5: Create Variable Formats
+
+For each variable transmitted by the DCP:
+
+1. Navigate to *Variable Formats*
+2. Create mapping with correct lookup key
+3. Match variable, interval, and format
+
+== Decoder Development
+
+For custom data formats, developers can create new decoders.
+
+=== Decoder Location
+
+Decoders are located in:
+----
+api/wx/decoders/
+----
+
+=== Decoder Structure
+
+A decoder typically:
+
+1. Receives raw data message
+2. Separates values using configured separator
+3. Creates ordered list of values
+4. Uses format lookup keys to match values to variables
+5. Inserts values into database with correct timestamp and interval
+
+=== Example Decoder Flow
+
+----
+Input: "2024-01-15 12:00,23.5,65.2,1013.5,5.2,180"
+
+1. Parse by comma separator
+2. Result: ["2024-01-15 12:00", "23.5", "65.2", "1013.5", "5.2", "180"]
+
+3. Apply format mappings:
+   Position 0 → Timestamp
+   Position 1 → Temperature (°C)
+   Position 2 → Humidity (%)
+   Position 3 → Pressure (hPa)
+   Position 4 → Wind Speed (m/s)
+   Position 5 → Wind Direction (°)
+
+4. Insert into database with station ID and interval
+----
+
+== Troubleshooting
+
+=== Data Not Appearing
+
+[cols="1,3"]
+|===
+|Check |Action
+
+|FTP Connection
+|Verify FTP server credentials and accessibility
+
+|File Pattern
+|Confirm remote path matches actual file names
+
+|Decoder Selection
+|Ensure correct decoder is assigned
+
+|Variable Mapping
+|Verify all variables have format mappings
+
+|Ingestion Active
+|Check that ingestion task is enabled
+
+|Celery Workers
+|Verify background workers are running
+|===
+
+=== Parsing Errors
+
+[cols="1,3"]
+|===
+|Issue |Solution
+
+|Wrong separator
+|Update format with correct delimiter
+
+|Missing variables
+|Add variable format mappings
+
+|Timestamp errors
+|Check date format specification
+
+|Encoding issues
+|Verify file encoding matches decoder
+|===
+
+=== Monitoring Ingestion
+
+* Check *Station Data File Statuses* in Django Admin
+* Review Celery worker logs
+* Monitor station data on Station Monitoring page
+* Check for gaps in data inventory
+
+== Best Practices
+
+1. *Test decoders* - Validate with sample data before production
+2. *Document formats* - Keep records of data file structures
+3. *Monitor regularly* - Check ingestion status daily
+4. *Handle errors* - Set up alerts for ingestion failures
+5. *Version control* - Track decoder configuration changes
+6. *Backup configurations* - Include decoder settings in backups
+
+
+== See Also
+
+* <<station-management,Station Management>> - Station data ingestion configuration
+* <<configuration,Configuration>> - Django Admin decoder settings
+* <<troubleshooting,Troubleshooting>> - Data ingestion issues
+* <<architecture,Architecture>> - Data flow overview

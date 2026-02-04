@@ -1,0 +1,245 @@
+= Glossary
+:imagesdir: ../images
+
+This glossary defines terms used throughout the SURFACE documentation.
+
+== A
+
+[[term-aquacrop]]AquaCrop::
+A crop water productivity model developed by FAO (Food and Agriculture Organization) that simulates yield response to water. Integrated into SURFACE for agricultural applications.
+
+[[term-aws]]AWS (Automatic Weather Station)::
+A weather station that automatically records and transmits meteorological observations without human intervention. Contrast with manual/conventional stations.
+
+[[term-aqc]]AQC (Automatic Quality Control)::
+Automated procedures that check incoming data for errors. SURFACE implements three AQC checks: Range, Step, and Persistence.
+
+== B
+
+[[term-beat]]Beat (Celery Beat)::
+The Celery scheduler component that triggers periodic tasks at defined intervals.
+
+== C
+
+[[term-celery]]Celery::
+A distributed task queue used by SURFACE for background processing of data aggregation, exports, and other asynchronous operations.
+
+[[term-climat]]CLIMAT::
+A WMO-defined monthly climate summary message format. Planned for future SURFACE releases.
+
+== D
+
+[[term-daycli]]DAYCLI::
+A WMO-defined daily climate data message format. Planned for future SURFACE releases.
+
+[[term-dcp]]DCP (Data Collection Platform)::
+A remote automatic data collection and transmission system. In SURFACE context, typically refers to NOAA GOES satellite DCPs used for transmitting weather station data.
+
+[[term-decoder]]Decoder::
+A software component that parses incoming data files from various formats (TOA5, HOBO, etc.) into SURFACE's internal data structure.
+
+== E
+
+[[term-eto]]ETo (Reference Evapotranspiration)::
+The rate of evapotranspiration from a reference grass surface. A key variable for agricultural and hydrological applications, calculated using the FAO Penman-Monteith equation.
+
+== F
+
+[[term-fernet]]Fernet::
+A symmetric encryption method used by SURFACE to protect sensitive data fields in the database.
+
+== G
+
+[[term-gbon]]GBON (Global Basic Observing Network)::
+A WMO initiative establishing minimum requirements for surface-based weather observations. SURFACE supports GBON-compliant message generation.
+
+[[term-geojson]]GeoJSON::
+A format for encoding geographic data structures. Used in SURFACE for watershed, district, and administrative boundary definitions.
+
+[[term-gts]]GTS (Global Telecommunication System)::
+The WMO's coordinated global system for collecting and distributing weather data. SURFACE can add GTS headers for WIS2-to-GTS gateway compatibility.
+
+== H
+
+[[term-hypertable]]Hypertable::
+A TimescaleDB table optimized for time-series data. SURFACE stores raw and summary data in hypertables for efficient querying.
+
+== I
+
+[[term-interval]]Interval::
+The time period between successive measurements at a station. Common intervals in SURFACE: 5 minutes, 15 minutes, hourly, daily.
+
+== J
+
+[[term-jwt]]JWT (JSON Web Token)::
+An authentication token format supported by SURFACE for API access.
+
+== L
+
+[[term-lrgs]]LRGS (Local Readout Ground Station)::
+A system for receiving data from NOAA GOES satellite DCPs. SURFACE integrates with LRGS for automatic data ingestion from satellite-transmitting stations.
+
+== M
+
+[[term-memcached]]Memcached::
+A distributed memory caching system used by SURFACE to cache database query results and improve performance.
+
+== N
+
+[[term-nginx]]Nginx::
+A web server used as the reverse proxy in SURFACE's Docker architecture, handling incoming HTTP requests and serving static files.
+
+== O
+
+[[term-oscar]]OSCAR (Observing Systems Capability Analysis and Review Tool)::
+A WMO database containing metadata about the global observing system. SURFACE can export station metadata to OSCAR via API.
+
+== P
+
+[[term-persistence-check]]Persistence Check::
+A QC procedure that identifies potentially stuck sensors by detecting values that remain unchanged over an extended period.
+
+[[term-postgis]]PostGIS::
+A spatial database extension for PostgreSQL that adds support for geographic objects. Used by SURFACE for station coordinates and spatial queries.
+
+== Q
+
+[[term-qc]]QC (Quality Control)::
+Procedures for validating data accuracy. See also <<term-aqc,AQC>>.
+
+[[term-quality-flag]]Quality Flag::
+A code indicating the validation status of a measurement:
+* 1 = Not Checked
+* 2 = Suspicious
+* 3 = Bad
+* 4 = Good
+
+== R
+
+[[term-range-check]]Range Check::
+A QC procedure that verifies measured values fall within acceptable minimum and maximum bounds.
+
+[[term-raw-data]]Raw Data::
+Original measurements as recorded by stations, before any aggregation or summarization.
+
+[[term-redis]]Redis::
+An in-memory data store used by SURFACE as the message broker for Celery task queuing.
+
+== S
+
+[[term-step-check]]Step Check::
+A QC procedure that verifies the rate of change between successive measurements doesn't exceed defined thresholds.
+
+[[term-summary]]Summary::
+Aggregated data computed from raw measurements. SURFACE generates hourly, daily, monthly, and yearly summaries.
+
+[[term-synop]]SYNOP::
+A numerical code format for reporting weather observations from surface stations. SURFACE supports SYNOP message generation for WIS2 publishing.
+
+== T
+
+[[term-timescaledb]]TimescaleDB::
+A time-series database extension for PostgreSQL. SURFACE uses TimescaleDB for efficient storage and querying of weather observation data.
+
+[[term-toa5]]TOA5::
+A data file format used by Campbell Scientific dataloggers. SURFACE includes a decoder for TOA5 files.
+
+== U
+
+[[term-utc]]UTC (Coordinated Universal Time)::
+The primary time standard for international timekeeping. SURFACE stores all timestamps in UTC and converts to local time for display.
+
+== V
+
+[[term-variable]]Variable::
+A measured quantity (e.g., temperature, precipitation, wind speed). Each station has defined variables it measures.
+
+== W
+
+[[term-watershed]]Watershed::
+A geographic area where all water drains to a common point. SURFACE uses watershed boundaries for station organization and spatial analysis.
+
+[[term-wigos]]WIGOS (WMO Integrated Global Observing System)::
+The WMO framework for integrating all WMO observing systems. SURFACE supports WIGOS metadata standards.
+
+[[term-wis2]]WIS2 (WMO Information System 2.0)::
+The next-generation WMO system for sharing weather, climate, and water data. SURFACE integrates with WIS2Box for automatic data publishing.
+
+[[term-wis2box]]WIS2Box::
+A reference implementation of a WIS2 node. SURFACE can publish observations to WIS2Box instances.
+
+[[term-wmo]]WMO (World Meteorological Organization)::
+The United Nations agency responsible for international cooperation in meteorology, hydrology, and related fields. SURFACE implements WMO data standards.
+
+[[term-wsi]]WSI (WIGOS Station Identifier)::
+A globally unique identifier for observing stations in the WIGOS framework. Format: `0-<country>-0-<local_id>`. Required for WIS2 publishing.
+
+== Acronym Quick Reference
+
+[cols="1,3"]
+|===
+|Acronym |Full Term
+
+|API
+|Application Programming Interface
+
+|AWS
+|Automatic Weather Station
+
+|AQC
+|Automatic Quality Control
+
+|CSV
+|Comma-Separated Values
+
+|DCP
+|Data Collection Platform
+
+|ETo
+|Reference Evapotranspiration
+
+|FAQ
+|Frequently Asked Questions
+
+|FTP
+|File Transfer Protocol
+
+|GBON
+|Global Basic Observing Network
+
+|GTS
+|Global Telecommunication System
+
+|JWT
+|JSON Web Token
+
+|LRGS
+|Local Readout Ground Station
+
+|NMS
+|National Meteorological Service
+
+|OSCAR
+|Observing Systems Capability Analysis and Review Tool
+
+|QC
+|Quality Control
+
+|REST
+|Representational State Transfer
+
+|UTC
+|Coordinated Universal Time
+
+|WIGOS
+|WMO Integrated Global Observing System
+
+|WIS2
+|WMO Information System 2.0
+
+|WMO
+|World Meteorological Organization
+
+|WSI
+|WIGOS Station Identifier
+|===

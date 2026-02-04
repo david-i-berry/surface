@@ -1,0 +1,109 @@
+= Images Directory
+
+This directory contains screenshots and diagrams for the SURFACE documentation.
+
+== Image Guidelines
+
+=== File Naming Convention
+
+Use descriptive, lowercase names with hyphens:
+
+----
+<section>-<feature>-<description>.png
+----
+
+Examples:
+
+* `user-map-layer-controls.png`
+* `admin-station-create-form.png`
+* `dev-architecture-overview.png`
+
+=== Recommended Formats
+
+[cols="1,2,2"]
+|===
+|Format |Use Case |Notes
+
+|PNG
+|Screenshots, UI elements
+|Preferred for most images
+
+|SVG
+|Diagrams, flowcharts
+|Scalable, editable
+
+|JPG
+|Photos
+|Use for station photos only
+|===
+
+=== Image Dimensions
+
+* *Screenshots:* Capture at 1920x1080 or higher, will be scaled down
+* *Diagrams:* Export at 2x resolution for retina displays
+* *Maximum file size:* 500KB per image (optimize with tools like `pngquant`)
+
+== Required Screenshots
+
+The following screenshots should be captured from a running SURFACE instance:
+
+=== User Guide Images
+
+* [ ] `user-login-screen.png` - Login page
+* [ ] `user-main-menu.png` - Main navigation menu
+* [ ] `user-map-overview.png` - Station map with data
+* [ ] `user-map-filters.png` - Filter panel open
+* [ ] `user-map-layers.png` - Layer controls
+* [ ] `user-station-report.png` - Station report with chart
+* [ ] `user-data-export.png` - Data export interface
+* [ ] `user-qc-validation.png` - QC validation table
+* [ ] `user-spatial-analysis.png` - Interpolated map
+* [ ] `user-wis2-dashboard.png` - WIS2 publishing dashboard
+* [ ] `user-agromet-summaries.png` - Agrometeorology summaries
+
+=== Administrator Guide Images
+
+* [ ] `admin-install-wizard-step1.png` - Installation type selection
+* [ ] `admin-install-wizard-step2.png` - Backup option
+* [ ] `admin-install-wizard-step3.png` - Admin credentials
+* [ ] `admin-install-wizard-step4.png` - Country configuration
+* [ ] `admin-install-wizard-step5.png` - LRGS settings
+* [ ] `admin-install-wizard-step6.png` - Summary review
+* [ ] `admin-django-home.png` - Django admin home
+* [ ] `admin-station-create.png` - Station creation form
+* [ ] `admin-user-create.png` - User creation form
+* [ ] `admin-permissions.png` - Permission management
+* [ ] `admin-maintenance-report.png` - Maintenance report form
+* [ ] `admin-backup-task.png` - Backup task configuration
+
+=== Developer Guide Images
+
+* [ ] `dev-architecture-diagram.png` - System architecture
+* [ ] `dev-data-flow.png` - Data ingestion pipeline
+* [ ] `dev-er-diagram.png` - Database entity relationships
+
+== Extracting Images from Existing Manual
+
+The existing User Manual (`docs/SURFACE User Manual - working draft.md`) contains embedded images.
+To extract them:
+
+1. The images are base64 encoded in the markdown
+2. Use a script to extract and save as PNG files
+3. Rename according to the naming convention above
+
+== Adding Images to Documentation
+
+Reference images in AsciiDoc:
+
+[source,asciidoc]
+----
+image::user-map-overview.png[Station Map Overview, width=800]
+----
+
+With caption:
+
+[source,asciidoc]
+----
+.Station Map showing current weather data
+image::user-map-overview.png[Station Map Overview, width=800]
+----

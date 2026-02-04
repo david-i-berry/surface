@@ -1,0 +1,284 @@
+= Products and Reports
+:imagesdir: ../images
+
+SURFACE provides various reporting and analysis tools under the Products menu.
+
+== Products Overview
+
+Available products:
+
+[cols="1,3"]
+|===
+|Product |Purpose
+
+|Station Report
+|Time-series analysis for a single station
+
+|Variable Report
+|Compare one variable across multiple stations
+
+|Station Compare
+|Compare multiple variables across stations
+
+|Spatial Analysis
+|Interpolated maps across geographic areas
+
+|Extremes and Means
+|Climatological summaries
+
+|Wave Data Analysis
+|High-frequency wave data analysis
+|===
+
+== Station Report
+
+Generate detailed time-series reports for individual stations.
+
+=== Creating a Station Report
+
+1. Navigate to *Products* > *Station Report*
+2. Select a station from the dropdown
+3. Choose *Data Source* (Raw data, Hourly summary, etc.)
+4. Select *Data Interval* (5 minutes, hourly, daily)
+5. Set start and end dates/times
+6. Click the *Query* button
+
+=== Report Display
+
+==== Graphical View
+
+The chart displays time-series data with:
+
+* Tabs for each measured variable (e.g., Air Temperature, Precipitation)
+* Interactive zoom - click and drag to select a time range
+* *Reset Zoom* button to return to full view
+
+==== Data Table
+
+Below the chart, a table shows:
+
+* All measurements in the selected period
+* Color-coded cells indicating QC status:
+** *Green* - Passed AQC checks
+** *Yellow* - Suspicious, needs review
+** *Red* - Failed AQC checks
+** *No highlight* - Not checked
+
+==== Summary Statistics
+
+At the bottom of the table:
+
+* Sum Total
+* Average
+* Minimum
+* Maximum
+* Standard Deviation
+* Count
+
+=== Downloading Data
+
+Click *DOWNLOAD CSV* to export the displayed data.
+
+== Variable Report
+
+Compare a specific variable across multiple stations.
+
+=== Creating a Variable Report
+
+1. Navigate to *Products* > *Variable Report*
+2. Select one or more *Variables* (e.g., Maximum Temperature)
+3. Choose one or more *Stations*
+4. Select *Data Source*
+5. Set the date range
+6. Click *Query*
+
+=== Use Cases
+
+* Compare temperatures across elevation gradients
+* Analyze precipitation patterns across watersheds
+* Monitor regional wind conditions
+
+== Station Compare
+
+Advanced comparison tool for multi-station, multi-variable analysis.
+
+=== Creating a Comparison
+
+1. Navigate to *Products* > *Station Compare*
+2. Apply station filters if needed
+3. Select stations (use *Select All* for filtered results)
+4. Choose variables to compare
+5. Select *Distribution Type* (Line, Bar, etc.)
+6. Choose *Time Resolution*
+7. Pick a color for the data series
+8. Set date range
+9. Click *Add Series*
+
+=== Managing Data Series
+
+==== Data Series Tab
+View and manage added series:
+
+* Search and filter series
+* View station, variable, time range
+* Edit or delete series
+
+==== Options Tab
+Customize the display:
+
+* Add chart title
+* Add subtitle
+* Configure axis labels
+
+==== Chart Tab
+Interactive visualization of all added series.
+
+==== Data Table Tab
+Tabular view of the comparison data.
+
+=== Export Options
+
+* *Export* - Download data to file
+* *Delete Selected* - Remove selected series
+
+== Spatial Analysis
+
+Create interpolated maps showing variable distribution across your region.
+
+=== Creating a Spatial Analysis
+
+1. Navigate to *Products* > *Spatial Analysis*
+2. Select the *Variable* to visualize
+3. Choose *Data Source*
+4. Select *Quality Flags* to include
+5. Set *Aggregation* method (Instant, Average, etc.)
+6. Choose *Color Map* (e.g., Spectral_r)
+7. Set *Min/Max Scale Values*
+8. Select *Date* and *Time*
+9. Click *INTERPOLATE*
+
+=== Configuration Options
+
+[cols="1,3"]
+|===
+|Option |Description
+
+|Variable
+|The measurement to interpolate
+
+|Data Source
+|Raw or summary data
+
+|Quality Flags
+|Which QC statuses to include
+
+|Aggregation
+|How to combine values (instant, average, sum)
+
+|Color Map
+|Color palette for visualization
+
+|Min/Max Scale
+|Range for the color scale
+
+|Date/Time
+|Specific moment to analyze
+|===
+
+=== Advanced Parameters
+
+Click *PARAMETERS* for additional settings:
+
+* Horizontal Resolution
+* Interpolation method
+* Boundary settings
+
+== Extremes and Means
+
+Generate climatological summaries showing extreme values and averages.
+
+=== Creating Extremes and Means Report
+
+1. Navigate to *Products* > *Extremes and Means*
+2. Select a *Station* (required)
+3. Choose *Month* to analyze
+4. Check *All Years* to include historical data
+5. Select *Variable(s)*
+6. Click *Submit*
+
+=== Report Output
+
+The report shows for each variable:
+
+* Maximum value and date of occurrence
+* Minimum value and date of occurrence
+* Mean (average) value
+* Standard deviation
+* Count of observations
+
+=== Use Cases
+
+* Historical climate analysis
+* Monthly climate summaries
+* Identifying record values
+
+== Wave Data Analysis
+
+Specialized analysis for high-frequency wave monitoring data.
+
+=== Creating Wave Analysis
+
+1. Navigate to *Products* > *Wave Data Analysis*
+2. Select wave-monitoring *Station*
+3. Set *Initial Date* and *Time*
+4. Choose *Number of Components* for spectral analysis
+5. Select *Calculation Interval* (e.g., 1 min, 5 min)
+6. Set *Range Interval* (duration of analysis block)
+7. Click *Query*
+
+=== Configuration Options
+
+[cols="1,3"]
+|===
+|Option |Description
+
+|Number of Components
+|How many wave components to extract
+
+|Calculation Interval
+|Frequency of wave calculations
+
+|Range Interval
+|Duration of each analysis block
+|===
+
+TIP: Smaller calculation intervals provide more detail; larger intervals provide summaries.
+
+== Tips for Effective Reporting
+
+=== Performance
+
+* Start with shorter date ranges to test queries
+* Use appropriate data intervals (hourly for long periods, raw for short periods)
+* Filter stations to reduce data volume
+
+=== Analysis
+
+* Use Station Report for detailed single-station analysis
+* Use Variable Report for spatial comparisons
+* Use Station Compare for complex multi-variable studies
+* Use Spatial Analysis for visual regional patterns
+
+=== Data Quality
+
+* Review QC flags in reports
+* Exclude suspicious/bad data when appropriate
+* Document analysis parameters and date ranges
+
+
+== See Also
+
+* <<station-map,Station Map>> - Real-time station data visualization
+* <<data-management,Data Management>> - Data export for external analysis
+* <<quality-control,Quality Control>> - Understanding QC flags in reports
+* <<agrometeorology,Agrometeorology>> - Agricultural analysis products

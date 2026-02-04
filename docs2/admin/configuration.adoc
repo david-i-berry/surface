@@ -1,0 +1,725 @@
+= Configuration
+:imagesdir: ../images
+
+This chapter covers SURFACE configuration options and settings management.
+
+== Configuration Overview
+
+SURFACE is configured through:
+
+* *Environment variables* - Core system settings in `production.env`
+* *Frontend Settings menu* - User-accessible configuration
+* *Django Admin* - Advanced administrative settings
+
+== Environment Variables
+
+The `production.env` file contains critical system configuration. This section documents all available variables.
+
+=== Complete Variable Reference
+
+==== PostgreSQL Database
+
+[cols="2,1,3"]
+|===
+|Variable |Required |Description
+
+|`POSTGRES_PASSWORD`
+|Yes
+|PostgreSQL superuser password
+
+|`POSTGRES_USER`
+|Yes
+|PostgreSQL username (default: postgres)
+
+|`POSTGRES_DB`
+|Yes
+|Database name to create
+
+|`PGDATA`
+|No
+|PostgreSQL data directory (default: `/var/lib/postgresql/data/pgdata`)
+
+|`TIMESCALEDB_TELEMETRY`
+|No
+|Disable TimescaleDB telemetry (set to `off`)
+|===
+
+==== Django Database Connection
+
+[cols="2,1,3"]
+|===
+|Variable |Required |Description
+
+|`SURFACE_DB_ENGINE`
+|Yes
+|Database engine (use `django.contrib.gis.db.backends.postgis`)
+
+|`SURFACE_DB_HOST`
+|Yes
+|Database hostname (use `postgres` for Docker)
+
+|`SURFACE_DB_PORT`
+|Yes
+|Database port (default: `5432`)
+
+|`SURFACE_DB_NAME`
+|Yes
+|Database name (must match `POSTGRES_DB`)
+
+|`SURFACE_DB_USER`
+|Yes
+|Database username (must match `POSTGRES_USER`)
+
+|`SURFACE_DB_PASSWORD`
+|Yes
+|Database password (must match `POSTGRES_PASSWORD`)
+|===
+
+==== Security and Secrets
+
+[cols="2,1,3"]
+|===
+|Variable |Required |Description
+
+|`SURFACE_SECRET_KEY`
+|Yes
+|Django secret key for cryptographic signing. Generate with: `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"`
+
+|`SURFACE_SECRET_ENCRYPTION_KEY`
+|Yes
+|44-character Base64 Fernet key for encrypting sensitive data. Generate with: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+
+|`SURFACE_DJANGO_DEBUG`
+|No
+|Enable Django debug mode (`True`/`False`). Always `False` in production.
+|===
+
+IMPORTANT: Generate unique values for production. Never use example or default keys. The encryption key must remain constant; changing it will make existing encrypted data unreadable.
+
+==== Application Settings
+
+[cols="2,1,3"]
+|===
+|Variable |Required |Description
+
+|`SURFACE_DATA_DIR`
+|No
+|Base directory for data files (default: `/data`)
+
+|`SURFACE_BROKER_URL`
+|Yes
+|Redis URL for Celery broker (e.g., `redis://redis:6379/0`)
+
+|`LOGIN_REDIRECT_URL`
+|No
+|URL after successful login (default: `/wx/stations/map/`)
+
+|`LOGOUT_REDIRECT_URL`
+|No
+|URL after logout (default: `/accounts/login/`)
+
+|`NUMBER_OF_GUNICORN_WORKERS`
+|No
+|Web server worker processes (default: `2`)
+|===
+
+==== Timezone Settings
+
+[cols="2,1,3"]
+|===
+|Variable |Required |Description
+
+|`TIMEZONE_NAME`
+|Yes
+|Timezone name (e.g., `America/Belize`)
+
+|`TIMEZONE_OFFSET`
+|Yes
+|UTC offset in minutes (e.g., `-360` for UTC-6)
+|===
+
+==== NOAA LRGS Configuration
+
+For satellite DCP data ingestion:
+
+[cols="2,1,3"]
+|===
+|Variable |Required |Description
+
+|`LRGS_EXECUTABLE_PATH`
+|No
+|Path to LRGS client (default: `/surface/LrgsClient/bin/getDcpMessages`)
+
+|`LRGS_SERVER_HOST`
+|If using LRGS
+|LRGS server hostname
+
+|`LRGS_SERVER_PORT`
+|If using LRGS
+|LRGS server port (default: `16003`)
+
+|`LRGS_USER`
+|If using LRGS
+|LRGS username
+
+|`LRGS_PASSWORD`
+|If using LRGS
+|LRGS password
+
+|`LRGS_CS_FILE_PATH`
+|No
+|Search criteria file path (default: `/data/search_parameters.cs`)
+
+|`LRGS_MAX_INTERVAL`
+|No
+|Maximum retrieval interval in minutes (default: `719`)
+|===
+
+==== Email Configuration
+
+For password reset and notifications:
+
+[cols="2,1,3"]
+|===
+|Variable |Required |Description
+
+|`EMAIL_HOST`
+|If using email
+|SMTP server hostname
+
+|`EMAIL_PORT`
+|If using email
+|SMTP port (typically `587` for TLS)
+
+|`EMAIL_HOST_USER`
+|If using email
+|SMTP username/email address
+
+|`EMAIL_HOST_PASSWORD`
+|If using email
+|SMTP password or app-specific password
+|===
+
+==== Map Configuration
+
+[cols="2,1,3"]
+|===
+|Variable |Required |Description
+
+|`MAP_LATITUDE`
+|Yes
+|Default map center latitude (decimal degrees)
+
+|`MAP_LONGITUDE`
+|Yes
+|Default map center longitude (decimal degrees)
+
+|`MAP_ZOOM`
+|No
+|Default map zoom level (default: `8`)
+|===
+
+==== Spatial Analysis Bounding Box
+
+Define the geographic extent for interpolation:
+
+[cols="2,1,3"]
+|===
+|Variable |Required |Description
+
+|`SPATIAL_ANALYSIS_INITIAL_LATITUDE`
+|Yes
+|Northern boundary (decimal degrees)
+
+|`SPATIAL_ANALYSIS_FINAL_LATITUDE`
+|Yes
+|Southern boundary (decimal degrees)
+
+|`SPATIAL_ANALYSIS_INITIAL_LONGITUDE`
+|Yes
+|Western boundary (decimal degrees)
+
+|`SPATIAL_ANALYSIS_FINAL_LONGITUDE`
+|Yes
+|Eastern boundary (decimal degrees)
+
+|`SPATIAL_ANALYSIS_SHAPE_FILE_PATH`
+|No
+|Path to shapefile for spatial analysis boundaries
+|===
+
+==== Station Map Variable IDs
+
+Map the database variable IDs for map display:
+
+[cols="2,1,3"]
+|===
+|Variable |Required |Description
+
+|`STATION_MAP_WIND_SPEED_ID`
+|Yes
+|Variable ID for wind speed display
+
+|`STATION_MAP_WIND_GUST_ID`
+|Yes
+|Variable ID for wind gust display
+
+|`STATION_MAP_WIND_DIRECTION_ID`
+|Yes
+|Variable ID for wind direction display
+
+|`STATION_MAP_TEMP_MAX_ID`
+|Yes
+|Variable ID for maximum temperature
+
+|`STATION_MAP_TEMP_MIN_ID`
+|Yes
+|Variable ID for minimum temperature
+
+|`STATION_MAP_TEMP_AVG_ID`
+|Yes
+|Variable ID for average temperature
+
+|`STATION_MAP_ATM_PRESSURE_ID`
+|Yes
+|Variable ID for atmospheric pressure
+
+|`STATION_MAP_PRECIPITATION_ID`
+|Yes
+|Variable ID for precipitation
+
+|`STATION_MAP_RELATIVE_HUMIDITY_ID`
+|Yes
+|Variable ID for relative humidity
+
+|`STATION_MAP_SOLAR_RADIATION_ID`
+|Yes
+|Variable ID for solar radiation
+|===
+
+==== Map Filter Options
+
+[cols="2,1,3"]
+|===
+|Variable |Required |Description
+
+|`STATION_MAP_FILTER_WATERSHED`
+|No
+|Enable watershed filter on map (`True`/`False`)
+
+|`STATION_MAP_FILTER_REGION`
+|No
+|Enable region filter on map (`True`/`False`)
+
+|`STATION_MAP_FILTER_COMMUNICATION`
+|No
+|Enable communication type filter (`True`/`False`)
+|===
+
+==== External Services (Optional)
+
+[cols="2,1,3"]
+|===
+|Variable |Required |Description
+
+|`SUPABASE_URL`
+|No
+|Supabase project URL (if using Supabase integration)
+
+|`SUPABASE_ANON_KEY`
+|No
+|Supabase anonymous key
+
+|`INMET_HOURLY_DATA_URL`
+|No
+|INMET data URL (for Brazilian integration)
+
+|`INMET_DAILY_DATA_BASE_PATH`
+|No
+|INMET daily data path
+|===
+
+==== ENTL Configuration (Optional)
+
+[cols="2,1,3"]
+|===
+|Variable |Required |Description
+
+|`ENTL_PRIMARY_SERVER_HOST`
+|No
+|Primary ENTL server hostname
+
+|`ENTL_PRIMARY_SERVER_PORT`
+|No
+|Primary ENTL server port
+
+|`ENTL_SECONDARY_SERVER_HOST`
+|No
+|Secondary ENTL server hostname
+
+|`ENTL_SECONDARY_SERVER_PORT`
+|No
+|Secondary ENTL server port
+
+|`ENTL_PARTNER_ID`
+|No
+|ENTL partner identifier
+|===
+
+=== Example production.env
+
+[source,properties]
+----
+# Database
+TIMESCALEDB_TELEMETRY=off
+POSTGRES_PASSWORD=SecurePassword123!
+POSTGRES_USER=surface_user
+POSTGRES_DB=surface_db
+PGDATA=/var/lib/postgresql/data/pgdata
+
+# Django Database Connection
+SURFACE_DB_ENGINE=django.contrib.gis.db.backends.postgis
+SURFACE_DB_HOST=postgres
+SURFACE_DB_PORT=5432
+SURFACE_DB_NAME=surface_db
+SURFACE_DB_USER=surface_user
+SURFACE_DB_PASSWORD=SecurePassword123!
+
+# Security (generate unique values!)
+SURFACE_SECRET_KEY=your-50-character-random-string-here
+SURFACE_SECRET_ENCRYPTION_KEY=your-44-character-base64-fernet-key
+
+# Application
+SURFACE_DATA_DIR=/data
+SURFACE_BROKER_URL=redis://redis:6379/0
+SURFACE_DJANGO_DEBUG=False
+NUMBER_OF_GUNICORN_WORKERS=2
+
+# Timezone
+TIMEZONE_NAME=America/Belize
+TIMEZONE_OFFSET=-360
+
+# Map Center (Belize)
+MAP_LATITUDE=17.1899
+MAP_LONGITUDE=-88.4976
+MAP_ZOOM=8
+
+# Spatial Analysis Bounds (Belize)
+SPATIAL_ANALYSIS_INITIAL_LATITUDE=18.5
+SPATIAL_ANALYSIS_FINAL_LATITUDE=15.8
+SPATIAL_ANALYSIS_INITIAL_LONGITUDE=-89.3
+SPATIAL_ANALYSIS_FINAL_LONGITUDE=-87.4
+
+# Variable IDs (adjust for your installation)
+STATION_MAP_WIND_SPEED_ID=20
+STATION_MAP_WIND_GUST_ID=21
+STATION_MAP_WIND_DIRECTION_ID=22
+STATION_MAP_TEMP_MAX_ID=13
+STATION_MAP_TEMP_MIN_ID=14
+STATION_MAP_TEMP_AVG_ID=10
+STATION_MAP_ATM_PRESSURE_ID=40
+STATION_MAP_PRECIPITATION_ID=0
+STATION_MAP_RELATIVE_HUMIDITY_ID=15
+STATION_MAP_SOLAR_RADIATION_ID=30
+----
+
+== Frontend Configuration
+
+Navigate to *Settings* > *Configuration* to manage:
+
+=== Map Layers
+
+Upload geographic data files:
+
+* *Shape File* - Administrative boundaries
+* *GeoJSON for watersheds* - Watershed boundaries
+* *GeoJSON for basemap* - Base map features
+* *GeoJSON for waters* - Water bodies
+
+=== File Upload
+
+1. Click the upload area for each file type
+2. Select or drag-drop the appropriate file
+3. Click *Save* to apply changes
+4. Refresh the map to see updates
+
+== Django Administrative Area
+
+Access via *Settings* > *Administrative Area* for advanced configuration.
+
+=== Navigation
+
+The left sidebar organizes configuration into categories:
+
+==== Authentication and Authorization
+* *Users* - User accounts
+* *Groups* - Permission groups
+* *Tokens* - API authentication tokens
+
+==== Periodic Tasks (Celery Beat)
+* *Crontabs* - Cron schedules
+* *Intervals* - Interval schedules
+* *Periodic Tasks* - Scheduled tasks
+* *Clocked* - One-time scheduled tasks
+
+==== WX Parameters (Main Configuration)
+See below for detailed descriptions.
+
+=== Key Configuration Areas
+
+==== Station Configuration
+
+[cols="1,3"]
+|===
+|Area |Purpose
+
+|Stations
+|Core station records
+
+|Station types
+|Classification of stations
+
+|Station profiles
+|Station profile definitions
+
+|Station variables
+|Variables measured at each station
+
+|Station communications
+|Communication type definitions
+|===
+
+==== Data Configuration
+
+[cols="1,3"]
+|===
+|Area |Purpose
+
+|Variables
+|Measurement variable definitions
+
+|Units
+|Units of measurement
+
+|Intervals
+|Data collection intervals
+
+|Data sources
+|External data source definitions
+
+|Decoders
+|Data format decoder configuration
+|===
+
+==== Geographic Configuration
+
+[cols="1,3"]
+|===
+|Area |Purpose
+
+|Countries
+|Country definitions
+
+|Administrative regions
+|Regional boundaries
+
+|Districts
+|District definitions
+
+|Watersheds
+|Watershed boundaries
+|===
+
+==== Quality Control
+
+[cols="1,3"]
+|===
+|Area |Purpose
+
+|Quality flags
+|QC flag definitions
+
+|QC range thresholds
+|Range check configuration
+
+|QC step thresholds
+|Step check configuration
+
+|QC persist thresholds
+|Persistence check configuration
+|===
+
+==== Equipment and Maintenance
+
+[cols="1,3"]
+|===
+|Area |Purpose
+
+|Equipment
+|Equipment inventory
+
+|Equipment types
+|Equipment type definitions
+
+|Manufacturers
+|Equipment manufacturers
+
+|Technicians
+|Maintenance technician records
+
+|Visit types
+|Maintenance visit classifications
+|===
+
+==== NOAA DCP Configuration
+
+[cols="1,3"]
+|===
+|Area |Purpose
+
+|NOAA DCPs
+|DCP definitions
+
+|NMS DCP Stations
+|Station-to-DCP mappings
+
+|NOAA transmission types
+|Transmission configurations
+|===
+
+==== Data Ingestion
+
+[cols="1,3"]
+|===
+|Area |Purpose
+
+|FTP servers
+|FTP connection settings
+
+|Station file ingestions
+|Automatic ingestion configuration
+
+|Formats
+|Data format definitions
+
+|Variable formats
+|Variable-to-format mappings
+|===
+
+== Scheduled Tasks
+
+SURFACE uses Celery Beat for scheduled operations.
+
+=== Viewing Scheduled Tasks
+
+1. Go to *Administrative Area*
+2. Navigate to *Periodic Tasks*
+3. Review configured schedules
+
+=== Common Scheduled Tasks
+
+[cols="1,2,2"]
+|===
+|Task |Purpose |Typical Schedule
+
+|Data aggregation
+|Calculate hourly/daily summaries
+|Every 30 minutes
+
+|FTP ingestion
+|Pull data from FTP servers
+|Every 5-15 minutes
+
+|WIS2 publishing
+|Send data to WIS2Box
+|Hourly (minute offset)
+
+|Database backup
+|Create backup files
+|Daily/Twice daily
+
+|Cache cleanup
+|Clear old cached data
+|Daily
+|===
+
+=== Creating Custom Schedules
+
+1. Create a schedule in *Crontabs* or *Intervals*
+2. Create a *Periodic Task* referencing the schedule
+3. Configure task parameters
+4. Enable the task
+
+== Backup Configuration
+
+Configure automated backups in Django Admin.
+
+=== Creating Backup Tasks
+
+1. Navigate to *Backup Tasks*
+2. Click *Add Backup Task*
+3. Configure:
++
+[cols="1,3"]
+|===
+|Field |Description
+
+|Name
+|Descriptive name for the backup
+
+|Cron Schedule (UTC)
+|When to run (cron format)
+
+|Backup file name
+|Name pattern for backup files
+
+|Retention duration (days)
+|How long to keep backups
+
+|FTP server
+|Where to store backups
+
+|Remote folder
+|FTP directory path
+
+|Active
+|Enable/disable the task
+|===
+
+4. Click *Save*
+
+== Performance Tuning
+
+=== Database
+
+* Increase PostgreSQL shared_buffers for larger datasets
+* Configure TimescaleDB chunk sizes for optimal performance
+* Regular VACUUM and ANALYZE maintenance
+
+=== Caching
+
+* Memcached is configured by default
+* Increase cache memory for heavily used systems
+* Configure cache timeout based on data update frequency
+
+=== Celery Workers
+
+* Increase worker count for high-volume data processing
+* Configure task queues for priority processing
+* Monitor task queue lengths
+
+== Configuration Best Practices
+
+1. *Document changes* - Keep a log of configuration changes
+2. *Test in staging* - Test configuration changes before production
+3. *Backup before changes* - Create backup before major configuration changes
+4. *Use version control* - Track environment file changes (without secrets)
+5. *Regular review* - Periodically review and optimize configuration
+
+
+== See Also
+
+* <<installation,Installation>> - Initial setup and installation
+* <<backup-restore,Backup and Restore>> - Backup configuration
+* <<security,Security>> - Security-related configuration
+* <<troubleshooting,Troubleshooting>> - Configuration issues

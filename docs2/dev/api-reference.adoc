@@ -1,0 +1,615 @@
+= API Reference
+:imagesdir: ../images
+
+This chapter documents the SURFACE REST API endpoints.
+
+== API Overview
+
+SURFACE provides a RESTful API for programmatic data access. All responses are in JSON format.
+
+=== Base URL
+
+----
+https://<your-surface-instance>/api/
+----
+
+Example: `https://dev.nms.gov.bz/api/`
+
+== Authentication
+
+SURFACE supports multiple authentication methods for API access.
+
+=== JWT Authentication (Recommended)
+
+JSON Web Tokens provide secure, stateless authentication.
+
+==== Obtain Token
+
+[source,http]
+----
+POST /api/token/
+Content-Type: application/json
+
+{
+    "username": "your-username",
+    "password": "your-password"
+}
+----
+
+Response:
+[source,json]
+----
+{
+    "access": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+    "refresh": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+}
+----
+
+==== Using JWT Token
+
+Include the access token in all API requests:
+[source,http]
+----
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+----
+
+==== Refresh Token
+
+Access tokens expire after 24 hours. Use the refresh token to obtain a new access token:
+
+[source,http]
+----
+POST /api/token/refresh/
+Content-Type: application/json
+
+{
+    "refresh": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+}
+----
+
+=== DRF Token Authentication
+
+Django REST Framework token authentication (legacy method).
+
+[source,http]
+----
+Authorization: Token abc123xyz...
+----
+
+Tokens are managed in Django Admin > *Auth Token* > *Tokens*.
+
+=== Session Authentication
+
+For browser-based access, standard Django session cookies are used after login through the web interface.
+
+== Station Endpoints
+
+=== List Stations
+
+[source,http]
+----
+GET /api/stations/
+----
+
+Returns list of all stations with metadata.
+
+==== Response Fields
+
+[cols="1,3"]
+|===
+|Field |Description
+
+|id
+|Database ID
+
+|code
+|Station code
+
+|name
+|Station name
+
+|latitude
+|Decimal degrees
+
+|longitude
+|Decimal degrees
+
+|elevation
+|Meters above sea level
+
+|is_active
+|Boolean status
+
+|is_automatic
+|Boolean (AWS vs manual)
+|===
+
+=== Get Station Details
+
+[source,http]
+----
+GET /api/stations/{id}/
+----
+
+Returns detailed metadata for specific station.
+
+== Variable Endpoints
+
+=== List Variables
+
+[source,http]
+----
+GET /api/variables/
+----
+
+Returns all measurement variables defined in the system.
+
+==== Response Fields
+
+[cols="1,3"]
+|===
+|Field |Description
+
+|id
+|Variable ID (use in data queries)
+
+|name
+|Variable name
+
+|symbol
+|Short symbol
+
+|unit
+|Unit of measurement
+|===
+
+== Live Data
+
+=== Get Live Data
+
+[source,http]
+----
+GET /api/livedata/{station_id}/
+----
+
+Returns current/recent data for a station. Updated every 30 minutes.
+
+==== Response Sections
+
+[cols="1,3"]
+|===
+|Section |Description
+
+|latest
+|Most recent raw observation
+
+|latestdaily
+|Current day's summary (00-24h local)
+
+|past24h
+|Rolling 24-hour summary
+|===
+
+== Raw Data
+
+=== Query Parameters
+
+[cols="1,3"]
+|===
+|Parameter |Description
+
+|search_type
+|`station`, `variable`, or `stationvariable`
+
+|search_value
+|ID for search type
+
+|search_value2
+|Second ID (for stationvariable)
+
+|search_date_start
+|Start datetime (ISO 8601)
+
+|search_date_end
+|End datetime (ISO 8601)
+|===
+
+=== Search by Station
+
+[source,http]
+----
+GET /api/rawdata/?search_type=station&search_value={station_id}
+----
+
+Maximum: 7 days of data per request.
+
+Default (no dates): Last 7 days.
+
+==== With Date Range
+
+[source,http]
+----
+GET /api/rawdata/?search_type=station&search_value=122&search_date_start=2024-05-10T00:00:00Z&search_date_end=2024-05-13T00:00:00Z
+----
+
+=== Search by Variable
+
+[source,http]
+----
+GET /api/rawdata/?search_type=variable&search_value={variable_id}
+----
+
+Returns specified variable across all stations.
+
+=== Search by Station and Variable
+
+[source,http]
+----
+GET /api/rawdata/?search_type=stationvariable&search_value={station_id}&search_value2={variable_id}
+----
+
+== Summary Data
+
+Summary endpoints aggregate raw data into time periods.
+
+=== Hourly Summaries
+
+[source,http]
+----
+GET /api/hourlysummaries/?search_type=station&search_value={station_id}
+----
+
+Maximum: 30 days per request. Default: Last 32 days.
+
+==== With Date Range
+
+[source,http]
+----
+GET /api/hourlysummaries/?search_type=station&search_value=122&search_date_start=2024-05-01T01:00:00Z&search_date_end=2024-05-14T00:00:00Z
+----
+
+=== Daily Summaries
+
+[source,http]
+----
+GET /api/dailysummaries/?search_type=station&search_value={station_id}
+----
+
+Maximum: 1 year per request. Default: Last 365 days.
+
+=== Monthly Summaries
+
+[source,http]
+----
+GET /api/monthlysummaries/?search_type=station&search_value={station_id}
+----
+
+=== Yearly Summaries
+
+[source,http]
+----
+GET /api/yearlysummaries/?search_type=station&search_value={station_id}
+----
+
+=== Last 24 Hours Summary
+
+[source,http]
+----
+GET /api/last24hrsummaries/?search_type=station&search_value={station_id}
+----
+
+Returns summary statistics for the last 24 hours (rolling window).
+
+== Additional Endpoints
+
+=== Station-Related
+
+[source,http]
+----
+# Simplified station list
+GET /api/stations_simple/
+
+# Station profiles
+GET /api/station_profiles/
+
+# Station variables
+GET /api/stations_variables/
+
+# Variables for a specific station
+GET /api/stations_variables/stations/?station_id={id}
+
+# Station communications types
+GET /api/station_communications/
+----
+
+=== Geographic Data
+
+[source,http]
+----
+# List watersheds
+GET /api/watersheds/
+
+# Administrative regions
+GET /api/administrative_regions/
+
+# Station geographic features (elevation, watershed lookup)
+GET /station_geo_features/{longitude}/{latitude}
+----
+
+=== Quality Control
+
+[source,http]
+----
+# QC data for validation
+GET /api/quality_control/?station_id={id}&variable_id={id}&start_date={date}&end_date={date}
+
+# Range thresholds
+GET /api/range_threshold/?station_id={id}&variable_id={id}
+----
+
+=== Data Inventory
+
+[source,http]
+----
+# Check data availability
+GET /api/data_inventory/?station_id={id}
+
+# Data inventory by station
+GET /api/data_inventory_by_station/?station_id={id}
+
+# Monthly data inventory for a variable
+GET /api/station_variable_data_month_inventory/?station_id={id}&variable_id={id}
+----
+
+=== Agrometeorology
+
+[source,http]
+----
+# Run AquaCrop simulation
+POST /api/agromet/aquacrop/run/
+
+# Check AquaCrop data availability
+GET /api/agromet/aquacrop/available/?station_id={id}&start_date={date}&end_date={date}
+----
+
+=== WIS2 Publishing
+
+[source,http]
+----
+# WIS2Box publishing status
+GET /api/wis2box-publishing/
+----
+
+== Data Limits
+
+[cols="1,2,2"]
+|===
+|Endpoint |Max per Request |Default
+
+|rawdata
+|7 days
+|Last 7 days
+
+|hourlysummaries
+|30 days
+|Last 32 days
+
+|dailysummaries
+|1 year
+|Last 365 days
+
+|monthlysummaries
+|No limit
+|All available
+
+|yearlysummaries
+|No limit
+|All available
+|===
+
+== Quality Control
+
+Data flagged as erroneous or suspicious by AQC is excluded from summaries.
+
+=== Quality Flags in Response
+
+[cols="1,3"]
+|===
+|Flag |Meaning
+
+|1
+|Not checked
+
+|2
+|Suspicious
+
+|3
+|Bad
+
+|4
+|Good
+|===
+
+== Response Format
+
+=== Successful Response
+
+[source,json]
+----
+{
+    "count": 100,
+    "next": "https://api/endpoint/?page=2",
+    "previous": null,
+    "results": [
+        { ... },
+        { ... }
+    ]
+}
+----
+
+=== Error Response
+
+[source,json]
+----
+{
+    "detail": "Authentication credentials were not provided."
+}
+----
+
+== Common Variables
+
+Reference for frequently used variables:
+
+[cols="1,1,3"]
+|===
+|ID |Symbol |Description
+
+|0
+|Precip
+|Precipitation Total
+
+|10
+|Temp
+|Air Temperature
+
+|13
+|TempMax
+|Maximum Temperature
+
+|14
+|TempMin
+|Minimum Temperature
+
+|15
+|RH
+|Relative Humidity
+
+|20
+|WSpd
+|Wind Speed Average
+
+|21
+|WGust
+|Wind Gust
+
+|22
+|WDir
+|Wind Direction
+
+|30
+|Solar
+|Solar Radiation
+
+|40
+|Pressure
+|Atmospheric Pressure
+|===
+
+NOTE: Variable IDs may differ between installations. Query `/api/variables/` for your system's definitions.
+
+== Rate Limiting
+
+Recommended limits:
+
+* Maximum 60 requests per minute
+* Use date ranges to reduce request count
+* Cache responses when possible
+
+== Error Codes
+
+[cols="1,3"]
+|===
+|Code |Description
+
+|400
+|Bad request (invalid parameters)
+
+|401
+|Authentication required
+
+|403
+|Permission denied
+
+|404
+|Resource not found
+
+|429
+|Rate limit exceeded
+
+|500
+|Server error
+|===
+
+== Code Examples
+
+=== Python
+
+[source,python]
+----
+import requests
+
+base_url = "https://dev.nms.gov.bz/api"
+token = "your-token-here"
+
+headers = {
+    "Authorization": f"Token {token}"
+}
+
+# Get stations
+response = requests.get(f"{base_url}/stations/", headers=headers)
+stations = response.json()
+
+# Get raw data for station
+params = {
+    "search_type": "station",
+    "search_value": 122,
+    "search_date_start": "2024-05-01T00:00:00Z",
+    "search_date_end": "2024-05-07T00:00:00Z"
+}
+response = requests.get(f"{base_url}/rawdata/", headers=headers, params=params)
+data = response.json()
+----
+
+=== JavaScript
+
+[source,javascript]
+----
+const baseUrl = "https://dev.nms.gov.bz/api";
+const token = "your-token-here";
+
+const headers = {
+    "Authorization": `Token ${token}`
+};
+
+// Get live data
+fetch(`${baseUrl}/livedata/122/`, { headers })
+    .then(response => response.json())
+    .then(data => console.log(data));
+----
+
+=== cURL
+
+[source,bash]
+----
+# Get stations
+curl -H "Authorization: Token your-token" \
+    https://dev.nms.gov.bz/api/stations/
+
+# Get daily summaries
+curl -H "Authorization: Token your-token" \
+    "https://dev.nms.gov.bz/api/dailysummaries/?search_type=station&search_value=122"
+----
+
+== Additional Resources
+
+* Station ID List: `/api/stations/`
+* Variable ID List: `/api/variables/`
+* Token Authentication Guide: Contact your administrator
+
+
+== See Also
+
+* <<architecture,Architecture>> - System architecture overview
+* <<database-schema,Database Schema>> - Database tables and fields
+* <<user-management,User Management>> - API token generation
+* <<contributing,Contributing>> - API development guidelines

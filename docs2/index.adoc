@@ -1,0 +1,137 @@
+= SURFACE Documentation
+:author: National Meteorological Service of Belize
+:revdate: 2026-02-03
+:revnumber: 1.0
+:toc: left
+:toclevels: 3
+:sectnums:
+:icons: font
+:source-highlighter: highlight.js
+:imagesdir: images
+
+== Introduction
+
+*SURFACE* - **S**ystem for **U**nified **R**eal-time monitoring and **F**orecasting of **A**tmospheric and **C**limatic **E**vents
+
+SURFACE is a comprehensive weather and hydrological data management system developed by the National Meteorological Service of Belize (NMS). It provides tools for collecting, processing, storing, and analyzing environmental data from distributed monitoring stations.
+
+=== Key Features
+
+* Real-time data ingestion via FTP and NOAA LRGS
+* Multiple data entry methods (key entry, Excel, AWS files)
+* Aggregation of sub-hourly data to hourly, daily, monthly, and yearly summaries
+* Monitoring of weather station performance and data flow
+* Metadata storage for stations, instruments, and maintenance reports
+* Automatic Quality Control (AQC) procedures - Range, Step, and Persistence checks
+* WMO message generation - GBON/SYNOP
+* Automatic data push to WIS2Box/WIS2.0 node
+* WMO OSCAR integration for metadata management
+
+=== Architecture Overview
+
+SURFACE consists of seven main Docker containers working together:
+
+[cols="1,3"]
+|===
+|Component |Description
+
+|Nginx
+|Web server and reverse proxy
+
+|Django/Python
+|Web API and codebase (RESTful)
+
+|PostgreSQL/TimescaleDB
+|Time-series database with PostGIS
+
+|Memcached
+|Caching layer for database results
+
+|Celery Worker
+|Background data processing
+
+|Celery Beat
+|Task scheduler
+
+|Redis
+|Message broker
+|===
+
+=== Document Organization
+
+This documentation is organized into three main sections:
+
+* <<user-guide,User Guide>> - For end users who interact with the SURFACE web interface
+* <<admin-guide,Administrator Guide>> - For system administrators who install, configure, and maintain SURFACE
+* <<dev-guide,Developer Guide>> - For developers who extend or integrate with SURFACE
+
+---
+
+[#user-guide]
+= Part I: User Guide
+
+include::user/getting-started.adoc[leveloffset=+1]
+
+include::user/station-map.adoc[leveloffset=+1]
+
+include::user/data-management.adoc[leveloffset=+1]
+
+include::user/quality-control.adoc[leveloffset=+1]
+
+include::user/products-reports.adoc[leveloffset=+1]
+
+include::user/wis2-dashboard.adoc[leveloffset=+1]
+
+include::user/agrometeorology.adoc[leveloffset=+1]
+
+---
+
+[#admin-guide]
+= Part II: Administrator Guide
+
+include::admin/installation.adoc[leveloffset=+1]
+
+include::admin/configuration.adoc[leveloffset=+1]
+
+include::admin/station-management.adoc[leveloffset=+1]
+
+include::admin/user-management.adoc[leveloffset=+1]
+
+include::admin/maintenance.adoc[leveloffset=+1]
+
+include::admin/backup-restore.adoc[leveloffset=+1]
+
+include::admin/decoders.adoc[leveloffset=+1]
+
+include::admin/security.adoc[leveloffset=+1]
+
+include::admin/troubleshooting.adoc[leveloffset=+1]
+
+---
+
+[#dev-guide]
+= Part III: Developer Guide
+
+include::dev/architecture.adoc[leveloffset=+1]
+
+include::dev/api-reference.adoc[leveloffset=+1]
+
+include::dev/database-schema.adoc[leveloffset=+1]
+
+include::dev/contributing.adoc[leveloffset=+1]
+
+---
+
+include::appendix/glossary.adoc[leveloffset=+1]
+
+[appendix]
+== Contact and Support
+
+* *Project Coordinator:* Dwayne Scott (National Meteorological Service of Belize) - dscott@nms.gov.bz
+* *GitHub Repository:* https://github.com/NMS-Belize/surface
+* *Issue Tracker:* https://github.com/NMS-Belize/surface/issues
+
+[appendix]
+== License
+
+SURFACE is free and open source software released under the GNU General Public License v3.0.

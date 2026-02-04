@@ -1,0 +1,372 @@
+= Backup and Restore
+:imagesdir: ../images
+
+This chapter covers database backup configuration and system restoration procedures.
+
+== Backup Overview
+
+SURFACE backups protect against:
+
+* Hardware failures
+* Data corruption
+* Accidental deletions
+* Disaster recovery needs
+
+Backups include:
+* PostgreSQL/TimescaleDB data
+* Configuration settings
+* User accounts
+* Historical observations
+
+== Configuring Automated Backups
+
+=== Access Backup Configuration
+
+1. Log in as System Administrator
+2. Navigate to *Settings* > *Administrative Area*
+3. Click *Backup Tasks*
+
+=== Create Backup Task
+
+1. Click *Add Backup Task*
+2. Configure the following settings:
+
+[cols="1,3"]
+|===
+|Field |Description
+
+|Name
+|Descriptive name (e.g., "Daily Production Backup")
+
+|Cron Schedule (UTC)
+|When to run backups
+
+|Backup File Name
+|Name pattern for files
+
+|Retention Duration (days)
+|How long to keep old backups
+
+|FTP Server
+|Destination server for backup files
+
+|Remote Folder
+|Directory path on FTP server
+
+|Active
+|Enable/disable this backup task
+|===
+
+3. Click *Save*
+
+=== Cron Schedule Examples
+
+[cols="1,3"]
+|===
+|Schedule |Meaning
+
+|`0 2 * * *`
+|Daily at 2:00 AM UTC
+
+|`0 2,14 * * *`
+|Twice daily at 2:00 AM and 2:00 PM UTC
+
+|`0 3 * * 0`
+|Weekly on Sunday at 3:00 AM UTC
+
+|`0 4 1 * *`
+|Monthly on 1st at 4:00 AM UTC
+|===
+
+=== FTP Server Configuration
+
+Before creating backup tasks, configure FTP server settings:
+
+1. Navigate to *FTP Servers* in Django Admin
+2. Add FTP server with:
+* Server address
+* Port
+* Username
+* Password
+* Base path
+
+== Manual Backup
+
+=== Using Docker
+
+Create a backup manually:
+
+[source,bash]
+----
+# Stop services that write to database
+docker-compose stop celery_worker celery_beat
+
+# Create PostgreSQL dump
+docker exec surface-postgres pg_dump -U surface_user surface_db > backup_$(date +%Y%m%d_%H%M%S).sql
+
+# Restart services
+docker-compose start celery_worker celery_beat
+----
+
+=== Using pg_dump directly
+
+[source,bash]
+----
+docker exec -t surface-postgres pg_dump -U surface_user -Fc surface_db > backup.dump
+----
+
+== Backup Verification
+
+Regularly verify backups are:
+
+* Being created on schedule
+* Transferring to FTP successfully
+* Not corrupted
+* Restorable
+
+=== Check Backup Logs
+
+1. Navigate to *Backup Logs* in Django Admin
+2. Review recent entries
+3. Verify success status
+4. Note any errors
+
+=== Test Restoration
+
+Periodically test restoration on a separate system to ensure backups are valid.
+
+== Restoring from Backup
+
+=== Using the Installer (Recommended)
+
+The SURFACE installer supports restoration during installation.
+
+==== Step 1: Start Installation
+
+[source,bash]
+----
+surface install
+----
+
+Select *Local Install*.
+
+==== Step 2: Choose Backup Option
+
+Select *Yes* to "Start with Backup Data"
+
+==== Option A: Local Backup File
+
+1. Select local file option
+2. Enter full path to backup file
+3. Continue with installation
+
+==== Option B: FTP Backup File
+
+1. Select FTP option
+2. Enter FTP credentials:
+* Server address
+* Username
+* Password
+* Path to backup file
+3. Click *Test Connection* (green button) to verify
+4. Continue with installation
+
+==== Step 3: Configure Settings
+
+Complete remaining installation steps:
+* Admin credentials
+* Encryption key
+* Country configuration
+* NOAA LRGS settings (if applicable)
+
+==== Step 4: Wait for Restoration
+
+Installation time depends on:
+* Server specifications
+* Backup file size
+* FTP connection speed (if remote)
+
+==== Step 5: Access Restored System
+
+1. Open browser to `http://localhost:8080`
+2. Log in with new admin credentials
+
+NOTE: A new admin user is created in addition to users from the backup. All backup users retain their credentials.
+
+=== Manual Restoration
+
+For advanced users:
+
+==== Stop Services
+[source,bash]
+----
+docker-compose down
+----
+
+==== Remove Existing Data
+[source,bash]
+----
+docker volume rm surface_postgres_data
+----
+
+==== Start Fresh Database
+[source,bash]
+----
+docker-compose up -d postgres
+----
+
+==== Restore Backup
+[source,bash]
+----
+# For SQL dump
+cat backup.sql | docker exec -i surface-postgres psql -U surface_user surface_db
+
+# For custom format dump
+docker exec -i surface-postgres pg_restore -U surface_user -d surface_db < backup.dump
+----
+
+==== Start All Services
+[source,bash]
+----
+docker-compose up -d
+----
+
+== Backup Strategy
+
+=== Recommended Schedule
+
+[cols="1,2,2"]
+|===
+|Frequency |Retention |Purpose
+
+|Daily
+|7 days
+|Operational recovery
+
+|Weekly
+|4 weeks
+|Short-term archive
+
+|Monthly
+|12 months
+|Long-term archive
+
+|Yearly
+|Indefinite
+|Permanent archive
+|===
+
+=== Storage Locations
+
+Use multiple storage locations:
+
+* *Primary FTP* - Main backup destination
+* *Secondary FTP* - Redundant storage
+* *Local copy* - Quick recovery option
+* *Offsite* - Disaster recovery
+
+=== Retention Guidelines
+
+Consider:
+
+* Data criticality
+* Regulatory requirements
+* Storage costs
+* Recovery time objectives
+
+== Disaster Recovery
+
+=== Planning
+
+1. Document backup procedures
+2. Maintain current backup configuration
+3. Store recovery instructions offsite
+4. Train multiple staff on restoration
+
+=== Recovery Checklist
+
+* [ ] Identify last good backup
+* [ ] Prepare clean server/VM
+* [ ] Obtain backup file
+* [ ] Run installer with restore option
+* [ ] Verify data integrity
+* [ ] Test critical functions
+* [ ] Update DNS/network (if server changed)
+* [ ] Notify users
+
+=== Recovery Time Objectives
+
+[cols="1,2,2"]
+|===
+|Scenario |Target Time |Approach
+
+|Database corruption
+|< 2 hours
+|Restore latest backup
+
+|Hardware failure
+|< 4 hours
+|New server + restore
+
+|Site disaster
+|< 24 hours
+|Offsite recovery
+|===
+
+== Troubleshooting
+
+=== Backup Failures
+
+[cols="1,3"]
+|===
+|Issue |Solution
+
+|FTP connection failed
+|Verify FTP credentials and network access
+
+|Disk space full
+|Increase retention cleanup or add storage
+
+|Timeout errors
+|Increase timeout settings or optimize database
+
+|Permission denied
+|Check FTP folder permissions
+|===
+
+=== Restore Failures
+
+[cols="1,3"]
+|===
+|Issue |Solution
+
+|Corrupted backup
+|Try previous backup; verify backup process
+
+|Version mismatch
+|Ensure SURFACE version matches backup version
+
+|Missing tables
+|Check for complete backup; may need schema migrations
+
+|Permission errors
+|Verify database user permissions
+|===
+
+== Best Practices
+
+1. *Automate backups* - Never rely on manual processes alone
+2. *Multiple copies* - Store backups in multiple locations
+3. *Test regularly* - Verify backups can be restored
+4. *Monitor status* - Review backup logs weekly
+5. *Document procedures* - Keep recovery steps current
+6. *Encrypt sensitive backups* - Protect data in transit and at rest
+7. *Version tracking* - Note SURFACE version with each backup
+
+
+== See Also
+
+* <<installation,Installation>> - Restore during installation
+* <<configuration,Configuration>> - Backup task configuration
+* <<troubleshooting,Troubleshooting>> - Backup failure diagnosis
+* <<security,Security>> - Backup encryption

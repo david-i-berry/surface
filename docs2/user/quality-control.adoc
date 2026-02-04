@@ -1,0 +1,288 @@
+= Quality Control
+:imagesdir: ../images
+
+SURFACE performs Automatic Quality Control (AQC) on ingested data using three types of checks: Range, Step, and Persistence.
+
+== Quality Control Overview
+
+=== How AQC Works
+
+When data is ingested into SURFACE, it automatically passes through quality control checks:
+
+1. *Range Check* - Verifies values fall within acceptable minimum/maximum bounds
+2. *Step Check* - Verifies rate of change between successive measurements
+3. *Persistence Check* - Detects stuck sensors (values unchanged over time)
+
+=== Quality Flags
+
+Each measurement receives a quality flag:
+
+[cols="1,1,2,3"]
+|===
+|Code |Symbol |Name |Meaning
+
+|1
+|-
+|Not Checked
+|Data not subject to any control (new or historical data)
+
+|2
+|S
+|Suspicious
+|Identified as outlier, awaiting review (possibly wrong)
+
+|3
+|B
+|Bad
+|Eliminated after controls completed
+
+|4
+|G
+|Good
+|Validated after automatic and human review
+|===
+
+NOTE: Missing data (-99.9) indicates data not received or observation not made.
+
+=== Threshold Hierarchy
+
+SURFACE applies thresholds in this priority order:
+
+1. *Individual Limits* - Station-specific thresholds (highest priority)
+2. *Reference Limits* - Thresholds from a reference station representing a climatological region
+3. *Global Limits* - System-wide default thresholds (lowest priority)
+
+TIP: SURFACE includes pre-configured global limits based on WMO guidelines. Administrators should verify and tune these for local conditions.
+
+== Data Validation
+
+Navigate to *Quality Control* > *Data Validation* to review and validate data.
+
+=== Filtering Data
+
+Apply filters to focus your validation:
+
+[cols="1,3"]
+|===
+|Filter |Purpose
+
+|District
+|Filter by administrative area
+
+|Watershed
+|Filter by watershed
+
+|Profile
+|Filter by station profile
+
+|Active/Automatic
+|Toggle station type filters
+
+|Station
+|Select specific station (required)
+
+|Variable
+|Choose variable to validate
+
+|Start/End Date
+|Define validation period
+|===
+
+=== Validation Table
+
+The results table displays:
+
+[cols="1,3"]
+|===
+|Column |Description
+
+|Date/Hour
+|Timestamp of measurement
+
+|Measured
+|Recorded value
+
+|CQA Flag
+|Current quality assurance flag
+
+|ML Flag
+|Machine learning flag (if applicable)
+
+|Manual Flag
+|Human-assigned flag
+
+|Consisted
+|Whether data passed consistency checks
+
+|Remarks
+|Notes about the data
+
+|Action
+|Edit/view options
+|===
+
+=== Validation Process
+
+1. Select station and variable
+2. Set date range
+3. Click *Search*
+4. Review flagged values (highlighted rows)
+5. Investigate suspicious data
+6. Update flags as appropriate
+7. Add remarks for documentation
+
+== Range Threshold
+
+Configure acceptable minimum and maximum values for each variable.
+
+=== Accessing Range Thresholds
+
+Navigate to *Quality Control* > *Range Threshold*
+
+=== Configuration Steps
+
+1. Apply station filters (district, watershed, profile)
+2. Select the target station (required)
+3. Choose variable(s) to configure
+4. Set measurement interval
+5. Click *Submit*
+
+=== Setting Thresholds
+
+For each variable, configure:
+
+* *Minimum Value* - Lowest acceptable measurement
+* *Maximum Value* - Highest acceptable measurement
+
+Example ranges for temperature:
+----
+Variable: Air Temperature
+Minimum: -10°C
+Maximum: 50°C
+----
+
+=== Threshold Levels
+
+Configure at different levels:
+
+[cols="1,3"]
+|===
+|Level |Description
+
+|Global
+|Applies to all stations system-wide
+
+|Reference
+|Applies to stations sharing similar climatology
+
+|Individual
+|Applies to specific station only
+|===
+
+== Step Threshold
+
+Configure maximum allowable change between successive measurements.
+
+=== Accessing Step Thresholds
+
+Navigate to *Quality Control* > *Step Threshold*
+
+=== Configuration Steps
+
+1. Apply station filters
+2. Select target station (required)
+3. Choose variable(s)
+4. Set measurement interval
+5. Click *Submit*
+
+=== Setting Step Limits
+
+For each variable, configure:
+
+* *Maximum Step* - Largest allowed change between consecutive readings
+
+Example step threshold for temperature:
+----
+Variable: Air Temperature
+Interval: 5 minutes
+Maximum Step: 5°C
+----
+
+This would flag any temperature change greater than 5°C in a 5-minute period as suspicious.
+
+== Persistence Threshold
+
+Detect sensors that may be stuck by identifying values that remain unchanged too long.
+
+=== Accessing Persistence Thresholds
+
+Navigate to *Quality Control* > *Persistent Threshold*
+
+=== Configuration Steps
+
+1. Apply station filters
+2. Select target station (required)
+3. Choose variable(s)
+4. Set measurement interval
+5. Click *Submit*
+
+=== Setting Persistence Limits
+
+For each variable, configure:
+
+* *Maximum Duration* - How long a value can remain unchanged
+* *Minimum Variance* - Required variation over the period
+
+Example persistence threshold:
+----
+Variable: Air Temperature
+Duration: 6 hours
+Minimum Variance: 0.1°C
+----
+
+This would flag temperature that doesn't vary by at least 0.1°C over 6 hours.
+
+== QC Best Practices
+
+=== Initial Setup
+
+1. Review pre-configured global limits
+2. Adjust global limits for your region's climate
+3. Identify reference stations for each climatological zone
+4. Configure individual limits for stations with unique characteristics
+
+=== Ongoing Maintenance
+
+1. Regularly review flagged data
+2. Investigate patterns in suspicious data
+3. Update thresholds based on observed normal ranges
+4. Document threshold changes and rationale
+
+=== Quality Flag Usage
+
+* *Not Checked* - Use for historical data imports or when skipping QC
+* *Suspicious* - Requires human review before use in products
+* *Bad* - Excluded from summaries and reports
+* *Good* - Validated and reliable for all uses
+
+IMPORTANT: Data flagged as Bad is excluded from summary aggregations (hourly, daily, monthly, yearly) to maintain data quality in derived products.
+
+== Downloading QC Configuration
+
+Administrators can export QC configuration:
+
+1. Access Django admin area
+2. Navigate to QC threshold tables
+3. Export to Excel for review
+4. Modify offline
+5. Re-import updated configuration
+
+This enables bulk threshold management and documentation.
+
+
+== See Also
+
+* <<data-management,Data Management>> - Data import and export
+* <<products-reports,Products and Reports>> - Viewing QC flags in reports
+* <<configuration,Configuration>> - QC threshold configuration
+* <<glossary,Glossary>> - QC terminology definitions
