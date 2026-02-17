@@ -379,8 +379,11 @@ def parse_data(ws, metadata, station, utc_offset):
     return reads
 
 
-# ─── Entry Point ────────────────────────────────────────────────
+# ToDo
+#   check flake8 standards?
+#   note utc_offset default is hardcoded in some places
 
+# Entry Point (note this call is standardised for the read_file celery task)
 @shared_task
 def read_file(filename, highfrequency_data=False, station_object=None, utc_offset=settings.TIMEZONE_OFFSET, override_data_on_conflict=False):
     """Read an F.2000 yearly rainfall register and ingest daily precipitation (mm)."""
