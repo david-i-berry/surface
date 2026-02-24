@@ -57,6 +57,8 @@ from wx.decoders.surtron import read_data as read_data_surtron
 from wx.decoders.surface import read_file as read_file_surface
 from wx.decoders.toa5 import read_file as read_file_toa5
 from wx.decoders.f2000 import read_file as read_file_f2000
+from wx.decoders.davis import read_file as read_file_davis
+from wx.decoders.R_format import read_file as read_file_R_format
 from wx.models import DataFile, CombineDataFile
 from wx.models import Document
 from wx.models import NoaaDcp
@@ -2583,6 +2585,8 @@ def process_station_data_files(historical_data=False, highfrequency_data=False, 
         'BELIZE MANUAL HOURLY DATA': read_file_manual_data_hourly,
         'SURFACE': read_file_surface,
         'F2000': read_file_f2000,
+        'DAVIS': read_file_davis,
+        'R FORMAT': read_file_R_format
     }
 
     # Get StationDataFile to process
